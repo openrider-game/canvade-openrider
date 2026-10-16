@@ -1,15 +1,17 @@
-import { Control, KEYE, KEYH, KEYI, KEYN, KEYR, SHIFT } from 'canvade';
+import { Control, KEYE, KEYH, KEYI, KEYN, KEYR, KEYZ, SHIFT } from 'canvade';
 import { EngineOff } from '../../item/status/engine-off';
 import { Invincibility } from '../../item/status/invincibility';
 import { NoSteer } from '../../item/status/no-steer';
 import { Reset } from '../../item/status/reset';
 import { Slippery } from '../../item/status/slippery';
+import { ZeroGravity } from '../../item/status/zero-gravity';
 import {
     ENGINE_OFF_IMAGE,
     INVINCIBILITY_IMAGE,
     NOSTEER_IMAGE,
     RESET_IMAGE,
     SLIPPERY_IMAGE,
+    ZERO_GRAVITY_IMAGE,
 } from '../tool.constants';
 import { PlaceableItemClass } from './item.tool';
 import { StatusTool } from './status.tool';
@@ -71,5 +73,17 @@ export class EngineOffTool extends StatusTool {
 
     protected get itemClass(): PlaceableItemClass {
         return EngineOff;
+    }
+}
+
+/** Places a zero gravity status item. */
+export class ZeroGravityTool extends StatusTool {
+    public static override readonly toolName: string = 'Zero Gravity';
+    public static override readonly keyLabel: string = 'Shift+Z';
+    public static override readonly key = new Control(KEYZ, SHIFT);
+    public static override readonly icon = ZERO_GRAVITY_IMAGE;
+
+    protected get itemClass(): PlaceableItemClass {
+        return ZeroGravity;
     }
 }

@@ -1,5 +1,6 @@
 import { GameRenderEvent, Layer } from 'canvade';
 import { FRAME_DURATION } from '../../../openrider/constants/game.constants';
+import { InterfaceScale } from '../../../openrider/numeric/interface-scale';
 import { Time } from '../../../openrider/numeric/time';
 import type { TrackViewState } from '../track-view.state';
 
@@ -9,6 +10,8 @@ const HUD_MARGIN = 30,
 /**
  * Heads-up display of the track states: race time and reached targets of the player at the top
  * left, remaining time and reached targets of each ghost at the top right, in its color.
+ *
+ * Drawn in UI pixels, like the toolbars.
  */
 export class TrackHudLayer extends Layer {
     public constructor(private readonly state: TrackViewState) {
@@ -21,10 +24,14 @@ export class TrackHudLayer extends Layer {
 
     private renderHud(e: CustomEvent<GameRenderEvent>): void {
         const ctx = e.detail.ctx;
+        InterfaceScale.draw(ctx, (width) => this.drawHud(ctx, width));
+    }
+
+    /** @param width - Width of the canvas, in UI pixels. */
+    private drawHud(ctx: CanvasRenderingContext2D, width: number): void {
         const track = this.state.track;
         const targets = track.targets.size;
 
-        ctx.save();
         ctx.lineWidth = 0.5;
         ctx.fillStyle = '#000';
         // Track times are counted in physics ticks
@@ -46,10 +53,9 @@ export class TrackHudLayer extends Layer {
             ctx.fillStyle = runner.color;
             ctx.fillText(
                 text,
-                ctx.canvas.width - HUD_MARGIN - ctx.measureText(text).width,
+                width - HUD_MARGIN - ctx.measureText(text).width,
                 LINE_HEIGHT * (1 + index++),
             );
         });
-        ctx.restore();
     }
 }

@@ -13,17 +13,38 @@ export abstract class Requests {
     /**
      * Posts form parameters and parses the JSON response.
      *
-     * @throws An error with the HTTP status when the response is not successful.
+     * @throws See {@link Requests.check}.
      */
     public static async postJson<T>(
         url: string,
         params: Record<string, string | number>,
     ): Promise<T> {
         const response = await Requests.post(url, params);
-        if (!response.ok) {
-            throw new Error(`${response.status} ${response.statusText}`);
-        }
+        await Requests.check(response);
 
         return (await response.json()) as T;
+    }
+
+    /**
+     * Checks that a response is successful.
+     *
+     * @throws An error with the message given by the backend in the `error` field of its JSON
+     * response, or with the HTTP status.
+     */
+    public static async check(response: Response): Promise<void> {
+        if (response.ok) {
+            return;
+        }
+
+        let message = `${response.status} ${response.statusText}`.trim();
+        try {
+            const body = (await response.json()) as { error?: unknown };
+            if (typeof body.error === 'string') {
+                message = body.error;
+            }
+        } catch {
+            // Not a JSON response, e.g. from a proxy: the status is the only information
+        }
+        throw new Error(message);
     }
 }

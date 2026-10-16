@@ -3,7 +3,7 @@ import type { TrackObjectKind } from '../../item/track-object';
 import { TrackEraserRestriction } from '../../track/track';
 import { Tool, ToolOption } from '../tool';
 
-/** Labels of the object kinds in the options panel. */
+/** Labels of the object kinds in the options drawer. */
 const KIND_LABELS: Record<TrackObjectKind, string> = {
     solid: 'Line',
     scenery: 'Scenery',
@@ -14,7 +14,7 @@ const KIND_LABELS: Record<TrackObjectKind, string> = {
  * Erases the track objects under a circle around the mouse while the button is held.
  *
  * Everything erased during a drag is undone as a whole. Scrolling while holding the tool key
- * changes the eraser size, and the options panel selects which kinds of objects are erased on each
+ * changes the eraser size, and the options drawer selects which kinds of objects are erased on each
  * layer.
  */
 export class EraserTool extends Tool {

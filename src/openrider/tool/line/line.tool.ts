@@ -1,5 +1,6 @@
 import { Vector } from 'canvade';
 import type { LineClass } from '../../item/line/line';
+import { InterfaceScale } from '../../numeric/interface-scale';
 import { LinePath } from '../../numeric/line-path';
 import { MAX_LINE_LENGTH, MIN_LINE_LENGTH } from '../../track/track.constants';
 import { Tool, ToolOption } from '../tool';
@@ -11,7 +12,7 @@ const EDGE_SCROLL_MARGIN = 50;
  * Draws a line from the press position to the release position.
  *
  * Holding the tool key draws connected lines: each click adds a line from the end of the previous
- * one. The options panel selects the layer receiving the lines.
+ * one. The options drawer selects the layer receiving the lines.
  */
 export abstract class LineTool extends Tool {
     /** Class of the drawn lines (solid or scenery). */
@@ -165,10 +166,16 @@ export abstract class LineTool extends Tool {
 
         ctx.lineWidth = 0.5;
         ctx.fillStyle = '#777';
-        ctx.fillText(Math.round(length).toString(), mousePx.x + 3, mousePx.y - 3);
-
-        ctx.textAlign = 'right';
-        ctx.fillText(`${Math.round(angle)}°`, mousePx.x - 3, mousePx.y - 3);
+        // Labels in UI pixels around the cursor
+        InterfaceScale.draw(
+            ctx,
+            () => {
+                ctx.fillText(Math.round(length).toString(), 3, -3);
+                ctx.textAlign = 'right';
+                ctx.fillText(`${Math.round(angle)}°`, -3, -3);
+            },
+            mousePx,
+        );
         ctx.restore();
     }
 }

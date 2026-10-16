@@ -15,6 +15,7 @@ import {
     NoSteerTool,
     ResetTool,
     SlipperyTool,
+    ZeroGravityTool,
 } from '../item/status.tools';
 import { TARGET_IMAGE } from '../tool.constants';
 import { ToolGroupTool } from './tool-group.tool';
@@ -47,6 +48,13 @@ export class StatusGroupTool extends ToolGroupTool {
     public static override readonly icon = TARGET_IMAGE;
 
     public constructor(track: Track) {
-        super(track, [ResetTool, InvincibilityTool, SlipperyTool, NoSteerTool, EngineOffTool]);
+        super(track, [
+            ResetTool,
+            InvincibilityTool,
+            SlipperyTool,
+            NoSteerTool,
+            EngineOffTool,
+            ZeroGravityTool,
+        ]);
     }
 }

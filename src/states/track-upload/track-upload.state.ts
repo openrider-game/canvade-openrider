@@ -106,7 +106,8 @@ export class TrackUploadState extends TrackViewState {
                 thumbnail: image.replace('data:image/png;base64,', ''),
             });
 
-            location.href = `./tracks/${response.ID}/`;
+            // Races the published track, without relying on a URL rewriting of the server
+            location.href = `?track=${response.ID}`;
         } catch (e) {
             alert(`Your track was refused: ${e}`);
         }

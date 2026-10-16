@@ -64,9 +64,7 @@ export class TrackFetcherState extends OpenRiderState {
     private async fetchTrack(trackId: number): Promise<void> {
         try {
             const response = await Requests.post(TRACKDATA_URL, { id: trackId });
-            if (!response.ok) {
-                throw new Error(`${response.status} ${response.statusText}`);
-            }
+            await Requests.check(response);
 
             // Compressed responses give their real size in a custom header
             const contentEncoding = response.headers.get('content-encoding');

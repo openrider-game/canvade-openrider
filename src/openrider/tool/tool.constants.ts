@@ -92,6 +92,12 @@ export const INVINCIBILITY_IMAGE: ToolIcon = {
     data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAVUlEQVQoU2NkIBMwkqmPAVnjTCINSQepQ9HIx6eZJiJii1X/mzeHGT59uj4LKImpUUkpLc3YGLvFZ8+mM9y7N2tUI7ZgxRs4ZEcHuQmASH0QZWSnVQAXmkIPHM3YNQAAAABJRU5ErkJggg==',
 };
 
+/** Icon of the `ZeroGravityTool`. */
+export const ZERO_GRAVITY_IMAGE: ToolIcon = {
+    type: 'b64',
+    data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAeUlEQVR4AeSSMQqAMAxFgwfo5AncMjv3OumZ2ut0du7mCZw8gWnoYCBCEDcL/xfy8wiETPDyfQJmHu4RtwGoiQGRFiJTAZGEGKbAOUZYczbVs8HIp0CpOO134FErbCmZ6tl9b2o5Z2tlL8VUz57AxIFH3Ab6cqTitAsAAP//hXwIQwAAAAZJREFUAwD5bkIdrgyVNwAAAABJRU5ErkJggg==',
+};
+
 /** Icon of the `NoSteerTool`. */
 export const NOSTEER_IMAGE: ToolIcon = {
     type: 'b64',

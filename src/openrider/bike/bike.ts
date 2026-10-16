@@ -65,6 +65,8 @@ export abstract class Bike {
     public speedValueScale = 1;
     /** Steering (lean) factor, modified by status items. */
     public steerValueScale = 1;
+    /** Gravity factor, modified by status items, the direction being kept by gravity items. */
+    public gravityValueScale = 1;
 
     public color = '#000';
     /** Divisor of the rotation applied to the wheels spring when leaning. */
@@ -253,6 +255,7 @@ export abstract class Bike {
         clone.engineValueScale = this.engineValueScale;
         clone.speedValueScale = this.speedValueScale;
         clone.steerValueScale = this.steerValueScale;
+        clone.gravityValueScale = this.gravityValueScale;
 
         clone.color = this.color;
         clone.rotationFactor = this.rotationFactor;

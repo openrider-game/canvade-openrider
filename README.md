@@ -60,6 +60,13 @@ A few bugs of the original game were fixed along the way:
 - the Slippery tool shortcut is `Shift+H` (it was shared with the Reset tool)
 - clicking with a line tool without moving the mouse no longer adds an empty line to the track
 
+It also adds a few features:
+
+- a zero gravity status item (`Z` in the track codes), cancelling the gravity until a reset item:
+  tracks using it cannot be played by the original game
+- the interface keeps its size on high density screens
+- the PHP backend is shipped with the game, see [.setup/README.md](.setup/README.md)
+
 This repository is **not endorsed nor approved** by FreeRiderHD, the official successor to the
 FreeRider series of games.
 
@@ -74,8 +81,8 @@ FreeRider series of games.
 - NPM
 - The canvade repository, cloned next to this one
 - VS Code Live Server extension, or any static file server (optional)
-- The PHP endpoints of the original game in `.setup/db/` (optional, to race published tracks and
-  save ghosts)
+- PHP and a PostgreSQL or SQLite database (optional, to publish and race tracks and save ghosts,
+  see [.setup/README.md](.setup/README.md))
 
 ### Installation
 
@@ -132,30 +139,31 @@ window.OpenRider.toggleGhost(ghostId);
 
 ### Controls
 
-| Action                                                            | Keys                                    |
-| ----------------------------------------------------------------- | --------------------------------------- |
-| Ride, brake, lean                                                 | Arrows                                  |
-| Turn around                                                       | `Z`                                     |
-| Pause, restart, last checkpoint                                   | `Space`, `Enter`, `Backspace`           |
-| Switch bike, focus a ghost                                        | `Ctrl+B`, `Ctrl+G`                      |
-| Camera, fullscreen                                                | `R`, `F`                                |
-| Undo, redo                                                        | `M`, `N`                                |
-| Solid / scenery brush                                             | `A`, `S`                                |
-| Solid / scenery line                                              | `Q`, `W`                                |
-| Eraser, grid snapping                                             | `E`, `G`                                |
-| Items, status effects                                             | `I`, `J`                                |
-| Target, checkpoint, boost, gravity, bomb, slow motion, teleporter | `Shift+T`, `C`, `B`, `G`, `O`, `S`, `W` |
-| Reset, invincibility, slippery, no steer, engine off              | `Shift+R`, `I`, `H`, `N`, `E`           |
-| Start position                                                    | `P`                                     |
-| Debug, fast renderer                                              | `Ctrl+D`, `Ctrl+Q`                      |
+| Action                                                             | Keys                                    |
+| ------------------------------------------------------------------ | --------------------------------------- |
+| Ride, brake, lean                                                  | Arrows                                  |
+| Turn around                                                        | `Z`                                     |
+| Pause, restart, last checkpoint                                    | `Space`, `Enter`, `Backspace`           |
+| Switch bike, focus a ghost                                         | `Ctrl+B`, `Ctrl+G`                      |
+| Camera, fullscreen                                                 | `R`, `F`                                |
+| Undo, redo                                                         | `M`, `N`                                |
+| Solid / scenery brush                                              | `A`, `S`                                |
+| Solid / scenery line                                               | `Q`, `W`                                |
+| Eraser, grid snapping                                              | `E`, `G`                                |
+| Items, status effects                                              | `I`, `J`                                |
+| Target, checkpoint, boost, gravity, bomb, slow motion, teleporter  | `Shift+T`, `C`, `B`, `G`, `O`, `S`, `W` |
+| Reset, invincibility, slippery, no steer, engine off, zero gravity | `Shift+R`, `I`, `H`, `N`, `E`, `Z`      |
+| Start position                                                     | `P`                                     |
+| Debug, fast renderer                                               | `Ctrl+D`, `Ctrl+Q`                      |
 
 Letter shortcuts follow the keyboard layout (the undo key is the M key of an AZERTY keyboard too).
 
 - The mouse wheel zooms, the right mouse button drags the camera whatever the tool.
 - Holding a line tool key draws lines connected to the previous one on each click.
 - Holding the brush or eraser key while scrolling changes its size.
-- Selecting a tool again toggles its options: the layer to draw on (the foreground layer is drawn over
-  the bike and has no physics), what the eraser removes...
+- The options of the current tool are in the drawer at the top of the screen, opened and closed with
+  its button: the layer to draw on (the foreground layer is drawn over the bike and has no physics),
+  what the eraser removes...
 - The editor imports and exports track codes as text files, and uploads them with a thumbnail.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -163,6 +171,7 @@ Letter shortcuts follow the keyboard layout (the undo key is the M key of an AZE
 ## Project Structure
 
 ```
+.setup/               PHP backend: endpoints, database tables and Apache rules
 src/
 ├── main.ts           entry point: creates the canvade game, reads ?track=<id>, exposes window.OpenRider
 ├── states/           canvade states and layers
@@ -191,9 +200,8 @@ accessed with the typed `Session` wrapper.
 
 ## Roadmap
 
-- Zero gravity powerup
-- Render the interface at the device pixel ratio, so that it keeps its size on high density screens
-- Ship the backend endpoints with the project
+- Render the track at the device pixel ratio, so that the track keeps its size on high density
+  screens like the interface
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

@@ -21,7 +21,7 @@ export interface ToolClass {
     readonly icon: ToolIcon | null;
 }
 
-/** Button displayed in the options panel of a tool. */
+/** Button displayed in the options drawer while its tool is the current tool. */
 export interface ToolOption {
     label: string;
     action(): void;
@@ -48,13 +48,6 @@ export abstract class Tool {
     public mouseDown = false;
     /** Render the tool even when the mouse is out of the canvas or over the interface. */
     public alwaysRender = false;
-    /**
-     * Whether the options panel of the tool is displayed.
-     *
-     * Change it through {@link Tool.openOptions} and {@link Tool.closeOptions}, which rebuild the
-     * interface.
-     */
-    public optionsOpen = false;
     /** Group the tool belongs to, `null` if its button is directly in the toolbar. */
     public group: ToolGroupTool | null = null;
 
@@ -101,8 +94,8 @@ export abstract class Tool {
     /**
      * Runs the tool, from its toolbar button or its keyboard shortcut.
      *
-     * By default, makes it the current tool (and the selected tool of its group), or toggles its
-     * options panel if it already is. Tools acting once override it.
+     * By default, makes it the current tool (and the selected tool of its group). Tools acting
+     * once override it.
      */
     public run(): void {
         if (this.group) {
@@ -112,43 +105,25 @@ export abstract class Tool {
     }
 
     /**
-     * Buttons of the options panel, read each time the interface is rebuilt.
+     * Buttons of the options drawer, read each time the interface is rebuilt.
      *
-     * An option changing what this returns must call `track.invalidateUI()` to refresh the panel.
+     * An option changing what this returns must call `track.invalidateUI()` to refresh the
+     * drawer.
      */
     public getOptions(): ToolOption[] {
         return [];
     }
 
-    /** Displays the options panel and rebuilds the interface. */
-    public openOptions(): void {
-        this.optionsOpen = true;
-        this.track.invalidateUI();
-    }
-
-    /** Hides the options panel and rebuilds the interface. */
-    public closeOptions(): void {
-        this.optionsOpen = false;
-        this.track.invalidateUI();
-    }
-
-    /**
-     * Called by the `ToolManager` when the tool becomes the current tool: opens its options
-     * (and those of its group) and hides the cursor.
-     */
+    /** Called by the `ToolManager` when the tool becomes the current tool: hides the cursor. */
     public activate(): void {
-        this.group?.openOptions();
         this.track.cursor = 'none';
-        this.openOptions();
     }
 
     /**
-     * Called by the `ToolManager` when another tool becomes the current tool: closes the
-     * options and ends the pending history group.
+     * Called by the `ToolManager` when another tool becomes the current tool: ends the pending
+     * history group.
      */
     public deactivate(): void {
-        this.group?.closeOptions();
-        this.closeOptions();
         this.mouseDown = false;
         // A gesture interrupted by a tool change is still undone as a whole
         this.track.history.endGroup();

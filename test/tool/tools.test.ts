@@ -236,18 +236,16 @@ describe('Item tools', () => {
 });
 
 describe('Tool manager', () => {
-    test('toggles the options when selecting the current tool again', () => {
+    test('keeps the current tool when selecting it again', () => {
         const tool = select(SolidLineTool);
-        expect(tool.optionsOpen).toBe(true);
         expect(tool.isActive()).toBe(true);
+        track.uiInvalidated = false;
 
         tool.run();
-        expect(tool.optionsOpen).toBe(false);
-        tool.run();
-        expect(tool.optionsOpen).toBe(true);
+        expect(tool.isActive()).toBe(true);
+        expect(track.uiInvalidated).toBe(false);
 
         select(TargetTool);
-        expect(tool.optionsOpen).toBe(false);
         expect(tool.isActive()).toBe(false);
     });
 

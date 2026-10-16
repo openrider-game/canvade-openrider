@@ -1,4 +1,13 @@
-import { EventFactory, Keyboard, Mouse, State, StateClass, StateManager, Vector } from 'canvade';
+import {
+    Display,
+    EventFactory,
+    Keyboard,
+    Mouse,
+    State,
+    StateClass,
+    StateManager,
+    Vector,
+} from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GhostService } from '../../src/openrider/request/ghost-service';
 import { TRACK_DEFAULT, TRACK_MODE_RACING } from '../../src/openrider/track/track.constants';
@@ -11,7 +20,9 @@ import {
     STATE_TRACK_RACING,
 } from '../../src/states/state-names';
 import States from '../../src/states/states';
+import { SolidLineTool } from '../../src/openrider/tool/line/line.tools';
 import { TrackEditingState } from '../../src/states/track/track-editing.state';
+import { ToolIcons } from '../../src/states/track/ui/tool-icons';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 import { keyEvent } from '../helpers/track';
 
@@ -58,6 +69,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    Display.pixelRatio = 1;
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
 });
@@ -144,6 +156,69 @@ describe('Editing a track', () => {
         expect(session.track.uiHovered).toBe(false);
     });
 
+    test('keeps the tool options in a drawer, opened and closed with its handle', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        const state = manager.getCurrent();
+        const tool = session.track.toolCollection.getByToolName('Solid Line') as SolidLineTool;
+        tool.run();
+        const frames = (count: number) => {
+            const { context } = createCanvasMock();
+            for (let frame = 0; frame < count; frame++) {
+                manager.update(0.5, 20);
+                manager.render(context);
+            }
+            return vi.mocked(context.fillText).mock.calls.map(([text]) => text);
+        };
+        const layerOption = () => tool.getOptions()[0].label;
+        const click = (x: number, y: number) => {
+            state?.dispatch('mouseDown', mouseEvent('mouseDown', x, y));
+            state?.dispatch('mouseUp', mouseEvent('mouseUp', x, y));
+        };
+
+        // Closed: only the handle is reachable, at the top of the canvas
+        expect(frames(1)).toContain('Options ▼');
+        click(250, 20);
+        expect(layerOption()).toBe('Layer: Main');
+
+        click(350, 10);
+        // Sliding down, the options being still out of reach after one frame
+        frames(1);
+        click(250, 20);
+        expect(layerOption()).toBe('Layer: Main');
+        expect(frames(15)).toContain('Options ▲');
+        click(250, 20);
+        expect(layerOption()).toBe('Layer: Foreground');
+
+        // Stays open when the options are rebuilt, then closes from the handle under them
+        expect(frames(1)).toContain('Layer: Foreground');
+        click(350, 50);
+        frames(15);
+        click(250, 20);
+        expect(layerOption()).toBe('Layer: Foreground');
+    });
+
+    test('keeps the interface size on high density screens', async () => {
+        Display.pixelRatio = 2;
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        const { context } = createCanvasMock(1400, 800);
+
+        manager.render(context);
+
+        expect(vi.mocked(context.scale)).toHaveBeenCalledWith(2, 2);
+        // The HUD is drawn in UI pixels, the canvas being 700 UI pixels wide
+        expect(vi.mocked(context.fillText)).toHaveBeenCalledWith('00:00.0', 30, 15);
+        // The icons are rasterized in canvas pixels, to stay sharp
+        expect(ToolIcons.get('pause').width).toBe(48);
+
+        // Third button of the right toolbar, 26 UI pixels wide, in canvas pixels
+        const state = manager.getCurrent();
+        state?.dispatch('mouseDown', mouseEvent('mouseDown', 2 * (700 - 13), 2 * (2 * 26 + 13)));
+        state?.dispatch('mouseUp', mouseEvent('mouseUp', 2 * (700 - 13), 2 * (2 * 26 + 13)));
+        expect(session.track.toolManager.tool?.toolClass.toolName).toBe('Solid Line');
+    });
+
     test('exports the track code as a file', async () => {
         const createObjectURL = vi.fn((blob: Blob) => blob && 'blob:track');
         vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
@@ -227,6 +302,35 @@ describe('Racing a track', () => {
 
         expect(vi.mocked(context.fillText).mock.calls[0][0]).toBe(
             'Error fetching track: "Track does not exist"',
+        );
+    });
+
+    test.each([
+        [
+            'the error of the backend',
+            new Response(JSON.stringify({ error: 'Track does not exist' }), { status: 404 }),
+            'Track does not exist',
+        ],
+        [
+            'the HTTP status without a JSON error',
+            new Response('Bad gateway', { status: 502, statusText: 'Bad Gateway' }),
+            '502 Bad Gateway',
+        ],
+    ])('shows %s when the request fails', async (_name, response, message) => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => response),
+        );
+        session.trackId = 404;
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_FETCHER);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        const { context } = createCanvasMock();
+
+        manager.render(context);
+
+        expect(vi.mocked(context.fillText).mock.calls[0][0]).toBe(
+            `Error fetching track: "${message}"`,
         );
     });
 

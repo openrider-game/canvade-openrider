@@ -1,6 +1,6 @@
 import { UIButton, UIElementFactory } from 'canvade';
 import type { Tool } from '../../../openrider/tool/tool';
-import { ToolIcons } from './tool-icons';
+import { ICON_SIZE, ToolIcons } from './tool-icons';
 
 /** Type of the {@link UIToolButton} elements in the UI structures and styles. */
 export const TOOL_ELEMENT_TYPE = 'tool';
@@ -46,7 +46,7 @@ export class UIToolButton extends UIButton {
 
         const icon = tool?.getIcon();
         if (icon) {
-            ctx.drawImage(ToolIcons.get(icon), x, y);
+            ctx.drawImage(ToolIcons.get(icon), x, y, ICON_SIZE, ICON_SIZE);
         }
 
         ctx.strokeStyle = BORDER_COLOR;

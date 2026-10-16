@@ -19,9 +19,11 @@ import { Invincibility } from '../../src/openrider/item/status/invincibility';
 import { NoSteer } from '../../src/openrider/item/status/no-steer';
 import { Reset } from '../../src/openrider/item/status/reset';
 import { Slippery } from '../../src/openrider/item/status/slippery';
+import { ZeroGravity } from '../../src/openrider/item/status/zero-gravity';
+import { ITEM_MAP } from '../../src/openrider/item/item.constants';
 import { Track } from '../../src/openrider/track/track';
 import { stubBrowser } from '../helpers/canvas';
-import { parseTrack } from '../helpers/track';
+import { parseTrack, runTicks } from '../helpers/track';
 
 let track: Track;
 
@@ -203,6 +205,38 @@ describe('Item effects', () => {
         expect(track.playerRunner.modifiersMask).toBe(0);
     });
 
+    test('a zero gravity item makes the bike float until a reset item', () => {
+        // Starting high above the ground line
+        track = parseTrack('-50 1i 2000 1i#####BMX#0 -3k');
+        const bike = track.playerRunner.instance;
+        if (!bike) throw new Error('No player bike');
+        const startY = bike.hitbox.pos.y;
+        place(new ZeroGravity(bike.hitbox.pos.clone(), track)).touch(bike.hitbox);
+
+        runTicks(track, 50);
+
+        expect(bike.gravityValueScale).toBe(0);
+        // The gravity direction is kept for the reset item
+        expect(bike.gravity.y).toBe(0.3);
+        expect(track.playerRunner.modifiersMask).toBe(MODIFIERS.ZERO_GRAVITY);
+        expect(Math.abs(bike.hitbox.pos.y - startY)).toBeLessThan(1);
+
+        place(new Reset(bike.hitbox.pos.clone(), track)).touch(bike.hitbox);
+        runTicks(track, 50);
+
+        expect(bike.gravityValueScale).toBe(1);
+        expect(bike.hitbox.pos.y - startY).toBeGreaterThan(50);
+    });
+
+    test('the shards of a bike exploding without gravity float too', () => {
+        const bike = playerAt(100, 0);
+        place(new ZeroGravity(new Vector(100, 0), track)).touch(bike.hitbox);
+        place(new Bomb(new Vector(100, 0), track)).touch(bike.hitbox);
+
+        const explosion = track.playerRunner.deadObject as { gravity: Vector };
+        expect(explosion.gravity).toEqual(new Vector(0, 0));
+    });
+
     test('the status effects survive restarting from a checkpoint', () => {
         const bike = playerAt(100, 0);
         place(new EngineOff(new Vector(100, 0), track)).touch(bike.hitbox);
@@ -265,6 +299,8 @@ describe('Track objects', () => {
         // The rotation is stored with a 180 degrees offset: 90 - 180 = -90 = -2q in base 32
         expect(new Boost(new Vector(0, 0), 90, track).toString()).toBe('B 0 0 -2q');
         expect(new Gravity(new Vector(0, 0), 180, track).toString()).toBe('G 0 0 0');
+        expect(new ZeroGravity(new Vector(32, 0), track).toString()).toBe('Z 10 0');
+        expect(ITEM_MAP.get('Z')).toBe(ZeroGravity);
     });
 
     test('are erased within the eraser radius only', () => {

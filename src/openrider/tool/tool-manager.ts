@@ -22,19 +22,15 @@ export class ToolManager {
 
     public constructor(private readonly track: Track) {}
 
-    /** Selects a tool, or toggles its options if it already is the current tool. */
+    /** Selects a tool and rebuilds the interface, selecting the current tool again does nothing. */
     public setTool(tool: Tool): void {
-        if (tool !== this.tool) {
-            this.tool?.deactivate();
-
-            this.tool = tool;
-            this.tool.activate();
-        } else if (tool.optionsOpen) {
-            tool.closeOptions();
-        } else {
-            tool.openOptions();
+        if (tool === this.tool) {
+            return;
         }
 
+        this.tool?.deactivate();
+        this.tool = tool;
+        this.tool.activate();
         this.track.invalidateUI();
     }
 

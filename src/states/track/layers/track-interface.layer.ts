@@ -2,6 +2,7 @@ import {
     GameRenderEvent,
     Layer,
     Mouse,
+    UIButton,
     UIElement,
     UIStructureDefinition,
     UIStyleDefinition,
@@ -20,6 +21,11 @@ const TOOL_SIZE = 26,
     OPTION_WIDTH = 300,
     OPTION_HEIGHT = 30,
     OPTION_GAP = 5,
+    HANDLE_WIDTH = 90,
+    HANDLE_HEIGHT = 20,
+    DRAWER_DURATION = 250,
+    DRAWER_OPEN_LABEL = 'Options ▲',
+    DRAWER_CLOSED_LABEL = 'Options ▼',
     TOOLTIP_MARGIN = 4;
 
 /** Styles of every interface, completed with the positions computed when it is built. */
@@ -45,7 +51,9 @@ const BASE_STYLES: UIStyleDefinition = {
     '.overlay': {
         position: 'absolute',
     },
+    // Only laying the buttons out: the track stays reachable between them
     '.options': {
+        pointerEvents: 'none',
         horizontalAlign: 'center',
         y: OPTION_GAP,
         width: OPTION_WIDTH,
@@ -56,7 +64,13 @@ const BASE_STYLES: UIStyleDefinition = {
         width: '100%',
         height: OPTION_HEIGHT,
     },
+    '.options-handle': {
+        horizontalAlign: 'center',
+        width: HANDLE_WIDTH,
+        height: HANDLE_HEIGHT,
+    },
     '.group': {
+        pointerEvents: 'none',
         x: GROUP_OFFSET,
         width: TOOL_SIZE,
         flexDirection: 'column',
@@ -73,6 +87,9 @@ interface Toolbar {
  * Top layer of the track states: toolbars, options of the current tool and text buttons, built
  * declaratively with the canvade UI from the definitions of the state.
  *
+ * The options are in a drawer at the top of the canvas, hidden above it until its handle button
+ * opens it. The drawer stays open or closed when the current tool changes.
+ *
  * Layers receive the input events top layer first, so this layer syncs the track mouse positions
  * with the canvade `Mouse.worldPos` before the other layers handle the mouse events. A mouse event
  * caught by the interface is marked `consumed` and does not reach the tools of the main layer.
@@ -80,6 +97,7 @@ interface Toolbar {
 export class TrackInterfaceLayer extends Layer {
     private toolbars: Toolbar[] = [];
     private root: UIElement | null = null;
+    private optionsDrawerOpen = false;
 
     public constructor(private readonly state: TrackViewState) {
         super();
@@ -170,7 +188,8 @@ export class TrackInterfaceLayer extends Layer {
                 });
                 styles[`.${className}`] = { y: index * TOOL_SIZE, horizontalAlign: side };
 
-                if (tool instanceof ToolGroupTool && tool.optionsOpen) {
+                // The tools of a group are displayed while one of them is the current tool
+                if (tool instanceof ToolGroupTool && tool.isActive()) {
                     structure.push({
                         [`container.overlay.group.${className}-group`]: tool.instances.map(
                             (instance) => ({
@@ -187,18 +206,29 @@ export class TrackInterfaceLayer extends Layer {
             });
         }
 
-        // Options of the current tool
-        const currentTool = this.state.track.toolManager.tool;
-        const options = currentTool?.optionsOpen ? currentTool.getOptions() : [];
+        // Drawer with the options of the current tool, and its handle
+        const options = this.state.track.toolManager.tool?.getOptions() ?? [];
         if (options.length) {
+            const height = options.length * (OPTION_HEIGHT + OPTION_GAP);
             structure.push({
                 'container.overlay.options': options.map((option, index) => ({
                     [`button.option-${index}`]: { events: { click: () => option.action() } },
                 })),
             });
+            structure.push({
+                'button.overlay.options-handle': {
+                    events: { click: () => this.toggleOptionsDrawer() },
+                },
+            });
             styles['.options'] = {
                 ...BASE_STYLES['.options'],
-                height: options.length * (OPTION_HEIGHT + OPTION_GAP),
+                y: this.drawerOffsets(height).options,
+                height,
+            };
+            styles['.options-handle'] = {
+                ...BASE_STYLES['.options-handle'],
+                y: this.drawerOffsets(height).handle,
+                text: this.optionsDrawerOpen ? DRAWER_OPEN_LABEL : DRAWER_CLOSED_LABEL,
             };
             options.forEach((option, index) => {
                 styles[`.option-${index}`] = { text: option.label };
@@ -226,6 +256,42 @@ export class TrackInterfaceLayer extends Layer {
         this.root.subscribe('renderTree', (e) => this.renderTooltip(e));
     }
 
+    /**
+     * Opens or closes the options drawer, sliding the options and the handle together.
+     *
+     * The interface is not rebuilt: a rebuild during the animation applies its end position.
+     */
+    public toggleOptionsDrawer(): void {
+        this.optionsDrawerOpen = !this.optionsDrawerOpen;
+
+        const options = this.root?.children.find((child) => child.classNames.includes('options'));
+        const handle = this.root?.children.find((child) =>
+            child.classNames.includes('options-handle'),
+        );
+        if (!options || !(handle instanceof UIButton)) {
+            return;
+        }
+
+        const offsets = this.drawerOffsets(options.v('height'));
+        options.animate('y', offsets.options, { duration: DRAWER_DURATION });
+        handle.animate('y', offsets.handle, { duration: DRAWER_DURATION });
+        handle
+            .getProperty('text')
+            .setValue(this.optionsDrawerOpen ? DRAWER_OPEN_LABEL : DRAWER_CLOSED_LABEL);
+    }
+
+    /**
+     * Vertical offsets of the options and of the handle: a closed drawer is right above the
+     * canvas, with the handle at its top edge.
+     *
+     * @param height - Height of the options container.
+     */
+    private drawerOffsets(height: number): { options: number; handle: number } {
+        return this.optionsDrawerOpen
+            ? { options: OPTION_GAP, handle: OPTION_GAP + height }
+            : { options: -height, handle: 0 };
+    }
+
     /** Element of a tool button, the tool being read from its data by {@link UIToolButton}. */
     private toolElement(tool: Tool) {
         return { data: { tool }, events: { click: () => tool.run() } };
@@ -250,7 +316,7 @@ export class TrackInterfaceLayer extends Layer {
 
         // Tooltips of the right toolbar are displayed on the left of the buttons
         let rectX = x + width + TOOLTIP_MARGIN;
-        if (x > ctx.canvas.width / 2) {
+        if (this.root && x > this.root.getBounds().width / 2) {
             rectX = x - 2 * TOOLTIP_MARGIN - metrics.width;
         }
 

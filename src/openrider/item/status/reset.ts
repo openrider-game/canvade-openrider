@@ -16,6 +16,7 @@ export class Reset extends StatusItem {
         part.bike.engineValueScale = 1;
         part.bike.speedValueScale = 1;
         part.bike.steerValueScale = 1;
+        part.bike.gravityValueScale = 1;
 
         part.bike.runner.modifiersMask = 0;
     }

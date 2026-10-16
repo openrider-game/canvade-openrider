@@ -29,7 +29,7 @@ export class Explosion extends Entity {
     ) {
         super(pos, vel);
 
-        this.gravity = bike.gravity.clone();
+        this.gravity = bike.gravity.scale(bike.gravityValueScale);
         this.points = Array.from({ length: 5 }, () => new Shard(bike, pos, vel, this));
     }
 

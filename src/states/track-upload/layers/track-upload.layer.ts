@@ -1,4 +1,5 @@
 import { GameRenderEvent, Layer } from 'canvade';
+import { InterfaceScale } from '../../../openrider/numeric/interface-scale';
 
 /**
  * Size of the uploaded thumbnail in pixels. The frame displays it at half its size, so the
@@ -14,6 +15,8 @@ const FRAME_WIDTH = THUMBNAIL_WIDTH / 2,
 /**
  * Darkens the track around the thumbnail frame, centered on the canvas, and displays the
  * framing instructions.
+ *
+ * The frame is in canvas pixels, like the track it frames; the instructions are in UI pixels.
  */
 export class TrackUploadLayer extends Layer {
     public initLayer(): void {
@@ -40,12 +43,14 @@ export class TrackUploadLayer extends Layer {
         ctx.fillRect(x1, y0, x0, FRAME_HEIGHT);
         ctx.strokeRect(x0, y0, FRAME_WIDTH, FRAME_HEIGHT);
 
-        const helperTextWidth = ctx.measureText(HELPER_TEXT).width;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect((width - helperTextWidth) / 2 - 4, 6, helperTextWidth + 8, 18);
-        ctx.fillStyle = '#000';
-        ctx.fillText(HELPER_TEXT, (width - helperTextWidth) / 2, 20);
-
         ctx.restore();
+
+        InterfaceScale.draw(ctx, (uiWidth) => {
+            const helperTextWidth = ctx.measureText(HELPER_TEXT).width;
+            ctx.fillStyle = '#fff';
+            ctx.fillRect((uiWidth - helperTextWidth) / 2 - 4, 6, helperTextWidth + 8, 18);
+            ctx.fillStyle = '#000';
+            ctx.fillText(HELPER_TEXT, (uiWidth - helperTextWidth) / 2, 20);
+        });
     }
 }

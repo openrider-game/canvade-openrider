@@ -152,7 +152,7 @@ describe('Upload state', () => {
             .body as URLSearchParams;
         expect(params.get('trackCode')).toBe('-18 1i 18 1i,#####BMX#0 0');
         expect(params.get('thumbnail')).toBe('THUMBNAIL');
-        expect(location.href).toBe('./tracks/77/');
+        expect(location.href).toBe('?track=77');
     });
 
     test('goes back to the editing state when cancelled', async () => {

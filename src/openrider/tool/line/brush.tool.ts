@@ -1,4 +1,5 @@
 import { Vector } from 'canvade';
+import { InterfaceScale } from '../../numeric/interface-scale';
 import { LineTool } from './line.tool';
 
 /**
@@ -55,6 +56,6 @@ export abstract class BrushTool extends LineTool {
     }
 
     protected override renderLineSize(ctx: CanvasRenderingContext2D, mousePx: Vector): void {
-        ctx.fillText(this.size.toString(), mousePx.x + 3, mousePx.y + 12);
+        InterfaceScale.draw(ctx, () => ctx.fillText(this.size.toString(), 3, 12), mousePx);
     }
 }

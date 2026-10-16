@@ -1,0 +1,12 @@
+# Optional Apache rules, to copy as `.htaccess` next to `index.html`
+
+Options +FollowSymLinks
+RewriteEngine On
+# Uncomment and set to the URL path of the game when it is not served from the domain root
+# RewriteBase /openrider/
+
+# The track pages of the original game, /tracks/<id>/, redirect to the game page racing the track
+RewriteRule ^tracks/([0-9]+)/?$ index.html?track=$1 [R=301,L]
+
+# The shared helpers of the endpoints are not endpoints themselves
+RewriteRule ^\.setup/db/api\.php$ - [F,L]

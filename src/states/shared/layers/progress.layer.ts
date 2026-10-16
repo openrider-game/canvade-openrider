@@ -1,4 +1,5 @@
 import { GameRenderEvent, Layer } from 'canvade';
+import { InterfaceScale } from '../../../openrider/numeric/interface-scale';
 
 /** Progress displayed by a {@link ProgressLayer}. */
 export interface ProgressStatus {
@@ -16,7 +17,7 @@ const BACKGROUND_COLOR = '#ccc',
     BAR_MARGIN = 100,
     BAR_HEIGHT = 30;
 
-/** Full screen progress bar, for the loading states. */
+/** Full screen progress bar, for the loading states, drawn in UI pixels. */
 export abstract class ProgressLayer extends Layer {
     public initLayer(): void {
         this.subscribe('render', this.renderProgress);
@@ -27,14 +28,16 @@ export abstract class ProgressLayer extends Layer {
 
     private renderProgress(e: CustomEvent<GameRenderEvent>): void {
         const ctx = e.detail.ctx;
-        const { width, height } = ctx.canvas;
+        InterfaceScale.draw(ctx, (width, height) => this.drawProgress(ctx, width, height));
+    }
+
+    private drawProgress(ctx: CanvasRenderingContext2D, width: number, height: number): void {
         const status = this.getStatus();
 
         const barY = height / 2 - BAR_HEIGHT / 2;
         const barW = width - BAR_MARGIN * 2;
         const ratio = status.total > 0 ? Math.min(1, status.progress / status.total) : 0;
 
-        ctx.save();
         ctx.fillStyle = BACKGROUND_COLOR;
         ctx.fillRect(BAR_MARGIN, barY, barW, BAR_HEIGHT);
 
@@ -48,6 +51,5 @@ export abstract class ProgressLayer extends Layer {
         const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
         ctx.fillStyle = PROGRESS_TEXT_COLOR;
         ctx.fillText(status.text, (width - metrics.width) / 2, (height + textHeight) / 2);
-        ctx.restore();
     }
 }

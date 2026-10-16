@@ -11,6 +11,7 @@ import { Invincibility } from './status/invincibility';
 import { NoSteer } from './status/no-steer';
 import { Reset } from './status/reset';
 import { Slippery } from './status/slippery';
+import { ZeroGravity } from './status/zero-gravity';
 
 /** Item classes that can be read from a track code, by item code. */
 export const ITEM_MAP = new Map<string, ItemClass>(
@@ -27,5 +28,6 @@ export const ITEM_MAP = new Map<string, ItemClass>(
         Slippery,
         NoSteer,
         EngineOff,
+        ZeroGravity,
     ].map((itemClass): [string, ItemClass] => [itemClass.code, itemClass]),
 );

@@ -34,7 +34,10 @@ export class Part extends Entity implements Collidable {
      * derives the new velocity from the actual displacement (verlet integration).
      */
     public override fixedUpdate(): void {
-        this.velocity.selfAdd(this.bike.gravity).selfScale(this.bike.friction);
+        // Scaling by 1 is exact, so the physics of the tracks without zero gravity are unchanged
+        this.velocity
+            .selfAdd(this.bike.gravity.scale(this.bike.gravityValueScale))
+            .selfScale(this.bike.friction);
         this.pos.selfAdd(this.velocity);
         this.driving = false;
         if (this.touch) {
