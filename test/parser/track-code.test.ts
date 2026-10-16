@@ -1,0 +1,168 @@
+import { describe, expect, test } from 'vitest';
+import { LinkedItem } from '../../src/openrider/item/linked-item';
+import { TrackGenerator } from '../../src/openrider/parser/track-generator';
+import { TrackParser } from '../../src/openrider/parser/track-parser';
+import { Track } from '../../src/openrider/track/track';
+import { TRACK_DEFAULT } from '../../src/openrider/track/track.constants';
+import { parseTrack } from '../helpers/track';
+
+const FULL_TRACK =
+    // Solid lines: a polyline of 3 points (2 lines) and a single line
+    '0 0 a 0 k 0,0 a a a#' +
+    // Scenery lines
+    '0 -a a -a#' +
+    // Items: target, checkpoint, boost, teleporters, status effects, unknown item
+    'T 5 5,C 6 6,B 7 7 -2s,W 8 8 9 9,R 1 1,I 2 2,H 3 3,N 4 4,E 5 6,X 1 1#' +
+    // Foreground solid and scenery lines
+    '0 1 a 1#0 2 a 2#' +
+    'MTB#a -5';
+
+function generate(track: Track): string {
+    const generator = new TrackGenerator(track);
+    for (let step = 0; !generator.done; step++) {
+        if (step > 1000) throw new Error('The track generator does not finish');
+        generator.currentStep();
+        generator.updateIndicators();
+    }
+    return generator.getCode();
+}
+
+/** Track code entities of a section, sorted to compare codes regardless of the order. */
+function entities(code: string, section: number): string[] {
+    return code.split('#')[section].split(',').filter(Boolean).sort();
+}
+
+describe('Track parser', () => {
+    test('reads every section of a track code', () => {
+        const track = parseTrack(FULL_TRACK);
+        const main = track.mainLayer.grid;
+        const foreground = track.foregroundLayer.grid;
+
+        // The polyline is split into its two lines
+        expect(main.totalSolidLines.size).toBe(3);
+        expect(main.totalSceneryLines.size).toBe(1);
+        // 9 items, the 2 teleporters counting as 2 items and the unknown item being ignored
+        expect(main.totalObjects.size).toBe(10);
+        expect(foreground.totalSolidLines.size).toBe(1);
+        expect(foreground.totalSceneryLines.size).toBe(1);
+        expect(foreground.totalObjects.size).toBe(0);
+
+        expect(track.targets.size).toBe(1);
+        // Every reachable item: checkpoint, target, teleporters, status effects
+        expect(track.reachables.size).toBe(9);
+        expect(track.playerRunner.bikeClass.bikeName).toBe('MTB');
+        expect(track.origin).toMatchObject({ x: 10, y: -5 });
+        expect(track.camera).toMatchObject({ x: 10, y: -5 });
+        expect(track.focalPoint).toBe(track.playerRunner.instance?.hitbox);
+    });
+
+    test('reads base 32 coordinates', () => {
+        const track = parseTrack('-a 1i 3v 0');
+        const [line] = track.mainLayer.grid.totalSolidLines.values();
+
+        expect(line.pos).toMatchObject({ x: -10, y: 50 });
+        expect(line.endPos).toMatchObject({ x: 127, y: 0 });
+    });
+
+    test('falls back to defaults when sections are missing', () => {
+        const track = parseTrack(TRACK_DEFAULT);
+
+        expect(track.mainLayer.grid.totalSolidLines.size).toBe(1);
+        expect(track.playerRunner.bikeClass.bikeName).toBe('BMX');
+        expect(track.origin).toMatchObject({ x: 0, y: 0 });
+    });
+
+    test('falls back to the BMX for unknown bikes', () => {
+        expect(parseTrack('#####Unicycle#0 0').playerRunner.bikeClass.bikeName).toBe('BMX');
+    });
+
+    test('ignores malformed entities', () => {
+        const track = parseTrack('1 2 3,,0 0 a#T 1,C#####');
+
+        expect(track.mainLayer.grid.totalSolidLines.size).toBe(0);
+        expect(track.mainLayer.grid.totalObjects.size).toBe(0);
+    });
+
+    test('reports its progress while parsing, then while caching', () => {
+        const parser = new TrackParser(new Track());
+        parser.init('0 0 a 0,0 a a a#0 -a a -a#T 5 5###BMX#0 0');
+        // The two empty foreground sections count as one empty entity each
+        expect(parser.length).toBe(6);
+
+        parser.currentStep();
+        parser.updateIndicators();
+        expect(parser.progressLabel).toBe('Solid lines');
+        expect(parser.progress).toBe(2);
+
+        while (!parser.caching) {
+            parser.currentStep();
+        }
+        parser.updateIndicators();
+        expect(parser.progressLabel).toBe('Bike');
+    });
+});
+
+describe('Track generator', () => {
+    test('generates the code of a track, read back identically', () => {
+        const code = generate(parseTrack(FULL_TRACK));
+        const reparsed = generate(parseTrack(code));
+
+        for (const section of [0, 1, 2, 3, 4]) {
+            expect(entities(reparsed, section)).toEqual(entities(code, section));
+        }
+        expect(code.split('#').slice(5)).toEqual(['MTB', 'a -5']);
+    });
+
+    test('exports connected lines as a single polyline', () => {
+        const code = generate(parseTrack('0 0 a 0 k 0 u 0#####BMX#0 0'));
+
+        expect(entities(code, 0)).toEqual(['0 0 a 0 k 0 u 0']);
+    });
+
+    test('exports linked items with their group and items in their own format', () => {
+        const code = generate(parseTrack(FULL_TRACK));
+
+        expect(entities(code, 2)).toEqual([
+            'B 7 7 -2s',
+            'C 6 6',
+            'E 5 6',
+            'H 3 3',
+            'I 2 2',
+            'N 4 4',
+            'R 1 1',
+            'T 5 5',
+            'W 8 8 9 9',
+        ]);
+    });
+
+    test('can export the same track several times', () => {
+        const track = parseTrack(FULL_TRACK);
+        const first = generate(track);
+
+        expect(generate(track)).toBe(first);
+    });
+
+    test('exports the edits of the track', () => {
+        const track = parseTrack(FULL_TRACK);
+        const teleporter = [...track.mainLayer.grid.totalObjects.values()].find(
+            (item) => item instanceof LinkedItem,
+        );
+        teleporter?.removeFromTrack();
+        track.origin.set({ x: 32, y: 64 } as never);
+
+        const code = generate(track);
+
+        expect(entities(code, 2)).not.toContain('W 8 8 9 9');
+        expect(code.endsWith('#10 20')).toBe(true);
+    });
+
+    test('reports its progress', () => {
+        const generator = new TrackGenerator(parseTrack(FULL_TRACK));
+        // Lines, scenery and items of both layers
+        expect(generator.length).toBe(3 + 1 + 10 + 1 + 1);
+
+        generator.currentStep();
+        generator.updateIndicators();
+        expect(generator.progress).toBe(3);
+    });
+});

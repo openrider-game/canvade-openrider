@@ -1,0 +1,9 @@
+{
+    // Type checks the tests along with the sources, the tests themselves being run by vitest
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "rootDir": "..",
+        "noEmit": true
+    },
+    "include": ["../src", "."]
+}

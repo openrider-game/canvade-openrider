@@ -1,0 +1,17 @@
+import type { Collidable } from '../../entity/collidable';
+import { MODIFIERS } from '../modifiers';
+import { StatusItem } from '../status-item';
+
+/** Prevents the rider from leaning the bike. */
+export class NoSteer extends StatusItem {
+    public static override readonly itemName: string = 'No Steer';
+    public static override readonly color: string = '#ff5';
+    public static override readonly reachedColor: string = '#ffa';
+    public static override readonly code: string = 'N';
+
+    public override onReach(part: Collidable): void {
+        part.bike.steerValueScale = 0;
+
+        part.bike.runner.modifiersMask |= MODIFIERS.NO_STEER;
+    }
+}
