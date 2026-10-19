@@ -1,6 +1,7 @@
 import { Vector } from 'canvade';
 import type { RenderCell } from '../grid/cell/render-cell';
 import { Grid } from '../grid/grid';
+import { WorkerPool } from '../thread/worker-pool';
 import type { Track } from './track';
 import type { TrackLayer } from './track-layer';
 
@@ -21,14 +22,14 @@ export abstract class TrackRenderer {
      * Draws the main layer, then the runners, then the foreground layer over them.
      *
      * @param debug - Whether to draw the debug overlay.
-     * @param fastRender - Whether the densest cells are rendered by the workers, the track setting
-     * by default.
+     * @param fastRender - Whether the densest cells are rendered by the workers, when the browser
+     * supports it by default. Without it, they are rendered synchronously.
      */
     public static render(
         ctx: CanvasRenderingContext2D,
         track: Track,
         debug: boolean,
-        fastRender = track.fastRender,
+        fastRender = WorkerPool.supported,
     ): void {
         const cacheBounds = TrackRenderer.getVisibleCells(track, track.mainLayer.cache.cellSize);
         const options = { debug, fastRender };

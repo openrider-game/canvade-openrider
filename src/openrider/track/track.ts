@@ -80,8 +80,6 @@ export class Track extends World {
     public readonly ghostCache = new Map<number, string>();
 
     public debug = false;
-    /** Whether the densest cells are rendered in the background by the workers. */
-    public fastRender = false;
 
     /** Canvas the track is rendered on, known after the first render. */
     public canvas: HTMLCanvasElement | null = null;

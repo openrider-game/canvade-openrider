@@ -16,7 +16,7 @@ import { RestartTool } from './misc/restart.tool';
 import { StartPositionTool } from './misc/start-position.tool';
 import { SwitchBikeTool } from './misc/switch-bike.tool';
 import { ToolClass } from './tool';
-import { GridSnapTool, ToggleDebugTool, ToggleFastRenderTool } from './toggle/toggle.tools';
+import { GridSnapTool, ToggleDebugTool } from './toggle/toggle.tools';
 
 /** Toolbar entries, `null` leaving an empty space between buttons. */
 export type ToolbarEntries = Array<ToolClass | null>;
@@ -50,7 +50,6 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
         StartPositionTool,
         null,
         ToggleDebugTool,
-        ToggleFastRenderTool,
     ],
     /** Toolbar of the track upload screen, where the track can only be looked around. */
     UPLOAD_TOOLBAR: ToolbarEntries = [CameraTool, FullscreenTool];

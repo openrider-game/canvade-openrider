@@ -17,11 +17,7 @@ import { PauseTool } from '../../src/openrider/tool/misc/pause.tool';
 import { StartPositionTool } from '../../src/openrider/tool/misc/start-position.tool';
 import { SwitchBikeTool } from '../../src/openrider/tool/misc/switch-bike.tool';
 import { Tool, ToolClass } from '../../src/openrider/tool/tool';
-import {
-    GridSnapTool,
-    ToggleDebugTool,
-    ToggleFastRenderTool,
-} from '../../src/openrider/tool/toggle/toggle.tools';
+import { GridSnapTool, ToggleDebugTool } from '../../src/openrider/tool/toggle/toggle.tools';
 import {
     LEFT_TOOLBAR_EDITING,
     RIGHT_TOOLBAR,
@@ -305,14 +301,12 @@ describe('Action tools', () => {
     test('toggle the track settings', () => {
         const gridSnap = new GridSnapTool(track);
         const debug = new ToggleDebugTool(track);
-        const fastRender = new ToggleFastRenderTool(track);
 
         gridSnap.run();
         debug.run();
-        fastRender.run();
         expect(track.gridDetail).toBe(10);
-        expect(track.debug && track.fastRender).toBe(true);
-        expect([gridSnap, debug, fastRender].every((tool) => tool.isToggled())).toBe(true);
+        expect(track.debug).toBe(true);
+        expect([gridSnap, debug].every((tool) => tool.isToggled())).toBe(true);
 
         gridSnap.run();
         expect(track.gridDetail).toBe(1);

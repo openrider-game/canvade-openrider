@@ -237,6 +237,8 @@ export class TrackParser {
     /**
      * Pre-renders one cell per step at every zoom level up to 1, the densest cells being
      * rendered by the workers. Waits for the workers before going to the next step.
+     *
+     * Without workers support, the cells are rendered when first displayed instead.
      */
     private processCache(layer: TrackLayer, next: () => void): void {
         const cache: Grid<RenderCell> = layer.cache;
@@ -246,7 +248,7 @@ export class TrackParser {
         for (; this.cacheIndex < l; this.cacheIndex++) {
             const cell = cacheCells[this.cacheIndex];
             for (let zoom = MIN_ZOOM; zoom <= 1; zoom = Math.round((zoom + 0.2) * 100) / 100) {
-                if (cell.isHeavy()) {
+                if (cell.isHeavy() && WorkerPool.supported) {
                     WorkerPool.request(
                         cell,
                         zoom,

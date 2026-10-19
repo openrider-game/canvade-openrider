@@ -1,4 +1,4 @@
-import { Control, CTRL, KEYD, KEYG, KEYQ } from 'canvade';
+import { Control, CTRL, KEYD, KEYG } from 'canvade';
 import { Tool } from '../tool';
 
 /** Tool switching a track setting on and off, its button is highlighted while enabled. */
@@ -43,21 +43,5 @@ export class ToggleDebugTool extends ToggleTool {
 
     public override isToggled(): boolean {
         return this.track.debug;
-    }
-}
-
-/** Renders the densest track cells in workers, keeping the game smooth on heavy tracks. */
-export class ToggleFastRenderTool extends ToggleTool {
-    public static override readonly toolName: string = 'Toggle Fast Renderer';
-    public static override readonly keyLabel: string = 'Control+Q';
-    public static override readonly key = new Control(KEYQ, CTRL);
-    public static override readonly icon = 'speed';
-
-    protected toggle(): void {
-        this.track.fastRender = !this.track.fastRender;
-    }
-
-    public override isToggled(): boolean {
-        return this.track.fastRender;
     }
 }

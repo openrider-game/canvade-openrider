@@ -56,7 +56,8 @@ A few bugs of the original game were fixed along the way:
 - exporting a track twice no longer loses its items
 - undoing removes a whole brush stroke or eraser drag, and the history is properly truncated
 - erasing and restoring teleporters no longer duplicates them
-- the fast renderer no longer blinks: cells keep their previous image while the workers render them
+- the fast renderer is always enabled when the browser supports it, and no longer blinks: cells
+  keep their previous image while the workers render them
 - the Slippery tool shortcut is `Shift+H` (it was shared with the Reset tool)
 - clicking with a line tool without moving the mouse no longer adds an empty line to the track
 
@@ -154,7 +155,7 @@ window.OpenRider.toggleGhost(ghostId);
 | Target, checkpoint, boost, gravity, bomb, slow motion, teleporter  | `Shift+T`, `C`, `B`, `G`, `O`, `S`, `W` |
 | Reset, invincibility, slippery, no steer, engine off, zero gravity | `Shift+R`, `I`, `H`, `N`, `E`, `Z`      |
 | Start position                                                     | `P`                                     |
-| Debug, fast renderer                                               | `Ctrl+D`, `Ctrl+Q`                      |
+| Debug                                                              | `Ctrl+D`                                |
 
 Letter shortcuts follow the keyboard layout (the undo key is the M key of an AZERTY keyboard too).
 

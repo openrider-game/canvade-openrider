@@ -36,6 +36,14 @@ interface RunningRequest {
  * request. The workers are created on the first request.
  */
 export abstract class WorkerPool {
+    /**
+     * Whether the browser can render the cells in workers, which requires `OffscreenCanvas`.
+     * Without it, every cell is rendered on the main thread.
+     */
+    public static get supported(): boolean {
+        return typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined';
+    }
+
     private static readonly idleWorkers: Worker[] = [];
     private static workerCount = 0;
     private static taskId = 0;
