@@ -18,6 +18,14 @@ export abstract class TrackViewState extends OpenRiderState {
     /** Toolbars of the state, whose tools are created each time the state is entered. */
     public abstract getToolbars(): ToolbarDefinition[];
 
+    /**
+     * Whether the state edits the layers of the track: it then displays the layers panel and
+     * leaves out the hidden layers. False by default: the layers are only edited in the editor.
+     */
+    public editsLayers(): boolean {
+        return false;
+    }
+
     /** Text buttons of the state, none by default. */
     public getButtons(): ButtonDefinition[] {
         return [];

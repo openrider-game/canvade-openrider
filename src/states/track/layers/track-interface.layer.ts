@@ -13,6 +13,7 @@ import { Tool } from '../../../openrider/tool/tool';
 import { ToolCollection } from '../../../openrider/tool/tool-collection';
 import type { TrackViewState } from '../track-view.state';
 import { ToolbarSide } from '../track-view.definitions';
+import { LayersPanel } from '../ui/layers-panel';
 import { TOOL_ELEMENT_TYPE, UIToolButton } from '../ui/ui-tool-button';
 
 const TOOL_SIZE = 26,
@@ -88,16 +89,19 @@ interface Toolbar {
  * declaratively with the canvade UI from the definitions of the state.
  *
  * The options are in a drawer at the top of the canvas, hidden above it until its handle button
- * opens it. The drawer stays open or closed when the current tool changes.
+ * opens it. The drawer stays open or closed when the current tool changes. States editing the
+ * layers of the track also get the {@link LayersPanel}.
  *
  * Layers receive the input events top layer first, so this layer syncs the track mouse positions
  * with the canvade `Mouse.worldPos` before the other layers handle the mouse events. A mouse event
- * caught by the interface is marked `consumed` and does not reach the tools of the main layer.
+ * caught by the interface is marked `consumed` and does not reach the tools of the
+ * `TrackMainLayer`.
  */
 export class TrackInterfaceLayer extends Layer {
     private toolbars: Toolbar[] = [];
     private root: UIElement | null = null;
     private optionsDrawerOpen = false;
+    private readonly layersPanel = new LayersPanel();
 
     public constructor(private readonly state: TrackViewState) {
         super();
@@ -233,6 +237,10 @@ export class TrackInterfaceLayer extends Layer {
             options.forEach((option, index) => {
                 styles[`.option-${index}`] = { text: option.label };
             });
+        }
+
+        if (this.state.editsLayers()) {
+            this.layersPanel.build(this.state.track, structure, styles);
         }
 
         // State buttons

@@ -116,7 +116,7 @@ describe('Upload state', () => {
         await runFrames(400, STATE_TRACK_EDITING);
         manager.render(createCanvasMock().context);
 
-        (manager.getCurrent() as TrackEditingState).getButtons()[2].action();
+        (manager.getCurrent() as TrackEditingState).getButtons()[3].action();
         expect(manager.getCurrent() === manager.getState(STATE_TRACK_GENERATOR)).toBe(true);
         await runFrames(400, STATE_TRACK_UPLOAD);
 
@@ -136,7 +136,7 @@ describe('Upload state', () => {
         manager.push(STATE_TRACK_FETCHER);
         await runFrames(400, STATE_TRACK_EDITING);
         manager.render(createCanvasMock().context);
-        (manager.getCurrent() as TrackEditingState).getButtons()[2].action();
+        (manager.getCurrent() as TrackEditingState).getButtons()[3].action();
         await runFrames(400, STATE_TRACK_UPLOAD);
         const toDataURL = vi.fn(() => 'data:image/png;base64,THUMBNAIL');
         const createElement = document.createElement;
@@ -159,7 +159,7 @@ describe('Upload state', () => {
         manager.push(STATE_TRACK_FETCHER);
         await runFrames(400, STATE_TRACK_EDITING);
         manager.render(createCanvasMock().context);
-        (manager.getCurrent() as TrackEditingState).getButtons()[2].action();
+        (manager.getCurrent() as TrackEditingState).getButtons()[3].action();
         await runFrames(400, STATE_TRACK_UPLOAD);
 
         (manager.getCurrent() as TrackUploadState).getButtons()[0].action();
@@ -182,8 +182,8 @@ describe('Loading states', () => {
         manager.render(context);
 
         const texts = vi.mocked(context.fillText).mock.calls.map(([text]) => text);
-        expect(texts[0]).toBe('Parsing : 0 %');
-        expect(texts[1]).toMatch(/^Parsing Solid lines: \d+ %$/);
+        expect(texts[0]).toBe('Parsing Solid lines (Main): 0 %');
+        expect(texts[1]).toMatch(/^Parsing Solid lines \(Main\): \d+ %$/);
         // The progress bar never exceeds the bar width
         const bars = vi.mocked(context.fillRect).mock.calls.map(([, , width]) => width);
         expect(Math.max(...bars)).toBeLessThanOrEqual(500);

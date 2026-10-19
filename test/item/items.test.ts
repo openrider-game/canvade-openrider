@@ -29,7 +29,7 @@ let track: Track;
 
 /** Places an item on the main layer of the track. */
 function place<T extends Item>(item: T): T {
-    item.layer = track.mainLayer;
+    item.layer = track.layers.main[0];
     item.addToTrack();
     return item;
 }
@@ -285,8 +285,8 @@ describe('Teleporters', () => {
         expect(entry.onTrack && exit.onTrack).toBe(true);
         // Adding a group twice does not duplicate its items
         entry.addToTrack();
-        expect(track.mainLayer.grid.totalObjects.size).toBe(2);
-        const cellObjects = [...track.mainLayer.grid.cells.values()].flatMap(
+        expect(track.layers.main[0].grid.totalObjects.size).toBe(2);
+        const cellObjects = [...track.layers.main[0].grid.cells.values()].flatMap(
             (cell) => cell.objects,
         );
         expect(cellObjects.filter((item) => item instanceof LinkedItem)).toHaveLength(2);
@@ -329,7 +329,7 @@ describe('Track objects', () => {
         target.removeFromTrack();
         target.removeFromTrack();
         expect(track.targets.size).toBe(0);
-        expect(track.mainLayer.grid.totalObjects.size).toBe(0);
+        expect(track.layers.main[0].grid.totalObjects.size).toBe(0);
     });
 
     test('require a layer to be added to the track', () => {

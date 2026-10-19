@@ -20,7 +20,7 @@ import {
     STATE_TRACK_RACING,
 } from '../../src/states/state-names';
 import States from '../../src/states/states';
-import { SolidLineTool } from '../../src/openrider/tool/line/line.tools';
+import { EraserTool } from '../../src/openrider/tool/misc/eraser.tool';
 import { TrackEditingState } from '../../src/states/track/track-editing.state';
 import { ToolIcons } from '../../src/states/track/ui/tool-icons';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
@@ -113,7 +113,7 @@ describe('Editing a track', () => {
         expect(calls).toContain('clearRect');
         // HUD time and interface buttons texts
         expect(vi.mocked(context.fillText).mock.calls.map(([text]) => text)).toEqual(
-            expect.arrayContaining(['00:00.0', 'Import', 'Export', 'Upload']),
+            expect.arrayContaining(['00:00.0', 'Import', 'Export code', 'Export editor', 'Upload']),
         );
     });
 
@@ -142,7 +142,7 @@ describe('Editing a track', () => {
         manager.render(createCanvasMock().context);
         const state = manager.getCurrent();
         session.track.toolCollection.getByToolName('Solid Line')?.run();
-        const lines = session.track.mainLayer.grid.totalSolidLines;
+        const lines = session.track.layers.main[0].grid.totalSolidLines;
         const before = lines.size;
 
         state?.dispatch('mouseDown', mouseEvent('mouseDown', 300, 200));
@@ -160,7 +160,7 @@ describe('Editing a track', () => {
         manager.push(STATE_TRACK_FETCHER);
         await runUntil(STATE_TRACK_EDITING);
         const state = manager.getCurrent();
-        const tool = session.track.toolCollection.getByToolName('Solid Line') as SolidLineTool;
+        const tool = session.track.toolCollection.getByToolName('Eraser') as EraserTool;
         tool.run();
         const frames = (count: number) => {
             const { context } = createCanvasMock();
@@ -179,23 +179,24 @@ describe('Editing a track', () => {
         // Closed: only the handle is reachable, at the top of the canvas
         expect(frames(1)).toContain('Options ▼');
         click(250, 20);
-        expect(layerOption()).toBe('Layer: Main');
+        expect(layerOption()).toBe('Layers: active');
 
         click(350, 10);
         // Sliding down, the options being still out of reach after one frame
         frames(1);
         click(250, 20);
-        expect(layerOption()).toBe('Layer: Main');
+        expect(layerOption()).toBe('Layers: active');
         expect(frames(15)).toContain('Options ▲');
         click(250, 20);
-        expect(layerOption()).toBe('Layer: Foreground');
+        expect(layerOption()).toBe('Layers: all visible');
 
-        // Stays open when the options are rebuilt, then closes from the handle under them
-        expect(frames(1)).toContain('Layer: Foreground');
-        click(350, 50);
+        // Stays open when the options are rebuilt, then closes from the handle under them: four
+        // options of 30 pixels, 5 pixels apart
+        expect(frames(1)).toContain('Layers: all visible');
+        click(350, 5 + 4 * 35 + 10);
         frames(15);
         click(250, 20);
-        expect(layerOption()).toBe('Layer: Foreground');
+        expect(layerOption()).toBe('Layers: all visible');
     });
 
     test('keeps the interface size on high density screens', async () => {

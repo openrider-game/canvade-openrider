@@ -4,12 +4,17 @@ import { OpenRiderState } from '../openrider.state';
 import { STATE_TRACK_UPLOAD } from '../state-names';
 import { TrackGeneratorLayer } from './layers/track-generator.layer';
 
+/** Names of the downloaded files. */
+const TRACK_FILE_NAME = 'track.txt',
+    EDITOR_FILE_NAME = 'track.openrider.json';
+
 /**
  * Generates the code of the session track, one step per update, pushed on top of the editing
  * state.
  *
- * Once done, pops itself and either downloads the code, or stores it in the session and pushes
- * the upload state when the session `trackUpload` flag is set.
+ * Once done, pops itself and either downloads a file in the session export format, or stores the
+ * track code and the editor file in the session and pushes the upload state when the session
+ * `trackUpload` flag is set.
  */
 export class TrackGeneratorState extends OpenRiderState {
     /** Generator of the running generation, `null` before entering the state and once done. */
@@ -45,22 +50,28 @@ export class TrackGeneratorState extends OpenRiderState {
         this.manager.pop();
 
         const session = this.session;
-        const trackCode = generator.getCode();
 
         if (session.trackUpload) {
             session.trackUpload = false;
-            session.trackCode = trackCode;
+            session.trackCode = generator.getCode();
+            session.editorCode = generator.getEditorCode();
             session.track.pause(true);
             this.manager.push(STATE_TRACK_UPLOAD);
+        } else if (session.exportFormat === 'editor') {
+            TrackGeneratorState.download(
+                generator.getEditorCode(),
+                EDITOR_FILE_NAME,
+                'application/json',
+            );
         } else {
-            TrackGeneratorState.download(trackCode);
+            TrackGeneratorState.download(generator.getCode(), TRACK_FILE_NAME, 'text/plain');
         }
     }
 
-    private static download(trackCode: string): void {
-        const url = URL.createObjectURL(new Blob([trackCode], { type: 'text/plain' }));
+    private static download(content: string, fileName: string, type: string): void {
+        const url = URL.createObjectURL(new Blob([content], { type }));
         const downloadLink = document.createElement('a');
-        downloadLink.download = 'track.txt';
+        downloadLink.download = fileName;
         downloadLink.href = url;
         downloadLink.click();
         URL.revokeObjectURL(url);

@@ -57,8 +57,8 @@ function click(x: number, y: number): void {
     drag(new Vector(x, y), new Vector(x, y), 0);
 }
 
-const solidLines = () => [...track.mainLayer.grid.totalSolidLines.values()];
-const objects = () => [...track.mainLayer.grid.totalObjects.values()];
+const solidLines = () => [...track.layers.main[0].grid.totalSolidLines.values()];
+const objects = () => [...track.layers.main[0].grid.totalObjects.values()];
 
 beforeEach(() => {
     stubBrowser();
@@ -98,15 +98,16 @@ describe('Line tools', () => {
         expect(solidLines()).toHaveLength(1);
     });
 
-    test('draw on the foreground layer when the option is enabled', () => {
-        const tool = select(SolidLineTool);
-        tool.getOptions()[0].action();
-        expect(tool.getOptions()[0].label).toBe('Layer: Foreground');
-        expect(track.uiInvalidated).toBe(true);
+    test('draw on the active layer, showing it when it is hidden', () => {
+        select(SolidLineTool);
+        const foreground = track.layers.foreground[0];
+        track.layers.setActive(foreground);
+        track.layers.setVisible(foreground, false);
 
         drag(new Vector(0, 0), new Vector(100, 0));
 
-        expect(track.foregroundLayer.grid.totalSolidLines.size).toBe(1);
+        expect(foreground.grid.totalSolidLines.size).toBe(1);
+        expect(foreground.visible).toBe(true);
         expect(solidLines()).toHaveLength(0);
     });
 
@@ -159,7 +160,7 @@ describe('Eraser', () => {
     test('erases what it touches during a drag, restored at once', () => {
         for (const y of [0, 40, 80]) {
             const line = new SolidLine(new Vector(-50, y), new Vector(50, y), track);
-            line.layer = track.mainLayer;
+            line.layer = track.layers.main[0];
             line.addToTrack();
         }
         select(EraserTool);
@@ -176,20 +177,56 @@ describe('Eraser', () => {
         const options = tool.getOptions();
 
         expect(options.map((option) => option.label)).toEqual([
-            'Foreground Line: active',
-            'Foreground Scenery: active',
-            'Main Line: active',
-            'Main Scenery: active',
-            'Main Object: active',
+            'Layers: active',
+            'Line: active',
+            'Scenery: active',
+            'Object: active',
         ]);
-        options[2].action();
-        expect(tool.getOptions()[2].label).toBe('Main Line: inactive');
+        options[1].action();
+        expect(tool.getOptions()[1].label).toBe('Line: inactive');
 
         const line = new SolidLine(new Vector(-50, 0), new Vector(50, 0), track);
-        line.layer = track.mainLayer;
+        line.layer = track.layers.main[0];
         line.addToTrack();
         drag(new Vector(0, 0), new Vector(0, 0), 1);
         expect(line.onTrack).toBe(true);
+    });
+});
+
+describe('Tools on layers', () => {
+    test('the eraser erases the active layer only, or every visible layer', () => {
+        const tool = select(EraserTool);
+        const [main] = track.layers.main;
+        const upper = track.layers.add('main');
+        const hidden = track.layers.add('foreground');
+        track.layers.setVisible(hidden, false);
+        const lines = [main, upper, hidden].map((layer) => {
+            const line = new SolidLine(new Vector(-50, 0), new Vector(50, 0), track);
+            line.layer = layer;
+            line.addToTrack();
+            return line;
+        });
+        track.layers.setActive(upper);
+
+        drag(new Vector(0, 0), new Vector(0, 0), 1);
+        expect(lines.map((line) => line.onTrack)).toEqual([true, false, true]);
+
+        tool.getOptions()[0].action();
+        expect(tool.getOptions()[0].label).toBe('Layers: all visible');
+        drag(new Vector(0, 0), new Vector(0, 0), 1);
+        expect(lines.map((line) => line.onTrack)).toEqual([false, false, true]);
+    });
+
+    test('items go to the closest main layer under a foreground active layer', () => {
+        select(TargetTool);
+        const upper = track.layers.add('main');
+        track.layers.add('foreground');
+
+        click(30, 40);
+
+        expect(upper.grid.totalObjects.size).toBe(1);
+        expect(objects()).toHaveLength(0);
+        expect(track.targets.size).toBe(1);
     });
 });
 

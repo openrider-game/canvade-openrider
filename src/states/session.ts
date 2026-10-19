@@ -3,9 +3,17 @@ import { TRACK_MODE_EDITING, TrackMode } from '../openrider/track/track.constant
 
 const TRACK_ID = 'trackId',
     TRACK_CODE = 'trackCode',
+    EDITOR_CODE = 'editorCode',
     TRACK_MODE = 'trackMode',
     TRACK = 'track',
-    TRACK_UPLOAD = 'trackUpload';
+    TRACK_UPLOAD = 'trackUpload',
+    EXPORT_FORMAT = 'exportFormat';
+
+/**
+ * Format of an export: a track code, playable by the original game, or an editor file keeping the
+ * layers of the editor.
+ */
+export type ExportFormat = 'code' | 'editor';
 
 /**
  * Typed access to the data shared between the states of the game.
@@ -26,13 +34,34 @@ export class Session {
         this.shared.set(TRACK_ID, trackId);
     }
 
-    /** Code of the track to parse, or generated to be uploaded; `null` until fetched. */
+    /**
+     * Code of the track to parse, a track code or an editor file, or the track code generated to
+     * be uploaded; `null` until fetched.
+     */
     public get trackCode(): string | null {
         return (this.shared.get(TRACK_CODE) as string | undefined) ?? null;
     }
 
     public set trackCode(trackCode: string | null) {
         this.shared.set(TRACK_CODE, trackCode);
+    }
+
+    /** Editor file generated to be uploaded, along with {@link Session.trackCode}. */
+    public get editorCode(): string | null {
+        return (this.shared.get(EDITOR_CODE) as string | undefined) ?? null;
+    }
+
+    public set editorCode(editorCode: string | null) {
+        this.shared.set(EDITOR_CODE, editorCode);
+    }
+
+    /** Format of the file downloaded by the track generator state, a track code by default. */
+    public get exportFormat(): ExportFormat {
+        return (this.shared.get(EXPORT_FORMAT) as ExportFormat | undefined) ?? 'code';
+    }
+
+    public set exportFormat(exportFormat: ExportFormat) {
+        this.shared.set(EXPORT_FORMAT, exportFormat);
     }
 
     /** Whether the parsed track is raced or edited, set by the track fetcher state. */

@@ -10,7 +10,7 @@ export interface PlaceableItemClass {
     readonly color: string;
 }
 
-/** Places an item on the main layer at the mouse position on click. */
+/** Places an item at the mouse position on click, on the item layer of the track. */
 export abstract class ItemTool extends Tool {
     /** Class of the placed item. */
     protected abstract get itemClass(): { readonly color: string };
@@ -27,9 +27,13 @@ export abstract class ItemTool extends Tool {
         this.place(item);
     }
 
-    /** Adds an item to the main layer, as an action that can be undone. */
+    /**
+     * Adds an item to the item layer of the track (the active layer, or the closest main layer
+     * under it), as an action that can be undone.
+     */
     protected place(item: Item): void {
-        item.layer = this.track.mainLayer;
+        const layers = this.track.layers;
+        item.layer = layers.reveal(layers.itemLayer);
         item.addToTrack();
         this.track.history.push({
             undo: () => item.removeFromTrack(),

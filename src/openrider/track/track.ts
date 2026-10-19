@@ -12,6 +12,7 @@ import type { Target } from '../item/reachable/target';
 import type { TrackObject } from '../item/track-object';
 import { ToolCollection } from '../tool/tool-collection';
 import { ToolManager } from '../tool/tool-manager';
+import { LayerStack } from './layer-stack';
 import {
     DEFAULT_ZOOM,
     MAX_LINE_LENGTH,
@@ -20,13 +21,7 @@ import {
     MIN_ZOOM,
     ZOOM_STEP,
 } from './track.constants';
-import { TrackLayer } from './track-layer';
-
-/** Eraser restrictions of both layers. */
-export interface TrackEraserRestriction {
-    main: EraserRestriction;
-    foreground: EraserRestriction;
-}
+import type { TrackLayer } from './track-layer';
 
 /**
  * Track being edited or raced: its layers, runners, editing tools and view.
@@ -35,10 +30,8 @@ export interface TrackEraserRestriction {
  * to the camera and the zoom factor.
  */
 export class Track extends World {
-    /** Layer the bikes ride on, drawn under the bikes. */
-    public readonly mainLayer = new TrackLayer(1);
-    /** Layer drawn over the bikes, without physics. */
-    public readonly foregroundLayer = new TrackLayer(0.5);
+    /** Layers of the track, a main and a foreground layer for a new track. */
+    public readonly layers = new LayerStack(this);
 
     /** Start position of the bikes. */
     public readonly origin = new Vector();
@@ -175,22 +168,26 @@ export class Track extends World {
     }
 
     /**
-     * Collides a part with the 2x2 block of physics cells around it, on the main layer only.
+     * Collides a part with the 2x2 block of physics cells around it, on every main layer from
+     * the bottom one to the top one.
      *
      * The touched flags of the whole block are cleared first, so that a line spanning several
-     * cells collides only once.
+     * cells collides only once. With a single main layer, as in the tracks of the original game,
+     * the collisions run exactly as in the original game.
      */
     public touch(part: Collidable): void {
-        const grid = this.mainLayer.grid;
-        const x = Math.floor(part.pos.x / grid.cellSize - 0.5);
-        const y = Math.floor(part.pos.y / grid.cellSize - 0.5);
+        for (const layer of this.layers.main) {
+            const grid = layer.grid;
+            const x = Math.floor(part.pos.x / grid.cellSize - 0.5);
+            const y = Math.floor(part.pos.y / grid.cellSize - 0.5);
 
-        grid.cellBlockAction(x, y, (cell) => cell.untouch());
-        grid.cellBlockAction(x, y, (cell) => cell.touch(part));
+            grid.cellBlockAction(x, y, (cell) => cell.untouch());
+            grid.cellBlockAction(x, y, (cell) => cell.touch(part));
+        }
     }
 
     /**
-     * Deletes the objects around the eraser, on both layers.
+     * Deletes the objects of the allowed kinds around the eraser, on the given layers.
      *
      * @param eraserPoint - Eraser center, in world units.
      * @param radius - Eraser radius, in world units.
@@ -199,34 +196,33 @@ export class Track extends World {
     public checkDelete(
         eraserPoint: Vector,
         radius: number,
-        restrict: TrackEraserRestriction,
+        restrict: EraserRestriction,
+        layers: readonly TrackLayer[],
     ): TrackObject[] {
         const deleted: TrackObject[] = [];
+        if (!Object.values(restrict).some(Boolean)) {
+            return deleted;
+        }
 
-        const checkLayer = (layer: TrackLayer, layerRestrict: EraserRestriction) => {
-            if (!Object.values(layerRestrict).some(Boolean)) {
-                return;
-            }
-
+        for (const layer of layers) {
             const x = Math.floor(eraserPoint.x / layer.grid.cellSize - 0.5);
             const y = Math.floor(eraserPoint.y / layer.grid.cellSize - 0.5);
             layer.grid.cellBlockAction(x, y, (cell) => {
-                deleted.push(...cell.checkDelete(eraserPoint, radius, layerRestrict));
+                deleted.push(...cell.checkDelete(eraserPoint, radius, restrict));
             });
-        };
-
-        checkLayer(this.mainLayer, restrict.main);
-        checkLayer(this.foregroundLayer, restrict.foreground);
+        }
 
         return deleted;
     }
 
     private unreachEverything(): void {
-        this.mainLayer.grid.cells.forEach((cell) => {
-            for (const object of cell.objects) {
-                object.resetReached();
-            }
-        });
+        for (const layer of this.layers.all) {
+            layer.grid.cells.forEach((cell) => {
+                for (const object of cell.objects) {
+                    object.resetReached();
+                }
+            });
+        }
     }
 
     public pause(paused: boolean): void {

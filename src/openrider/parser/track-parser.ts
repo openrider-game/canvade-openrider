@@ -1,7 +1,5 @@
 import { Vector } from 'canvade';
 import { BIKE_MAP, DEFAULT_BIKE } from '../bike/bike.constants';
-import type { RenderCell } from '../grid/cell/render-cell';
-import type { Grid } from '../grid/grid';
 import { ITEM_MAP } from '../item/item.constants';
 import { LineClass } from '../item/line/line';
 import { SceneryLine } from '../item/line/scenery-line';
@@ -10,31 +8,38 @@ import { RenderPriority, WorkerPool } from '../thread/worker-pool';
 import { Track } from '../track/track';
 import { MIN_ZOOM } from '../track/track.constants';
 import { TrackLayer } from '../track/track-layer';
+import { TrackDocument, TrackFormat } from './track-format';
 
 interface ParserData {
     code: string[];
     index: number;
 }
 
+/** Step of the parsing, run until it returns `true`. */
+interface ParserStep {
+    /** Name of the step, displayed with the progress. */
+    label: string;
+    /** Whether the step pre-renders cells rather than parsing entities. */
+    caching: boolean;
+    run(): boolean;
+}
+
 // Number of entities parsed on each step
 const STEP_SIZE = 1000;
 
 /**
- * Parses a track code a few entities at a time, so that the parsing state can display its
- * progress, then pre-renders the cache of the track layers.
+ * Parses a track code or an editor file a few entities at a time, so that the parsing state can
+ * display its progress, then pre-renders the cache of the track layers.
  *
- * Track codes are formatted as
- * `solid lines#scenery lines#items#foreground solid lines#foreground scenery lines#bike#origin`.
- * Entities are separated by `,` within a section, and coordinates are integers in base 32.
- * Missing trailing sections fall back to empty sections, the default bike and the origin `0 0`.
+ * Both formats are described by `TrackFormat`. Entities are separated by `,` within a section,
+ * and coordinates are integers in base 32. The parsed layers replace the layers of the track,
+ * the first main layer becoming the active one.
  *
  * Call {@link TrackParser.init}, then {@link TrackParser.currentStep} until
  * {@link TrackParser.done}.
  */
 export class TrackParser {
     public done = false;
-    /** Next step to run, each step parsing up to 1000 entities or caching one cell. */
-    public currentStep: () => void = this.parseSolidLines;
     /**
      * Number of entities (or cell images) processed so far, see
      * {@link TrackParser.updateIndicators}.
@@ -47,13 +52,9 @@ export class TrackParser {
     /** Whether the parser is pre-rendering the cache, after every entity has been parsed. */
     public caching = false;
 
-    private solidLineData = TrackParser.emptyData();
-    private sceneryLineData = TrackParser.emptyData();
-    private itemData = TrackParser.emptyData();
-    private foregroundSolidLineData = TrackParser.emptyData();
-    private foregroundSceneryLineData = TrackParser.emptyData();
-    private codeBike = '';
-    private codeOrigin = '';
+    private steps: ParserStep[] = [];
+    private stepIndex = 0;
+    private readonly sections: ParserData[] = [];
 
     private cacheIndex = 0;
     /**
@@ -65,20 +66,50 @@ export class TrackParser {
 
     public constructor(public readonly track: Track) {}
 
-    private static emptyData(): ParserData {
-        return { code: [], index: 0 };
+    /**
+     * Reads the code and creates the layers of the track, empty until the steps fill them.
+     *
+     * @throws When the code is an invalid editor file.
+     */
+    public init(rawTrack: string): void {
+        const document = TrackFormat.read(rawTrack);
+        const layers = document.layers.map(
+            ({ type, name, visible }) => new TrackLayer(type, name, visible),
+        );
+        this.track.layers.reset(layers);
+
+        this.steps = [
+            ...document.layers.flatMap((layerDocument, index) => {
+                const layer = layers[index];
+                return [
+                    this.lineStep(layer, 'Solid lines', layerDocument.solid, SolidLine),
+                    this.lineStep(layer, 'Scenery lines', layerDocument.scenery, SceneryLine),
+                    this.itemStep(layer, layerDocument.items),
+                ];
+            }),
+            this.originStep(document),
+            this.bikeStep(document),
+            ...layers.map((layer) => this.cacheStep(layer)),
+        ];
+
+        this.length = this.sections.reduce((total, section) => total + section.code.length, 0);
+        this.progressLabel = this.steps[0].label;
     }
 
-    /** Splits the track code into its sections. */
-    public init(rawTrack: string): void {
-        this.split(rawTrack);
+    /** Runs the current step, moving to the next one once it is complete. */
+    public currentStep(): void {
+        const step = this.steps[this.stepIndex];
+        if (!step) {
+            this.done = true;
+            return;
+        }
 
-        this.length =
-            this.solidLineData.code.length +
-            this.sceneryLineData.code.length +
-            this.itemData.code.length +
-            this.foregroundSolidLineData.code.length +
-            this.foregroundSceneryLineData.code.length;
+        this.progressLabel = step.label;
+        this.caching = step.caching;
+        if (step.run()) {
+            this.stepIndex++;
+            this.done = this.stepIndex >= this.steps.length;
+        }
     }
 
     /**
@@ -90,148 +121,106 @@ export class TrackParser {
             this.progress = this.proxyIndex;
             this.length = this.renderIndex;
         } else {
-            this.progress =
-                this.solidLineData.index +
-                this.sceneryLineData.index +
-                this.itemData.index +
-                this.foregroundSolidLineData.index +
-                this.foregroundSceneryLineData.index;
+            this.progress = this.sections.reduce((total, section) => total + section.index, 0);
         }
     }
 
-    private split(rawTrack: string): void {
-        const [solid, scenery, items, foregroundSolid, foregroundScenery, bike, origin] =
-            rawTrack.split('#');
-
-        this.solidLineData.code = (solid ?? '').split(',');
-        this.sceneryLineData.code = (scenery ?? '').split(',');
-        this.itemData.code = (items ?? '').split(',');
-        this.foregroundSolidLineData.code = (foregroundSolid ?? '').split(',');
-        this.foregroundSceneryLineData.code = (foregroundScenery ?? '').split(',');
-        this.codeBike = bike || DEFAULT_BIKE.bikeName;
-        this.codeOrigin = origin || '0 0';
-    }
-
-    private parseSolidLines(): void {
-        this.progressLabel = 'Solid lines';
-        this.parseLines(
-            this.solidLineData,
-            SolidLine,
-            this.track.mainLayer,
-            this.parseSceneryLines,
-        );
-    }
-
-    private parseSceneryLines(): void {
-        this.progressLabel = 'Scenery lines';
-        this.parseLines(this.sceneryLineData, SceneryLine, this.track.mainLayer, this.parseItems);
-    }
-
-    private parseItems(): void {
-        this.progressLabel = 'Items';
-
-        const l = Math.min(this.itemData.index + STEP_SIZE, this.itemData.code.length);
-        for (; this.itemData.index < l; this.itemData.index++) {
-            const itemCode = this.itemData.code[this.itemData.index].split(' ');
-            const itemClass = itemCode.length > 2 ? ITEM_MAP.get(itemCode[0]) : undefined;
-
-            if (itemClass) {
-                const item = itemClass.createInstance(itemCode, this.track);
-                item.layer = this.track.mainLayer;
-                item.addToTrack();
-            }
-        }
-
-        if (this.itemData.index >= this.itemData.code.length) {
-            this.currentStep = this.parseForegroundSolidLines;
-        }
-    }
-
-    private parseForegroundSolidLines(): void {
-        this.progressLabel = 'Foreground Solid lines';
-        this.parseLines(
-            this.foregroundSolidLineData,
-            SolidLine,
-            this.track.foregroundLayer,
-            this.parseForegroundSceneryLines,
-        );
-    }
-
-    private parseForegroundSceneryLines(): void {
-        this.progressLabel = 'Foreground Scenery lines';
-        this.parseLines(
-            this.foregroundSceneryLineData,
-            SceneryLine,
-            this.track.foregroundLayer,
-            this.parseOrigin,
-        );
-    }
-
-    private parseOrigin(): void {
-        this.progressLabel = 'Origin';
-        const [x, y] = this.codeOrigin.split(' ');
-        const originVector = new Vector(parseInt(x, 32), parseInt(y, 32));
-        this.track.origin.set(originVector);
-        this.track.camera.set(originVector);
-
-        this.currentStep = this.parseBike;
-    }
-
-    private parseBike(): void {
-        this.progressLabel = 'Bike';
-        const playerRunner = this.track.playerRunner;
-        playerRunner.bikeClass = BIKE_MAP.get(this.codeBike) ?? DEFAULT_BIKE;
-        playerRunner.createBike();
-        this.track.focalPoint = playerRunner.instance?.hitbox ?? null;
-
-        this.currentStep = this.processMainCache;
-        this.caching = true;
-    }
-
-    private processMainCache(): void {
-        this.progressLabel = 'Main cache';
-        this.processCache(this.track.mainLayer, this.processForegroundCache);
-    }
-
-    private processForegroundCache(): void {
-        this.progressLabel = 'Foreground cache';
-        this.processCache(this.track.foregroundLayer, this.finish);
-    }
-
-    private finish(): void {
-        this.done = true;
+    private section(code: string): ParserData {
+        const data = { code: code.split(','), index: 0 };
+        this.sections.push(data);
+        return data;
     }
 
     /**
      * Parses lines: each line code is a polyline, a list of base 32 `x y` coordinates separated
      * with spaces, each point being linked to the next one.
      */
-    private parseLines(
-        lineData: ParserData,
-        lineClass: LineClass,
+    private lineStep(
         layer: TrackLayer,
-        next: () => void,
-    ): void {
-        const l = Math.min(lineData.index + STEP_SIZE, lineData.code.length);
-        for (; lineData.index < l; lineData.index++) {
-            const lineCode = lineData.code[lineData.index].split(' ');
-            if (lineCode.length > 3) {
-                for (let k = 0, m = lineCode.length - 2; k < m; k += 2) {
-                    const line = new lineClass(
-                        new Vector(parseInt(lineCode[k], 32), parseInt(lineCode[k + 1], 32)),
-                        new Vector(parseInt(lineCode[k + 2], 32), parseInt(lineCode[k + 3], 32)),
-                        this.track,
-                    );
+        label: string,
+        code: string,
+        lineClass: LineClass,
+    ): ParserStep {
+        const data = this.section(code);
+        return {
+            label: `${label} (${layer.name})`,
+            caching: false,
+            run: () => {
+                const l = Math.min(data.index + STEP_SIZE, data.code.length);
+                for (; data.index < l; data.index++) {
+                    const lineCode = data.code[data.index].split(' ');
+                    if (lineCode.length > 3) {
+                        for (let k = 0, m = lineCode.length - 2; k < m; k += 2) {
+                            const line = new lineClass(
+                                TrackParser.point(lineCode, k),
+                                TrackParser.point(lineCode, k + 2),
+                                this.track,
+                            );
 
-                    line.layer = layer;
-                    line.addToTrack();
+                            line.layer = layer;
+                            line.addToTrack();
+                        }
+                    }
                 }
-            }
-        }
+                return data.index >= data.code.length;
+            },
+        };
+    }
 
-        if (lineData.index >= lineData.code.length) {
-            this.currentStep = next;
-        }
+    /** Reads the base 32 `x y` point starting at an index of a split entity code. */
+    private static point(code: string[], index: number): Vector {
+        return new Vector(parseInt(code[index], 32), parseInt(code[index + 1], 32));
+    }
+
+    /** Parses items, skipping the unknown item codes. */
+    private itemStep(layer: TrackLayer, code: string): ParserStep {
+        const data = this.section(code);
+        return {
+            label: `Items (${layer.name})`,
+            caching: false,
+            run: () => {
+                const l = Math.min(data.index + STEP_SIZE, data.code.length);
+                for (; data.index < l; data.index++) {
+                    const itemCode = data.code[data.index].split(' ');
+                    const itemClass = itemCode.length > 2 ? ITEM_MAP.get(itemCode[0]) : undefined;
+
+                    if (itemClass) {
+                        const item = itemClass.createInstance(itemCode, this.track);
+                        item.layer = layer;
+                        item.addToTrack();
+                    }
+                }
+                return data.index >= data.code.length;
+            },
+        };
+    }
+
+    private originStep(document: TrackDocument): ParserStep {
+        return {
+            label: 'Origin',
+            caching: false,
+            run: () => {
+                const [x, y] = document.origin.split(' ');
+                const originVector = new Vector(parseInt(x, 32), parseInt(y, 32));
+                this.track.origin.set(originVector);
+                this.track.camera.set(originVector);
+                return true;
+            },
+        };
+    }
+
+    private bikeStep(document: TrackDocument): ParserStep {
+        return {
+            label: 'Bike',
+            caching: false,
+            run: () => {
+                const playerRunner = this.track.playerRunner;
+                playerRunner.bikeClass = BIKE_MAP.get(document.bike) ?? DEFAULT_BIKE;
+                playerRunner.createBike();
+                this.track.focalPoint = playerRunner.instance?.hitbox ?? null;
+                return true;
+            },
+        };
     }
 
     /**
@@ -240,35 +229,45 @@ export class TrackParser {
      *
      * Without workers support, the cells are rendered when first displayed instead.
      */
-    private processCache(layer: TrackLayer, next: () => void): void {
-        const cache: Grid<RenderCell> = layer.cache;
-        const cacheCells = Array.from(cache.cells.values());
-        const l = Math.min(this.cacheIndex + 1, cacheCells.length);
+    private cacheStep(layer: TrackLayer): ParserStep {
+        return {
+            label: `Cache (${layer.name})`,
+            caching: true,
+            run: () => {
+                const cacheCells = Array.from(layer.cache.cells.values());
+                const l = Math.min(this.cacheIndex + 1, cacheCells.length);
 
-        for (; this.cacheIndex < l; this.cacheIndex++) {
-            const cell = cacheCells[this.cacheIndex];
-            for (let zoom = MIN_ZOOM; zoom <= 1; zoom = Math.round((zoom + 0.2) * 100) / 100) {
-                if (cell.isHeavy() && WorkerPool.supported) {
-                    WorkerPool.request(
-                        cell,
-                        zoom,
-                        layer.opacityFactor,
-                        RenderPriority.PRELOAD,
-                        () => this.proxyIndex++,
-                    );
-                } else {
-                    this.proxyIndex++;
+                for (; this.cacheIndex < l; this.cacheIndex++) {
+                    const cell = cacheCells[this.cacheIndex];
+                    for (
+                        let zoom = MIN_ZOOM;
+                        zoom <= 1;
+                        zoom = Math.round((zoom + 0.2) * 100) / 100
+                    ) {
+                        if (cell.isHeavy() && WorkerPool.supported) {
+                            WorkerPool.request(
+                                cell,
+                                zoom,
+                                layer.opacityFactor,
+                                RenderPriority.PRELOAD,
+                                () => this.proxyIndex++,
+                            );
+                        } else {
+                            this.proxyIndex++;
+                        }
+
+                        this.renderIndex++;
+                    }
                 }
 
-                this.renderIndex++;
-            }
-        }
-
-        if (this.cacheIndex >= cacheCells.length && this.proxyIndex >= this.renderIndex) {
-            this.proxyIndex = 0;
-            this.renderIndex = 0;
-            this.cacheIndex = 0;
-            this.currentStep = next;
-        }
+                if (this.cacheIndex >= cacheCells.length && this.proxyIndex >= this.renderIndex) {
+                    this.proxyIndex = 0;
+                    this.renderIndex = 0;
+                    this.cacheIndex = 0;
+                    return true;
+                }
+                return false;
+            },
+        };
     }
 }

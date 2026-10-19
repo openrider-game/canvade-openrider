@@ -8,6 +8,10 @@ export class TrackParserLayer extends ProgressLayer {
     }
 
     protected getStatus(): ProgressStatus {
+        if (this.state.error) {
+            return { progress: 0, total: 0, text: `Error parsing track: "${this.state.error}"` };
+        }
+
         const parser = this.state.parser;
         if (!parser) {
             return { progress: 1, total: 1, text: 'Parsing...' };

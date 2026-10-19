@@ -258,11 +258,11 @@ describe('Fast renderer support', () => {
 
     test('renders every cell synchronously without workers support', () => {
         const heavy = parseTrack(`${heavyTrackCode()}#####BMX#0 0`);
-        const cell = heavy.mainLayer.cache.cell(0, 0);
+        const cell = heavy.layers.main[0].cache.cell(0, 0);
         expect(WorkerPool.supported).toBe(false);
         expect(cell.isHeavy()).toBe(true);
 
-        TrackRenderer.render(createCanvasMock().context, heavy, false);
+        TrackRenderer.render(createCanvasMock().context, heavy);
 
         expect(cell.isUpToDate(heavy.zoomFactor)).toBe(true);
         expect(worker()?.tasks ?? []).toHaveLength(0);
@@ -271,13 +271,13 @@ describe('Fast renderer support', () => {
     test('renders the dense cells in the workers by default when supported', () => {
         vi.stubGlobal('OffscreenCanvas', class {});
         const heavy = parseTrack('#####BMX#0 0');
-        const cell = heavy.mainLayer.cache.cell(0, 0);
+        const cell = heavy.layers.main[0].cache.cell(0, 0);
         for (let i = 0; i <= FAST_RENDER_THRESHOLD; i++) {
             cell.push(new SolidLine(new Vector(0, i % 400), new Vector(300, i % 400), heavy));
         }
         expect(WorkerPool.supported).toBe(true);
 
-        TrackRenderer.render(createCanvasMock().context, heavy, false);
+        TrackRenderer.render(createCanvasMock().context, heavy);
 
         expect(cell.isUpToDate(heavy.zoomFactor)).toBe(false);
         expect(worker().tasks.map(({ task }) => task.zoom)).toContain(heavy.zoomFactor);
@@ -288,7 +288,7 @@ describe('Track renderer', () => {
     test('draws the visible cells, scaling the images rendered at another zoom', () => {
         const { context } = createCanvasMock();
         const heavy = parseTrack('#####BMX#0 0');
-        const cell = heavy.mainLayer.cache.cell(0, 0);
+        const cell = heavy.layers.main[0].cache.cell(0, 0);
         for (let i = 0; i <= FAST_RENDER_THRESHOLD; i++) {
             cell.push(new SolidLine(new Vector(0, i % 400), new Vector(300, i % 400), heavy));
         }
@@ -296,7 +296,7 @@ describe('Track renderer', () => {
         heavy.zoomFactor = 0.6;
         drainWorker();
 
-        TrackRenderer.render(context, heavy, false, true);
+        TrackRenderer.render(context, heavy, { fastRender: true });
 
         const drawImage = vi.mocked(context.drawImage);
         const scaled = drawImage.mock.calls.find((call) => (call as unknown[]).length === 5);
@@ -306,7 +306,7 @@ describe('Track renderer', () => {
     test('draws the debug overlay of the grids and the runners', () => {
         const { context, calls } = createCanvasMock();
 
-        TrackRenderer.render(context, track, true);
+        TrackRenderer.render(context, track, { debug: true });
 
         expect(calls).toContain('moveTo');
         expect(calls).toContain('fillRect');

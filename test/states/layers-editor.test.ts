@@ -1,0 +1,305 @@
+import { EventFactory, Mouse, State, StateClass, StateManager, Vector } from 'canvade';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { EDITOR_FORMAT, TrackFormat } from '../../src/openrider/parser/track-format';
+import { Session } from '../../src/states/session';
+import {
+    STATE_TRACK_EDITING,
+    STATE_TRACK_FETCHER,
+    STATE_TRACK_PARSER,
+    STATE_TRACK_UPLOAD,
+} from '../../src/states/state-names';
+import States from '../../src/states/states';
+import { TrackEditingState } from '../../src/states/track/track-editing.state';
+import { TrackUploadState } from '../../src/states/track-upload/track-upload.state';
+import { createCanvasMock, stubBrowser } from '../helpers/canvas';
+
+const EDITOR_CODE = JSON.stringify({
+    format: EDITOR_FORMAT,
+    version: 1,
+    layers: [
+        { name: 'Ground', type: 'main', solid: '-50 1i 50 1i,' },
+        { name: 'Glass', type: 'foreground', solid: '0 0 a a,' },
+        { name: 'Ramps', type: 'main', solid: '0 a a 0,' },
+    ],
+});
+
+let manager: StateManager;
+let session: Session;
+
+async function runUntil(stateName: string, frames = 400): Promise<void> {
+    const state = manager.getState(stateName);
+    for (let frame = 0; frame < frames && manager.getCurrent() !== state; frame++) {
+        manager.fixedUpdate();
+        manager.update(0.5, 20);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(manager.getCurrent()?.constructor.name).toBe(state?.constructor.name);
+}
+
+/** Runs frames, rebuilding the interface, and returns the texts drawn by the last one. */
+function frame(): string[] {
+    const { context } = createCanvasMock();
+    manager.update(0.5, 20);
+    manager.render(context);
+    return vi.mocked(context.fillText).mock.calls.map(([text]) => String(text));
+}
+
+function click(x: number, y: number): void {
+    for (const name of ['mouseDown', 'mouseUp']) {
+        Mouse.worldPos.set(new Vector(x, y));
+        manager.getCurrent()?.dispatch(
+            name as 'mouseDown',
+            EventFactory.createGameEvent({
+                name,
+                consumed: false,
+                position: new Vector(x, y),
+                mouseEvent: { button: 0 } as MouseEvent,
+            }),
+        );
+    }
+    frame();
+}
+
+function type(key: string): void {
+    manager.getCurrent()?.dispatch(
+        'keyDown',
+        EventFactory.createGameEvent({
+            name: 'keyDown',
+            consumed: false,
+            keyboardEvent: { key, ctrlKey: false, altKey: false, metaKey: false } as KeyboardEvent,
+        }),
+    );
+}
+
+/**
+ * Positions in the layers panel of the 700 x 400 test canvas, for a number of layers: the panel
+ * is 230 pixels wide, 64 pixels from the right edge and 10 from the bottom edge.
+ */
+function panel(layerCount: number) {
+    const height = 8 + 22 + 24 + 24 * layerCount + 24;
+    const top = 400 - 10 - height;
+    const left = 700 - 64 - 230 + 4;
+    const rowY = (row: number) => top + 4 + 48 + 24 * row + 11;
+    return {
+        input: { x: left + 100, y: top + 4 + 24 + 11 },
+        visibility: (row: number) => ({ x: left + 15, y: rowY(row) }),
+        select: (row: number) => ({ x: left + 80, y: rowY(row) }),
+        up: (row: number) => ({ x: left + 157, y: rowY(row) }),
+        remove: (row: number) => ({ x: left + 205, y: rowY(row) }),
+        addMain: { x: left + 50, y: rowY(layerCount) },
+        addForeground: { x: left + 160, y: rowY(layerCount) },
+    };
+}
+
+beforeEach(() => {
+    stubBrowser();
+    manager = new StateManager();
+    session = new Session(manager.shared);
+    for (const { name, state } of Object.values(States)) {
+        manager.addState(state as StateClass<State>, name);
+    }
+});
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+});
+
+describe('Layers panel', () => {
+    test('edits the layers of the track', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        const layers = session.track.layers;
+        expect(frame()).toEqual(
+            expect.arrayContaining(['Layers (2) ▼', 'Foreground (fg)', 'Main', '+ Main']),
+        );
+
+        // Added above the active layer, then listed first
+        const add = panel(2).addMain;
+        click(add.x, add.y);
+        expect(layers.all.map((layer) => layer.name)).toEqual(['Main', 'Main 2', 'Foreground']);
+        expect(layers.active.name).toBe('Main 2');
+
+        // Rows from the top layer: Foreground, Main 2, Main
+        const rows = panel(3);
+        click(rows.visibility(0).x, rows.visibility(0).y);
+        expect(layers.foreground[0].visible).toBe(false);
+        expect(frame()).toContain('off');
+
+        click(rows.select(2).x, rows.select(2).y);
+        expect(layers.active.name).toBe('Main');
+
+        click(rows.input.x, rows.input.y);
+        for (const key of [
+            'Backspace',
+            'Backspace',
+            'Backspace',
+            'Backspace',
+            'R',
+            'o',
+            'c',
+            'k',
+        ]) {
+            type(key);
+        }
+        type('Enter');
+        expect(layers.active.name).toBe('Rock');
+
+        click(rows.up(2).x, rows.up(2).y);
+        expect(layers.all.map((layer) => layer.name)).toEqual(['Main 2', 'Rock', 'Foreground']);
+
+        // Rows: Foreground, Rock, Main 2
+        click(rows.remove(2).x, rows.remove(2).y);
+        expect(layers.all.map((layer) => layer.name)).toEqual(['Rock', 'Foreground']);
+
+        // Rows: Foreground, Rock, the last main layer, which cannot be removed
+        const rest = panel(2);
+        click(rest.remove(1).x, rest.remove(1).y);
+        expect(layers.main).toHaveLength(1);
+        click(rest.remove(0).x, rest.remove(0).y);
+        expect(layers.all.map((layer) => layer.name)).toEqual(['Rock']);
+    });
+
+    test('scrolls through many layers and collapses', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        for (let i = 0; i < 5; i++) {
+            session.track.layers.add('main');
+        }
+        expect(frame()).toEqual(expect.arrayContaining(['Layers (7) ▼', '▼ 1 more']));
+
+        // Six rows of 24 pixels and a scroll button of 20 pixels, over the add buttons
+        const top = 400 - 10 - (8 + 22 + 24 + 6 * 24 + 20 + 24);
+        const left = 700 - 64 - 230 + 4;
+        click(left + 100, top + 4 + 48 + 6 * 24 + 9);
+        const texts = frame();
+        expect(texts).toEqual(expect.arrayContaining(['▲ 1 more', 'Main']));
+        expect(texts).not.toContain('Foreground (fg)');
+
+        click(left + 100, top + 4 + 11);
+        expect(frame()).toContain('Layers (7) ▲');
+        expect(frame()).not.toContain('+ Main');
+    });
+
+    test('is not displayed while racing', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(async () => new Response(JSON.stringify({ CODE: EDITOR_CODE }))),
+        );
+        session.trackId = 3;
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil('trackRacing');
+
+        expect(frame().some((text) => text.startsWith('Layers'))).toBe(false);
+        expect(session.track.layers.all).toHaveLength(3);
+    });
+});
+
+describe('Editor files', () => {
+    test('are exported with every layer', async () => {
+        const createObjectURL = vi.fn((blob: Blob) => blob && 'blob:track');
+        vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
+        session.trackCode = EDITOR_CODE;
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+
+        (manager.getCurrent() as TrackEditingState).getButtons()[2].action();
+        await runUntil(STATE_TRACK_EDITING);
+
+        const [blob] = createObjectURL.mock.calls[0];
+        expect(blob.type).toBe('application/json');
+        const document = TrackFormat.read(await blob.text());
+        expect(document.layers.map((layer) => layer.name)).toEqual(['Ground', 'Glass', 'Ramps']);
+    });
+
+    test('are imported, an invalid file being refused', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        const alert = vi.fn();
+        vi.stubGlobal('alert', alert);
+        const input = { files: [{}], addEventListener: vi.fn(), click: vi.fn() };
+        let fileContent = '';
+        vi.stubGlobal('document', {
+            ...document,
+            createElement: (tag: string) => (tag === 'input' ? input : document.createElement(tag)),
+        });
+        vi.stubGlobal(
+            'FileReader',
+            class {
+                public result = '';
+                private onLoad = () => {};
+                public addEventListener(_name: string, listener: () => void) {
+                    this.onLoad = listener;
+                }
+                public readAsText() {
+                    this.result = fileContent;
+                    this.onLoad();
+                }
+            },
+        );
+        const importFile = (content: string) => {
+            fileContent = content;
+            (manager.getCurrent() as TrackEditingState).getButtons()[0].action();
+            const [, onChange] = input.addEventListener.mock.calls.at(-1) as [string, () => void];
+            onChange();
+        };
+
+        importFile('{"format":"something else"}');
+        expect(alert).toHaveBeenCalledWith(
+            'This file cannot be imported: Not an OpenRider editor file',
+        );
+        expect(manager.getCurrent() === manager.getState(STATE_TRACK_EDITING)).toBe(true);
+
+        importFile(EDITOR_CODE);
+        expect(manager.getCurrent() === manager.getState(STATE_TRACK_PARSER)).toBe(true);
+        await runUntil(STATE_TRACK_EDITING);
+        expect(session.track.layers.all.map((layer) => layer.name)).toEqual([
+            'Ground',
+            'Glass',
+            'Ramps',
+        ]);
+    });
+
+    test('are uploaded, as well as track codes', async () => {
+        const fetch = vi.fn(async () => new Response(JSON.stringify({ ID: 9 })));
+        vi.stubGlobal('fetch', fetch);
+        vi.stubGlobal('location', { href: '' });
+        session.trackCode = EDITOR_CODE;
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        frame();
+        (manager.getCurrent() as TrackEditingState).getButtons()[3].action();
+        await runUntil(STATE_TRACK_UPLOAD);
+        const upload = manager.getCurrent() as TrackUploadState;
+        const createElement = document.createElement;
+        vi.stubGlobal('document', {
+            ...document,
+            createElement: (tag: string) =>
+                Object.assign(createElement(tag), { toDataURL: () => 'data:image/png;base64,' }),
+        });
+        const uploaded = async (button: number) => {
+            upload.getButtons()[button].action();
+            await new Promise((resolve) => setTimeout(resolve, 10));
+            const [, request] = fetch.mock.calls.at(-1) as unknown as [string, RequestInit];
+            return (request.body as URLSearchParams).get('trackCode') ?? '';
+        };
+
+        expect(upload.getButtons().map((button) => button.label)).toEqual([
+            'Cancel',
+            'Upload track code',
+            'Upload editor file',
+        ]);
+        // Main layers merged into the solid section, the foreground layer into the foreground
+        // solid section
+        expect(await uploaded(1)).toBe('-50 1i 50 1i,0 a a 0,###0 0 a a,##BMX#0 0');
+        expect(TrackFormat.isEditorCode(await uploaded(2))).toBe(true);
+        expect(location.href).toBe('?track=9');
+    });
+
+    test('show why they cannot be parsed', async () => {
+        session.trackCode = '{"format":"openrider-editor","version":1,"layers":[]}';
+        manager.push(STATE_TRACK_PARSER);
+
+        expect(frame()).toContain('Error parsing track: "The editor file has no main layer"');
+    });
+});

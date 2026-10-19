@@ -3,7 +3,7 @@ import type { LineClass } from '../../item/line/line';
 import { InterfaceScale } from '../../numeric/interface-scale';
 import { LinePath } from '../../numeric/line-path';
 import { MAX_LINE_LENGTH, MIN_LINE_LENGTH } from '../../track/track.constants';
-import { Tool, ToolOption } from '../tool';
+import { Tool } from '../tool';
 
 /** Distance to the canvas border under which the camera scrolls while drawing, in pixels. */
 const EDGE_SCROLL_MARGIN = 50;
@@ -12,14 +12,12 @@ const EDGE_SCROLL_MARGIN = 50;
  * Draws a line from the press position to the release position.
  *
  * Holding the tool key draws connected lines: each click adds a line from the end of the previous
- * one. The options drawer selects the layer receiving the lines.
+ * one. Lines are drawn on the active layer of the track.
  */
 export abstract class LineTool extends Tool {
     /** Class of the drawn lines (solid or scenery). */
     protected abstract get lineClass(): LineClass;
 
-    /** Whether lines are drawn on the foreground layer instead of the main layer. */
-    private foreground = false;
     /** End of the last drawn line, where the next connected line starts, in world units. */
     protected lastLine: Vector | null = null;
 
@@ -61,7 +59,7 @@ export abstract class LineTool extends Tool {
             return;
         }
 
-        line.layer = this.foreground ? this.track.foregroundLayer : this.track.mainLayer;
+        line.layer = this.track.layers.reveal(this.track.layers.active);
         line.addToTrack();
 
         this.track.history.push({
@@ -78,18 +76,6 @@ export abstract class LineTool extends Tool {
         );
 
         return measure >= MIN_LINE_LENGTH && measure < MAX_LINE_LENGTH;
-    }
-
-    public override getOptions(): ToolOption[] {
-        return [
-            {
-                label: this.foreground ? 'Layer: Foreground' : 'Layer: Main',
-                action: () => {
-                    this.foreground = !this.foreground;
-                    this.track.invalidateUI();
-                },
-            },
-        ];
     }
 
     /** Scrolls the camera when drawing near the canvas borders. */

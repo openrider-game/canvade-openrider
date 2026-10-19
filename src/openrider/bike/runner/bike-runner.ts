@@ -1,6 +1,7 @@
 import { Vector } from 'canvade';
 import { Explosion } from '../../entity/explosion';
 import { Ragdoll } from '../../entity/ragdoll';
+import { GRID_CELL_SIZE } from '../../grid/grid.constants';
 import { MODIFIERS } from '../../item/modifiers';
 import type { ReachableItem } from '../../item/reachable-item';
 import type { Track } from '../../track/track';
@@ -323,7 +324,7 @@ export abstract class BikeRunner {
             ...(this.deadObject?.points ?? []),
         ];
 
-        const cellSize = this.track.mainLayer.grid.cellSize;
+        const cellSize = GRID_CELL_SIZE;
         const gridZoom = cellSize * this.track.zoomFactor;
 
         for (const point of points) {

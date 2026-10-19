@@ -16,6 +16,8 @@ import { TrackParserLayer } from './layers/track-parser.layer';
 export class TrackParserState extends OpenRiderState {
     /** Parser of the running parsing, `null` before entering the state and once done. */
     public parser: TrackParser | null = null;
+    /** Why the session code cannot be parsed, empty when it can. */
+    public error = '';
 
     protected initState(): void {
         this.subscribe('enter', this.startParsing);
@@ -30,8 +32,15 @@ export class TrackParserState extends OpenRiderState {
         const session = this.session;
         const racing = session.trackMode === TRACK_MODE_RACING;
 
-        this.parser = new TrackParser(new Track(racing ? session.trackId : null));
-        this.parser.init(session.trackCode ?? TRACK_DEFAULT);
+        const parser = new TrackParser(new Track(racing ? session.trackId : null));
+        this.error = '';
+        try {
+            parser.init(session.trackCode ?? TRACK_DEFAULT);
+            this.parser = parser;
+        } catch (e) {
+            this.parser = null;
+            this.error = e instanceof Error ? e.message : String(e);
+        }
     }
 
     private parseStep(): void {

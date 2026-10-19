@@ -35,8 +35,8 @@ function entities(code: string, section: number): string[] {
 describe('Track parser', () => {
     test('reads every section of a track code', () => {
         const track = parseTrack(FULL_TRACK);
-        const main = track.mainLayer.grid;
-        const foreground = track.foregroundLayer.grid;
+        const main = track.layers.main[0].grid;
+        const foreground = track.layers.foreground[0].grid;
 
         // The polyline is split into its two lines
         expect(main.totalSolidLines.size).toBe(3);
@@ -58,7 +58,7 @@ describe('Track parser', () => {
 
     test('reads base 32 coordinates', () => {
         const track = parseTrack('-a 1i 3v 0');
-        const [line] = track.mainLayer.grid.totalSolidLines.values();
+        const [line] = track.layers.main[0].grid.totalSolidLines.values();
 
         expect(line.pos).toMatchObject({ x: -10, y: 50 });
         expect(line.endPos).toMatchObject({ x: 127, y: 0 });
@@ -67,7 +67,7 @@ describe('Track parser', () => {
     test('falls back to defaults when sections are missing', () => {
         const track = parseTrack(TRACK_DEFAULT);
 
-        expect(track.mainLayer.grid.totalSolidLines.size).toBe(1);
+        expect(track.layers.main[0].grid.totalSolidLines.size).toBe(1);
         expect(track.playerRunner.bikeClass.bikeName).toBe('BMX');
         expect(track.origin).toMatchObject({ x: 0, y: 0 });
     });
@@ -79,26 +79,26 @@ describe('Track parser', () => {
     test('ignores malformed entities', () => {
         const track = parseTrack('1 2 3,,0 0 a#T 1,C#####');
 
-        expect(track.mainLayer.grid.totalSolidLines.size).toBe(0);
-        expect(track.mainLayer.grid.totalObjects.size).toBe(0);
+        expect(track.layers.main[0].grid.totalSolidLines.size).toBe(0);
+        expect(track.layers.main[0].grid.totalObjects.size).toBe(0);
     });
 
     test('reports its progress while parsing, then while caching', () => {
         const parser = new TrackParser(new Track());
         parser.init('0 0 a 0,0 a a a#0 -a a -a#T 5 5###BMX#0 0');
-        // The two empty foreground sections count as one empty entity each
-        expect(parser.length).toBe(6);
+        // The three empty sections of the foreground layer count as one empty entity each
+        expect(parser.length).toBe(7);
 
         parser.currentStep();
         parser.updateIndicators();
-        expect(parser.progressLabel).toBe('Solid lines');
+        expect(parser.progressLabel).toBe('Solid lines (Main)');
         expect(parser.progress).toBe(2);
 
         while (!parser.caching) {
             parser.currentStep();
         }
         parser.updateIndicators();
-        expect(parser.progressLabel).toBe('Bike');
+        expect(parser.progressLabel).toBe('Cache (Main)');
     });
 });
 
@@ -144,7 +144,7 @@ describe('Track generator', () => {
 
     test('exports the edits of the track', () => {
         const track = parseTrack(FULL_TRACK);
-        const teleporter = [...track.mainLayer.grid.totalObjects.values()].find(
+        const teleporter = [...track.layers.main[0].grid.totalObjects.values()].find(
             (item) => item instanceof LinkedItem,
         );
         teleporter?.removeFromTrack();

@@ -39,7 +39,10 @@ export class TrackMainLayer extends Layer {
         ctx.fillStyle = '#000';
         ctx.lineWidth = 1;
 
-        TrackRenderer.render(ctx, track, this.debugEnabled && track.debug);
+        TrackRenderer.render(ctx, track, {
+            debug: this.debugEnabled && track.debug,
+            hideHiddenLayers: this.state.editsLayers(),
+        });
         track.toolManager.render(ctx);
         ctx.restore();
 

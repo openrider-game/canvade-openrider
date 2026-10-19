@@ -1,6 +1,7 @@
 import { Control, KEYE } from 'canvade';
+import type { EraserRestriction } from '../../grid/cell/physics-cell';
 import type { TrackObjectKind } from '../../item/track-object';
-import { TrackEraserRestriction } from '../../track/track';
+import type { TrackLayer } from '../../track/track-layer';
 import { Tool, ToolOption } from '../tool';
 
 /** Labels of the object kinds in the options drawer. */
@@ -14,8 +15,8 @@ const KIND_LABELS: Record<TrackObjectKind, string> = {
  * Erases the track objects under a circle around the mouse while the button is held.
  *
  * Everything erased during a drag is undone as a whole. Scrolling while holding the tool key
- * changes the eraser size, and the options drawer selects which kinds of objects are erased on each
- * layer.
+ * changes the eraser size, and the options drawer selects which kinds of objects are erased, and
+ * whether on the active layer only or on every visible layer.
  */
 export class EraserTool extends Tool {
     public static override readonly toolName: string = 'Eraser';
@@ -28,12 +29,10 @@ export class EraserTool extends Tool {
     private readonly minSize = 5;
     private readonly maxSize = 40;
 
-    /** Kinds of objects erased on each layer. */
-    private readonly restrict: TrackEraserRestriction = {
-        // No objects in foreground
-        foreground: { solid: true, scenery: true, item: false },
-        main: { solid: true, scenery: true, item: true },
-    };
+    /** Kinds of objects erased. */
+    private readonly restrict: EraserRestriction = { solid: true, scenery: true, item: true };
+    /** Whether every visible layer is erased, instead of the active layer only. */
+    private allLayers = false;
 
     public override onMouseDown(e: MouseEvent): void {
         super.onMouseDown(e);
@@ -50,7 +49,12 @@ export class EraserTool extends Tool {
     public override onMouseMove(e: MouseEvent): void {
         super.onMouseMove(e);
         if (this.mouseDown) {
-            const deleted = this.track.checkDelete(this.track.mousePos, this.size, this.restrict);
+            const deleted = this.track.checkDelete(
+                this.track.mousePos,
+                this.size,
+                this.restrict,
+                this.erasedLayers(),
+            );
             if (deleted.length) {
                 this.track.history.push({
                     undo: () => deleted.forEach((obj) => obj.addToTrack()),
@@ -71,23 +75,31 @@ export class EraserTool extends Tool {
         }
     }
 
-    public override getOptions(): ToolOption[] {
-        const layers: Array<[string, keyof TrackEraserRestriction, TrackObjectKind[]]> = [
-            ['Foreground', 'foreground', ['solid', 'scenery']],
-            ['Main', 'main', ['solid', 'scenery', 'item']],
-        ];
+    /** Layers erased: the active layer, or every visible layer. */
+    private erasedLayers(): readonly TrackLayer[] {
+        const layers = this.track.layers;
+        return this.allLayers ? layers.all.filter((layer) => layer.visible) : [layers.active];
+    }
 
-        return layers.flatMap(([layerLabel, layer, kinds]) =>
-            kinds.map((kind) => ({
-                label:
-                    `${layerLabel} ${KIND_LABELS[kind]}: ` +
-                    (this.restrict[layer][kind] ? 'active' : 'inactive'),
+    public override getOptions(): ToolOption[] {
+        const kinds: TrackObjectKind[] = ['solid', 'scenery', 'item'];
+
+        return [
+            {
+                label: this.allLayers ? 'Layers: all visible' : 'Layers: active',
                 action: () => {
-                    this.restrict[layer][kind] = !this.restrict[layer][kind];
+                    this.allLayers = !this.allLayers;
+                    this.track.invalidateUI();
+                },
+            },
+            ...kinds.map((kind) => ({
+                label: `${KIND_LABELS[kind]}: ${this.restrict[kind] ? 'active' : 'inactive'}`,
+                action: () => {
+                    this.restrict[kind] = !this.restrict[kind];
                     this.track.invalidateUI();
                 },
             })),
-        );
+        ];
     }
 
     public override render(ctx: CanvasRenderingContext2D): void {

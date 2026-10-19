@@ -1,14 +1,28 @@
 import { Vector } from 'canvade';
 import type { RenderCell } from '../grid/cell/render-cell';
 import { Grid } from '../grid/grid';
+import { CACHE_CELL_SIZE, GRID_CELL_SIZE } from '../grid/grid.constants';
 import { WorkerPool } from '../thread/worker-pool';
 import type { Track } from './track';
 import type { TrackLayer } from './track-layer';
 
-interface RenderOptions {
-    debug: boolean;
-    fastRender: boolean;
+/** Options of {@link TrackRenderer.render}. */
+export interface TrackRenderOptions {
+    /** Whether to draw the debug overlay, false by default. */
+    debug?: boolean;
+    /**
+     * Whether the densest cells are rendered by the workers, when the browser supports it by
+     * default. Without it, they are rendered synchronously.
+     */
+    fastRender?: boolean;
+    /**
+     * Whether the layers hidden in the editor are left out, false by default: the hidden layers
+     * are only hidden while editing.
+     */
+    hideHiddenLayers?: boolean;
 }
+
+type RenderOptions = Required<TrackRenderOptions>;
 
 /** Visible area of the track, in grid coordinates. */
 interface GridBounds {
@@ -19,29 +33,35 @@ interface GridBounds {
 /** Draws a track: its layers, its runners and optionally the debug overlay. */
 export abstract class TrackRenderer {
     /**
-     * Draws the main layer, then the runners, then the foreground layer over them.
-     *
-     * @param debug - Whether to draw the debug overlay.
-     * @param fastRender - Whether the densest cells are rendered by the workers, when the browser
-     * supports it by default. Without it, they are rendered synchronously.
+     * Draws the main layers, then the runners, then the foreground layers over them, each group
+     * from the bottom layer to the top one.
      */
     public static render(
         ctx: CanvasRenderingContext2D,
         track: Track,
-        debug: boolean,
-        fastRender = WorkerPool.supported,
+        renderOptions: TrackRenderOptions = {},
     ): void {
-        const cacheBounds = TrackRenderer.getVisibleCells(track, track.mainLayer.cache.cellSize);
-        const options = { debug, fastRender };
+        const options: RenderOptions = {
+            debug: false,
+            fastRender: WorkerPool.supported,
+            hideHiddenLayers: false,
+            ...renderOptions,
+        };
+        const cacheBounds = TrackRenderer.getVisibleCells(track, CACHE_CELL_SIZE);
+        const shown = (layer: TrackLayer) => layer.visible || !options.hideHiddenLayers;
 
-        TrackRenderer.renderLayer(ctx, track, track.mainLayer, cacheBounds, options);
+        for (const layer of track.layers.main.filter(shown)) {
+            TrackRenderer.renderLayer(ctx, track, layer, cacheBounds, options);
+        }
 
         track.ghostRunners.forEach((runner) => runner.render(ctx));
         track.playerRunner.render(ctx);
 
-        TrackRenderer.renderLayer(ctx, track, track.foregroundLayer, cacheBounds, options);
+        for (const layer of track.layers.foreground.filter(shown)) {
+            TrackRenderer.renderLayer(ctx, track, layer, cacheBounds, options);
+        }
 
-        if (debug) {
+        if (options.debug) {
             TrackRenderer.renderDebug(ctx, track, cacheBounds);
         }
     }
@@ -124,14 +144,14 @@ export abstract class TrackRenderer {
         track: Track,
         cacheBounds: GridBounds,
     ): void {
-        const physicsCellSize = track.mainLayer.grid.cellSize;
+        const physicsCellSize = GRID_CELL_SIZE;
         const physicsBounds = TrackRenderer.getVisibleCells(track, physicsCellSize);
 
         ctx.save();
         ctx.lineWidth = 2;
 
         ctx.strokeStyle = '#0000ff55';
-        TrackRenderer.renderGrid(ctx, track, cacheBounds, track.mainLayer.cache.cellSize);
+        TrackRenderer.renderGrid(ctx, track, cacheBounds, CACHE_CELL_SIZE);
 
         ctx.strokeStyle = '#0000ff22';
         TrackRenderer.renderGrid(ctx, track, physicsBounds, physicsCellSize);

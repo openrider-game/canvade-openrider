@@ -67,6 +67,7 @@ It also adds a few features:
   tracks using it cannot be played by the original game
 - the interface keeps its size on high density screens
 - the PHP backend is shipped with the game, see [.setup/README.md](.setup/README.md)
+- the editor works with any number of layers, saved in editor files (see [Layers](#layers))
 
 This repository is **not endorsed nor approved** by FreeRiderHD, the official successor to the
 FreeRider series of games.
@@ -163,9 +164,38 @@ Letter shortcuts follow the keyboard layout (the undo key is the M key of an AZE
 - Holding a line tool key draws lines connected to the previous one on each click.
 - Holding the brush or eraser key while scrolling changes its size.
 - The options of the current tool are in the drawer at the top of the screen, opened and closed with
-  its button: the layer to draw on (the foreground layer is drawn over the bike and has no physics),
-  what the eraser removes...
-- The editor imports and exports track codes as text files, and uploads them with a thumbnail.
+  its button: what the eraser removes, the start position reset...
+- The editor imports track codes and editor files, exports either of them, and uploads either of
+  them with a thumbnail.
+
+### Layers
+
+The editor draws on any number of layers, listed from the top one in the layers panel at the bottom
+right of the editor, like in an image editor:
+
+- **Main** layers collide with the bikes and are drawn under them; **foreground** layers have no
+  physics and are drawn over the bikes, half transparent. A track has at least one main layer.
+- The lines are drawn on the active layer, highlighted in the panel, and the eraser erases the active
+  layer, or every visible layer with its option. Items need physics: they go on the active layer, or
+  on the closest main layer under it when the active layer is a foreground layer.
+- The panel adds layers above the active one, shows or hides them, moves them up and down, removes
+  them, and renames the active layer (type the name, then Enter). Everything but showing or hiding
+  can be undone.
+- Hidden layers are only hidden in the editor: they still collide, are still exported, and are
+  displayed when racing. Drawing on a hidden layer shows it again.
+
+Two file formats hold the tracks, both read by the editor, the racing mode and the backend:
+
+| Format      | Content                                                           | Played by the original game |
+| ----------- | ----------------------------------------------------------------- | --------------------------- |
+| Track code  | one main and one foreground layer: the layers of each type merged | yes                         |
+| Editor file | JSON keeping every layer with its name, type and visibility       | no                          |
+
+Importing a track code gives a "Main" and a "Foreground" layer; exporting it as an editor file
+converts it to the new format. An editor file is
+`{"format":"openrider-editor","version":1,"bike":"BMX","origin":"0 0","layers":[...]}`, each layer
+holding its `name`, `type` (`main` or `foreground`), `visible` flag, and its `solid`, `scenery` and
+`items` in the section format of the track codes.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

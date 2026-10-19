@@ -22,7 +22,7 @@ let track: Track;
 
 function render(debug = false) {
     const mock = createCanvasMock();
-    TrackRenderer.render(mock.context, track, debug);
+    TrackRenderer.render(mock.context, track, { debug });
     return mock;
 }
 

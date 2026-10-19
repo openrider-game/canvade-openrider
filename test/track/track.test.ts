@@ -14,7 +14,7 @@ import { parseTrack, pressKey, releaseKey, runTicks } from '../helpers/track';
 let track: Track;
 
 function addLine(line: SolidLine | SceneryLine, foreground = false): void {
-    line.layer = foreground ? track.foregroundLayer : track.mainLayer;
+    line.layer = foreground ? track.layers.foreground[0] : track.layers.main[0];
     line.addToTrack();
 }
 
@@ -83,14 +83,16 @@ describe('Track objects storage', () => {
         const line = new SolidLine(new Vector(-150, 50), new Vector(250, 50), track);
         addLine(line);
 
-        const physicsCells = [...track.mainLayer.grid.cells.values()].filter((cell) =>
+        const physicsCells = [...track.layers.main[0].grid.cells.values()].filter((cell) =>
             cell.lines.includes(line),
         );
         expect(physicsCells.map((cell) => cell.x).sort((a, b) => a - b)).toEqual([
             -200, -100, 0, 100, 200,
         ]);
         expect(
-            [...track.mainLayer.cache.cells.values()].filter((cell) => cell.lines.includes(line)),
+            [...track.layers.main[0].cache.cells.values()].filter((cell) =>
+                cell.lines.includes(line),
+            ),
         ).toHaveLength(2);
     });
 
@@ -98,8 +100,8 @@ describe('Track objects storage', () => {
         const line = new SolidLine(new Vector(0, 0), new Vector(1, 0), track);
         addLine(line);
 
-        expect(track.mainLayer.grid.totalSolidLines.has(line.id)).toBe(true);
-        expect(cellContent(track.mainLayer.grid)).not.toContain(line);
+        expect(track.layers.main[0].grid.totalSolidLines.has(line.id)).toBe(true);
+        expect(cellContent(track.layers.main[0].grid)).not.toContain(line);
     });
 
     test('removes an object from every cell', () => {
@@ -107,9 +109,9 @@ describe('Track objects storage', () => {
         addLine(line);
         line.removeFromTrack();
 
-        expect(cellContent(track.mainLayer.grid)).not.toContain(line);
-        expect(cellContent(track.mainLayer.cache)).not.toContain(line);
-        expect(track.mainLayer.grid.totalSolidLines.has(line.id)).toBe(false);
+        expect(cellContent(track.layers.main[0].grid)).not.toContain(line);
+        expect(cellContent(track.layers.main[0].cache)).not.toContain(line);
+        expect(track.layers.main[0].grid.totalSolidLines.has(line.id)).toBe(false);
     });
 
     test('erases the objects of the allowed kinds and layers only', () => {
@@ -120,14 +122,16 @@ describe('Track objects storage', () => {
         addLine(solid);
         addLine(scenery);
         addLine(foreground, true);
-        target.layer = track.mainLayer;
+        target.layer = track.layers.main[0];
         target.addToTrack();
         const eraser = new Vector(0, 300);
 
-        const deleted = track.checkDelete(eraser, 10, {
-            main: { solid: false, scenery: true, item: true },
-            foreground: { solid: false, scenery: false, item: false },
-        });
+        const deleted = track.checkDelete(
+            eraser,
+            10,
+            { solid: false, scenery: true, item: true },
+            track.layers.main,
+        );
 
         expect(deleted).toEqual(expect.arrayContaining([scenery, target]));
         expect(deleted).toHaveLength(2);
