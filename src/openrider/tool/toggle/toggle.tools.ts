@@ -30,7 +30,7 @@ export class GridSnapTool extends ToggleTool {
     }
 }
 
-/** Shows or hides the debug rendering of the track objects. */
+/** Enables or disables the debug mode, whose overlays are chosen in the debug panel. */
 export class ToggleDebugTool extends ToggleTool {
     public static override readonly toolName: string = 'Toggle Debug';
     public static override readonly keyLabel: string = 'Control+D';
@@ -39,6 +39,8 @@ export class ToggleDebugTool extends ToggleTool {
 
     protected toggle(): void {
         this.track.debug = !this.track.debug;
+        // Shows or hides the debug panel
+        this.track.invalidateUI();
     }
 
     public override isToggled(): boolean {

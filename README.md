@@ -167,6 +167,10 @@ Letter shortcuts follow the keyboard layout (the undo key is the M key of an AZE
   its button: what the eraser removes, the start position reset...
 - The editor imports track codes and editor files, exports either of them, and uploads either of
   them with a thumbnail.
+- The debug mode (`Ctrl+D`) opens a panel choosing its overlays: the grids, the collision checks,
+  the item ids, the bike physics (points, springs and velocities), the state of the cached cell
+  images, and stats (frame rate, time, view, track content, workers, player inputs and status
+  effects). Its last button pauses the game and runs a single physics tick.
 
 ### Layers
 
@@ -180,7 +184,8 @@ right of the editor, like in an image editor:
   on the closest main layer under it when the active layer is a foreground layer.
 - The panel adds layers above the active one, shows or hides them, moves them up and down, removes
   them, and renames the active layer (type the name, then Enter). Everything but showing or hiding
-  can be undone.
+  can be undone. Past six layers, the list scrolls with the mouse wheel or its scrollbar, and the
+  title of the panel slides it down to the title, and back up.
 - Hidden layers are only hidden in the editor: they still collide, are still exported, and are
   displayed when racing. Drawing on a hidden layer shows it again.
 

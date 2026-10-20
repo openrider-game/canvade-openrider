@@ -190,10 +190,10 @@ describe('Editing a track', () => {
         click(250, 20);
         expect(layerOption()).toBe('Layers: all visible');
 
-        // Stays open when the options are rebuilt, then closes from the handle under them: four
-        // options of 30 pixels, 5 pixels apart
+        // Stays open when the options are rebuilt, then closes from the handle under them: a panel
+        // of four rows of 22 pixels, inside a padding of 4 pixels
         expect(frames(1)).toContain('Layers: all visible');
-        click(350, 5 + 4 * 35 + 10);
+        click(350, 2 * 4 + 4 * 22 + 10);
         frames(15);
         click(250, 20);
         expect(layerOption()).toBe('Layers: all visible');

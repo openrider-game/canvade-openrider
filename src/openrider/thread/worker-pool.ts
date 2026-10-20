@@ -53,6 +53,16 @@ export abstract class WorkerPool {
     /** Requests being rendered, by task id. */
     private static readonly running = new Map<number, RunningRequest>();
 
+    /** Number of requests waiting for a worker. */
+    public static get queuedCount(): number {
+        return WorkerPool.queue.size;
+    }
+
+    /** Number of requests being rendered by the workers. */
+    public static get runningCount(): number {
+        return WorkerPool.running.size;
+    }
+
     private static createWorkers(): void {
         const source = URL.createObjectURL(
             new Blob([`(${renderCellWorker.toString()})()`], { type: 'text/javascript' }),

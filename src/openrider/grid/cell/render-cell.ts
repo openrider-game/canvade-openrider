@@ -55,6 +55,19 @@ export class RenderCell extends Cell {
         return this.lines.length + this.scenery.length > FAST_RENDER_THRESHOLD;
     }
 
+    /**
+     * State of the image displayed at a zoom level: `current` when it matches the content of the
+     * cell, `stale` when the content changed since, `other-zoom` when only images of other zoom
+     * levels can be scaled to it, `none` when there is nothing to display.
+     */
+    public imageState(zoom: number): 'current' | 'stale' | 'other-zoom' | 'none' {
+        const image = this.images.get(zoom);
+        if (image) {
+            return image.version === this.version ? 'current' : 'stale';
+        }
+        return this.images.size ? 'other-zoom' : 'none';
+    }
+
     /** Whether the image at the given zoom matches the current content of the cell. */
     public isUpToDate(zoom: number): boolean {
         return this.images.get(zoom)?.version === this.version;

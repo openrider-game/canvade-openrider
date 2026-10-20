@@ -1,74 +1,39 @@
-import {
-    GameRenderEvent,
-    Layer,
-    Mouse,
-    UIButton,
-    UIElement,
-    UIStructureDefinition,
-    UIStyleDefinition,
-} from 'canvade';
+import { Layer, Mouse, UIElement, UIStructureDefinition, UIStyleDefinition } from 'canvade';
 import { ToolGroupTool } from '../../../openrider/tool/group/tool-group.tool';
 import { CameraTool } from '../../../openrider/tool/misc/camera.tool';
 import { Tool } from '../../../openrider/tool/tool';
 import { ToolCollection } from '../../../openrider/tool/tool-collection';
 import type { TrackViewState } from '../track-view.state';
 import { ToolbarSide } from '../track-view.definitions';
+import { DebugPanel } from '../ui/debug-panel';
 import { LayersPanel } from '../ui/layers-panel';
-import { TOOL_ELEMENT_TYPE, UIToolButton } from '../ui/ui-tool-button';
+import { OptionsDrawer } from '../ui/options-drawer';
+import { ToolTooltip } from '../ui/tool-tooltip';
+import { TOOL_ELEMENT_TYPE } from '../ui/ui-tool-button';
+import {
+    THEME_STYLES,
+    UI_ACTIVE_BACKGROUND_COLOR,
+    UI_BACKGROUND_COLOR,
+    UI_HOVER_BACKGROUND_COLOR,
+} from '../ui/ui-theme';
 
 const TOOL_SIZE = 26,
     // Offset of the tools of an open group from the canvas edge, next to their toolbar
-    GROUP_OFFSET = 30,
-    OPTION_WIDTH = 300,
-    OPTION_HEIGHT = 30,
-    OPTION_GAP = 5,
-    HANDLE_WIDTH = 90,
-    HANDLE_HEIGHT = 20,
-    DRAWER_DURATION = 250,
-    DRAWER_OPEN_LABEL = 'Options ▲',
-    DRAWER_CLOSED_LABEL = 'Options ▼',
-    TOOLTIP_MARGIN = 4;
+    GROUP_OFFSET = 30;
 
 /** Styles of every interface, completed with the positions computed when it is built. */
 const BASE_STYLES: UIStyleDefinition = {
-    button: {
-        backgroundColor: '#fff',
-        hoverBackgroundColor: '#ddd',
-        focusBackgroundColor: '#fff',
-        activeBackgroundColor: '#ccc',
-        color: '#000',
-    },
+    ...THEME_STYLES,
     [TOOL_ELEMENT_TYPE]: {
         width: TOOL_SIZE,
         height: TOOL_SIZE,
-        backgroundColor: '#fff',
-        hoverBackgroundColor: '#ddd',
-        activeBackgroundColor: '#ccc',
-    },
-    container: {
-        color: 'transparent',
+        backgroundColor: UI_BACKGROUND_COLOR,
+        hoverBackgroundColor: UI_HOVER_BACKGROUND_COLOR,
+        activeBackgroundColor: UI_ACTIVE_BACKGROUND_COLOR,
     },
     // Every top level element is laid out over the track, outside of the root flow
     '.overlay': {
         position: 'absolute',
-    },
-    // Only laying the buttons out: the track stays reachable between them
-    '.options': {
-        pointerEvents: 'none',
-        horizontalAlign: 'center',
-        y: OPTION_GAP,
-        width: OPTION_WIDTH,
-        gap: OPTION_GAP,
-        flexDirection: 'column',
-    },
-    '.options button': {
-        width: '100%',
-        height: OPTION_HEIGHT,
-    },
-    '.options-handle': {
-        horizontalAlign: 'center',
-        width: HANDLE_WIDTH,
-        height: HANDLE_HEIGHT,
     },
     '.group': {
         pointerEvents: 'none',
@@ -85,12 +50,12 @@ interface Toolbar {
 }
 
 /**
- * Top layer of the track states: toolbars, options of the current tool and text buttons, built
- * declaratively with the canvade UI from the definitions of the state.
+ * Top layer of the track states: toolbars with their tooltips, options of the current tool and
+ * text buttons, built declaratively with the canvade UI from the definitions of the state.
  *
- * The options are in a drawer at the top of the canvas, hidden above it until its handle button
- * opens it. The drawer stays open or closed when the current tool changes. States editing the
- * layers of the track also get the {@link LayersPanel}.
+ * The options are in the {@link OptionsDrawer}. States editing the layers of the track also get
+ * the {@link LayersPanel}, and states allowing the debug mode get the {@link DebugPanel} while it
+ * is enabled.
  *
  * Layers receive the input events top layer first, so this layer syncs the track mouse positions
  * with the canvade `Mouse.worldPos` before the other layers handle the mouse events. A mouse event
@@ -100,7 +65,7 @@ interface Toolbar {
 export class TrackInterfaceLayer extends Layer {
     private toolbars: Toolbar[] = [];
     private root: UIElement | null = null;
-    private optionsDrawerOpen = false;
+    private readonly optionsDrawer = new OptionsDrawer();
     private readonly layersPanel = new LayersPanel();
 
     public constructor(private readonly state: TrackViewState) {
@@ -210,37 +175,12 @@ export class TrackInterfaceLayer extends Layer {
             });
         }
 
-        // Drawer with the options of the current tool, and its handle
-        const options = this.state.track.toolManager.tool?.getOptions() ?? [];
-        if (options.length) {
-            const height = options.length * (OPTION_HEIGHT + OPTION_GAP);
-            structure.push({
-                'container.overlay.options': options.map((option, index) => ({
-                    [`button.option-${index}`]: { events: { click: () => option.action() } },
-                })),
-            });
-            structure.push({
-                'button.overlay.options-handle': {
-                    events: { click: () => this.toggleOptionsDrawer() },
-                },
-            });
-            styles['.options'] = {
-                ...BASE_STYLES['.options'],
-                y: this.drawerOffsets(height).options,
-                height,
-            };
-            styles['.options-handle'] = {
-                ...BASE_STYLES['.options-handle'],
-                y: this.drawerOffsets(height).handle,
-                text: this.optionsDrawerOpen ? DRAWER_OPEN_LABEL : DRAWER_CLOSED_LABEL,
-            };
-            options.forEach((option, index) => {
-                styles[`.option-${index}`] = { text: option.label };
-            });
-        }
-
+        this.optionsDrawer.build(this.state.track, structure, styles);
         if (this.state.editsLayers()) {
             this.layersPanel.build(this.state.track, structure, styles);
+        }
+        if (this.state.allowsDebug() && this.state.track.debug) {
+            DebugPanel.build(this.state.track, structure, styles);
         }
 
         // State buttons
@@ -259,100 +199,15 @@ export class TrackInterfaceLayer extends Layer {
             };
         });
 
-        this.root = this.uiRenderer.setUI(structure, styles);
+        const root = this.uiRenderer.setUI(structure, styles);
+        this.root = root;
         // Rendered once the whole UI tree is, so that the tooltip is drawn over the toolbars
-        this.root.subscribe('renderTree', (e) => this.renderTooltip(e));
-    }
-
-    /**
-     * Opens or closes the options drawer, sliding the options and the handle together.
-     *
-     * The interface is not rebuilt: a rebuild during the animation applies its end position.
-     */
-    public toggleOptionsDrawer(): void {
-        this.optionsDrawerOpen = !this.optionsDrawerOpen;
-
-        const options = this.root?.children.find((child) => child.classNames.includes('options'));
-        const handle = this.root?.children.find((child) =>
-            child.classNames.includes('options-handle'),
-        );
-        if (!options || !(handle instanceof UIButton)) {
-            return;
-        }
-
-        const offsets = this.drawerOffsets(options.v('height'));
-        options.animate('y', offsets.options, { duration: DRAWER_DURATION });
-        handle.animate('y', offsets.handle, { duration: DRAWER_DURATION });
-        handle
-            .getProperty('text')
-            .setValue(this.optionsDrawerOpen ? DRAWER_OPEN_LABEL : DRAWER_CLOSED_LABEL);
-    }
-
-    /**
-     * Vertical offsets of the options and of the handle: a closed drawer is right above the
-     * canvas, with the handle at its top edge.
-     *
-     * @param height - Height of the options container.
-     */
-    private drawerOffsets(height: number): { options: number; handle: number } {
-        return this.optionsDrawerOpen
-            ? { options: OPTION_GAP, handle: OPTION_GAP + height }
-            : { options: -height, handle: 0 };
+        root.subscribe('renderTree', (e) => ToolTooltip.render(e.detail.ctx, root));
     }
 
     /** Element of a tool button, the tool being read from its data by {@link UIToolButton}. */
     private toolElement(tool: Tool) {
         return { data: { tool }, events: { click: () => tool.run() } };
-    }
-
-    /** Displays the name and shortcut of the hovered tool next to its button. */
-    private renderTooltip(e: CustomEvent<GameRenderEvent>): void {
-        const hovered = this.root ? this.findHoveredTool(this.root) : null;
-        const tool = hovered?.tool;
-        if (!hovered || !tool) {
-            return;
-        }
-
-        const ctx = e.detail.ctx;
-        const { x, y, width } = hovered.getBounds();
-        const keyLabel = tool.toolClass.keyLabel;
-        const label = keyLabel ? `${tool.getLabel()} (${keyLabel})` : tool.getLabel();
-
-        ctx.save();
-        const metrics = ctx.measureText(label);
-        const labelHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-
-        // Tooltips of the right toolbar are displayed on the left of the buttons
-        let rectX = x + width + TOOLTIP_MARGIN;
-        if (this.root && x > this.root.getBounds().width / 2) {
-            rectX = x - 2 * TOOLTIP_MARGIN - metrics.width;
-        }
-
-        ctx.fillStyle = '#fff';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.rect(rectX, y + 1, metrics.width + TOOLTIP_MARGIN, TOOL_SIZE - 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = '#000';
-        ctx.fillText(label, rectX + TOOLTIP_MARGIN / 2, y + labelHeight + 5);
-        ctx.restore();
-    }
-
-    private findHoveredTool(element: UIElement): UIToolButton | null {
-        if (element instanceof UIToolButton && element.isHovered()) {
-            return element;
-        }
-
-        for (const child of element.children) {
-            const hovered = this.findHoveredTool(child);
-            if (hovered) {
-                return hovered;
-            }
-        }
-
-        return null;
     }
 
     private syncMouse(): void {

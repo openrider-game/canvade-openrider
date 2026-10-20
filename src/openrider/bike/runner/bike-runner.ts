@@ -1,7 +1,6 @@
 import { Vector } from 'canvade';
 import { Explosion } from '../../entity/explosion';
 import { Ragdoll } from '../../entity/ragdoll';
-import { GRID_CELL_SIZE } from '../../grid/grid.constants';
 import { MODIFIERS } from '../../item/modifiers';
 import type { ReachableItem } from '../../item/reachable-item';
 import type { Track } from '../../track/track';
@@ -315,48 +314,5 @@ export abstract class BikeRunner {
         }
 
         this.deadObject?.render(ctx);
-    }
-
-    /** Highlights the physics cells checked around each point and the points hitboxes. */
-    public renderDebug(ctx: CanvasRenderingContext2D): void {
-        const points: Array<{ pos: Vector; displayPos: Vector; size: number; touch: boolean }> = [
-            ...(this.instance?.points ?? []),
-            ...(this.deadObject?.points ?? []),
-        ];
-
-        const cellSize = GRID_CELL_SIZE;
-        const gridZoom = cellSize * this.track.zoomFactor;
-
-        for (const point of points) {
-            if (!point.touch) {
-                continue;
-            }
-
-            const x = Math.floor(point.pos.x / cellSize - 0.5);
-            const y = Math.floor(point.pos.y / cellSize - 0.5);
-
-            const cellX = Math.floor(
-                this.track.viewWidth / 2 -
-                    this.track.camera.x * this.track.zoomFactor +
-                    x * gridZoom,
-            );
-            const cellY = Math.floor(
-                this.track.viewHeight / 2 -
-                    this.track.camera.y * this.track.zoomFactor +
-                    y * gridZoom,
-            );
-
-            ctx.fillStyle = '#ff000005';
-            ctx.fillRect(cellX, cellY, gridZoom, gridZoom);
-            ctx.fillRect(cellX, cellY + gridZoom, gridZoom, gridZoom);
-            ctx.fillRect(cellX + gridZoom, cellY, gridZoom, gridZoom);
-            ctx.fillRect(cellX + gridZoom, cellY + gridZoom, gridZoom, gridZoom);
-
-            const bikePos = this.track.toPixel(point.displayPos);
-            ctx.fillStyle = '#00ff0055';
-            ctx.beginPath();
-            ctx.arc(bikePos.x, bikePos.y, point.size * this.track.zoomFactor, 0, 2 * Math.PI, true);
-            ctx.fill();
-        }
     }
 }

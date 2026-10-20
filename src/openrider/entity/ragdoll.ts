@@ -1,5 +1,6 @@
 import { Vector } from 'canvade';
-import type { Bike, Rider } from '../bike/bike';
+import type { Bike } from '../bike/bike';
+import type { Rider } from '../bike/rider-pose';
 import { Spring } from '../bike/spring';
 import { LinePath } from '../numeric/line-path';
 import type { Track } from '../track/track';

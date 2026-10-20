@@ -1,13 +1,15 @@
 import { UIButton, UIElementFactory } from 'canvade';
 import type { Tool } from '../../../openrider/tool/tool';
 import { ICON_SIZE, ToolIcons } from './tool-icons';
+import {
+    UI_BORDER_COLOR,
+    UI_BORDER_WIDTH,
+    UI_SELECTED_BACKGROUND_COLOR,
+    UI_TOGGLED_BACKGROUND_COLOR,
+} from './ui-theme';
 
 /** Type of the {@link UIToolButton} elements in the UI structures and styles. */
 export const TOOL_ELEMENT_TYPE = 'tool';
-
-const SELECTED_BACKGROUND_COLOR = '#456',
-    TOGGLED_BACKGROUND_COLOR = '#077',
-    BORDER_COLOR = '#000';
 
 /**
  * Toolbar button of a tool, given in the `tool` data of the element. Its icon and colors
@@ -29,9 +31,9 @@ export class UIToolButton extends UIButton {
         // The hover and active colors of the button take precedence over the tool state colors
         let backgroundColor = this.v('backgroundColor');
         if (tool?.isActive()) {
-            backgroundColor = SELECTED_BACKGROUND_COLOR;
+            backgroundColor = UI_SELECTED_BACKGROUND_COLOR;
         } else if (tool?.isToggled()) {
-            backgroundColor = TOGGLED_BACKGROUND_COLOR;
+            backgroundColor = UI_TOGGLED_BACKGROUND_COLOR;
         }
 
         if (this.isHovered()) {
@@ -49,8 +51,8 @@ export class UIToolButton extends UIButton {
             ctx.drawImage(ToolIcons.get(icon), x, y, ICON_SIZE, ICON_SIZE);
         }
 
-        ctx.strokeStyle = BORDER_COLOR;
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = UI_BORDER_COLOR;
+        ctx.lineWidth = UI_BORDER_WIDTH;
         ctx.strokeRect(x, y, width, height);
         ctx.restore();
     }

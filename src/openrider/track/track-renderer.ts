@@ -4,6 +4,7 @@ import { Grid } from '../grid/grid';
 import { CACHE_CELL_SIZE, GRID_CELL_SIZE } from '../grid/grid.constants';
 import { WorkerPool } from '../thread/worker-pool';
 import type { Track } from './track';
+import { TrackDebugRenderer } from './track-debug-renderer';
 import type { TrackLayer } from './track-layer';
 
 /** Options of {@link TrackRenderer.render}. */
@@ -25,12 +26,12 @@ export interface TrackRenderOptions {
 type RenderOptions = Required<TrackRenderOptions>;
 
 /** Visible area of the track, in grid coordinates. */
-interface GridBounds {
+export interface GridBounds {
     topLeft: Vector;
     bottomRight: Vector;
 }
 
-/** Draws a track: its layers, its runners and optionally the debug overlay. */
+/** Draws a track: its layers, its runners and optionally the debug overlays. */
 export abstract class TrackRenderer {
     /**
      * Draws the main layers, then the runners, then the foreground layers over them, each group
@@ -62,7 +63,15 @@ export abstract class TrackRenderer {
         }
 
         if (options.debug) {
-            TrackRenderer.renderDebug(ctx, track, cacheBounds);
+            TrackDebugRenderer.render(
+                ctx,
+                track,
+                {
+                    cache: cacheBounds,
+                    physics: TrackRenderer.getVisibleCells(track, GRID_CELL_SIZE),
+                },
+                track.layers.all.filter(shown),
+            );
         }
     }
 
@@ -132,60 +141,9 @@ export abstract class TrackRenderer {
         ctx.strokeStyle = '#000';
         for (const object of cell.objects) {
             object.render(ctx);
-            if (options.debug) {
+            if (options.debug && track.debugOptions.objects) {
                 object.renderDebug(ctx);
             }
         }
-    }
-
-    /** Draws the render and physics grids, and the collision checks of the runners. */
-    private static renderDebug(
-        ctx: CanvasRenderingContext2D,
-        track: Track,
-        cacheBounds: GridBounds,
-    ): void {
-        const physicsCellSize = GRID_CELL_SIZE;
-        const physicsBounds = TrackRenderer.getVisibleCells(track, physicsCellSize);
-
-        ctx.save();
-        ctx.lineWidth = 2;
-
-        ctx.strokeStyle = '#0000ff55';
-        TrackRenderer.renderGrid(ctx, track, cacheBounds, CACHE_CELL_SIZE);
-
-        ctx.strokeStyle = '#0000ff22';
-        TrackRenderer.renderGrid(ctx, track, physicsBounds, physicsCellSize);
-
-        track.ghostRunners.forEach((runner) => runner.renderDebug(ctx));
-        track.playerRunner.renderDebug(ctx);
-
-        ctx.restore();
-    }
-
-    private static renderGrid(
-        ctx: CanvasRenderingContext2D,
-        track: Track,
-        bounds: GridBounds,
-        cellSize: number,
-    ): void {
-        const zoom = track.zoomFactor;
-
-        ctx.beginPath();
-        for (let y = bounds.topLeft.y; y <= bounds.bottomRight.y; y++) {
-            const gridLineY = Math.floor(
-                track.viewHeight / 2 - track.camera.y * zoom + y * cellSize * zoom,
-            );
-            ctx.moveTo(0, gridLineY);
-            ctx.lineTo(track.viewWidth, gridLineY);
-        }
-
-        for (let x = bounds.topLeft.x; x <= bounds.bottomRight.x; x++) {
-            const gridLineX = Math.floor(
-                track.viewWidth / 2 - track.camera.x * zoom + x * cellSize * zoom,
-            );
-            ctx.moveTo(gridLineX, 0);
-            ctx.lineTo(gridLineX, track.viewHeight);
-        }
-        ctx.stroke();
     }
 }

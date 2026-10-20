@@ -12,6 +12,7 @@ import type { Target } from '../item/reachable/target';
 import type { TrackObject } from '../item/track-object';
 import { ToolCollection } from '../tool/tool-collection';
 import { ToolManager } from '../tool/tool-manager';
+import { DebugOptions, defaultDebugOptions } from './debug-options';
 import { LayerStack } from './layer-stack';
 import {
     DEFAULT_ZOOM,
@@ -72,7 +73,11 @@ export class Track extends World {
     /** Downloaded ghost codes by ghost id. */
     public readonly ghostCache = new Map<number, string>();
 
+    /** Whether the debug mode is enabled, its overlays chosen in {@link Track.debugOptions}. */
     public debug = false;
+    public readonly debugOptions: DebugOptions = defaultDebugOptions();
+    /** Physics ticks to run while paused, requested by {@link Track.step}. */
+    public pendingSteps = 0;
 
     /** Canvas the track is rendered on, known after the first render. */
     public canvas: HTMLCanvasElement | null = null;
@@ -227,6 +232,12 @@ export class Track extends World {
 
     public pause(paused: boolean): void {
         this.paused = paused;
+    }
+
+    /** Pauses the track if needed, then requests a single physics tick, to debug frame by frame. */
+    public step(): void {
+        this.pause(true);
+        this.pendingSteps++;
     }
 
     /** Restarts the runners from their last checkpoint or from the start, resetting the items. */

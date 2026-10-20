@@ -7,13 +7,8 @@ import type { TrackViewState } from '../track-view.state';
  * tool the mouse events the layers above did not consume.
  */
 export class TrackMainLayer extends Layer {
-    /**
-     * @param debugEnabled - Whether the debug overlay can be displayed in this state.
-     */
-    public constructor(
-        private readonly state: TrackViewState,
-        private readonly debugEnabled = true,
-    ) {
+    /** The debug overlays are displayed when the state allows them (see `allowsDebug`). */
+    public constructor(private readonly state: TrackViewState) {
         super();
     }
 
@@ -40,7 +35,7 @@ export class TrackMainLayer extends Layer {
         ctx.lineWidth = 1;
 
         TrackRenderer.render(ctx, track, {
-            debug: this.debugEnabled && track.debug,
+            debug: this.state.allowsDebug() && track.debug,
             hideHiddenLayers: this.state.editsLayers(),
         });
         track.toolManager.render(ctx);

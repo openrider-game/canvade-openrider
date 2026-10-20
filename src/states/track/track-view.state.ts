@@ -19,6 +19,14 @@ export abstract class TrackViewState extends OpenRiderState {
     public abstract getToolbars(): ToolbarDefinition[];
 
     /**
+     * Whether the state can display the debug mode: its overlays and the debug panel. False by
+     * default: the debug mode is only displayed while riding.
+     */
+    public allowsDebug(): boolean {
+        return false;
+    }
+
+    /**
      * Whether the state edits the layers of the track: it then displays the layers panel and
      * leaves out the hidden layers. False by default: the layers are only edited in the editor.
      */

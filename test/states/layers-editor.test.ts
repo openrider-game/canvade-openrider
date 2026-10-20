@@ -60,6 +60,21 @@ function click(x: number, y: number): void {
     frame();
 }
 
+function wheel(x: number, y: number, deltaY: number): void {
+    manager.getCurrent()?.dispatch(
+        'scroll',
+        EventFactory.createGameEvent({
+            name: 'scroll',
+            consumed: false,
+            position: new Vector(x, y),
+            wheelEvent: { deltaY, deltaMode: 0 } as WheelEvent,
+            viewWidth: 700,
+            viewHeight: 400,
+        }),
+    );
+    frame();
+}
+
 function type(key: string): void {
     manager.getCurrent()?.dispatch(
         'keyDown',
@@ -76,16 +91,16 @@ function type(key: string): void {
  * is 230 pixels wide, 64 pixels from the right edge and 10 from the bottom edge.
  */
 function panel(layerCount: number) {
-    const height = 8 + 22 + 24 + 24 * layerCount + 24;
+    const height = 8 + 22 + 22 + 22 * layerCount + 22;
     const top = 400 - 10 - height;
     const left = 700 - 64 - 230 + 4;
-    const rowY = (row: number) => top + 4 + 48 + 24 * row + 11;
+    const rowY = (row: number) => top + 4 + 44 + 22 * row + 11;
     return {
-        input: { x: left + 100, y: top + 4 + 24 + 11 },
+        input: { x: left + 100, y: top + 4 + 22 + 11 },
         visibility: (row: number) => ({ x: left + 15, y: rowY(row) }),
         select: (row: number) => ({ x: left + 80, y: rowY(row) }),
-        up: (row: number) => ({ x: left + 157, y: rowY(row) }),
-        remove: (row: number) => ({ x: left + 205, y: rowY(row) }),
+        up: (row: number) => ({ x: left + 167, y: rowY(row) }),
+        remove: (row: number) => ({ x: left + 211, y: rowY(row) }),
         addMain: { x: left + 50, y: rowY(layerCount) },
         addForeground: { x: left + 160, y: rowY(layerCount) },
     };
@@ -160,25 +175,47 @@ describe('Layers panel', () => {
         expect(layers.all.map((layer) => layer.name)).toEqual(['Rock']);
     });
 
-    test('scrolls through many layers and collapses', async () => {
+    test('scrolls through many layers, and slides down to its title', async () => {
         manager.push(STATE_TRACK_FETCHER);
         await runUntil(STATE_TRACK_EDITING);
+        const layers = session.track.layers;
         for (let i = 0; i < 5; i++) {
-            session.track.layers.add('main');
+            layers.add('main');
         }
-        expect(frame()).toEqual(expect.arrayContaining(['Layers (7) ▼', '▼ 1 more']));
-
-        // Six rows of 24 pixels and a scroll button of 20 pixels, over the add buttons
-        const top = 400 - 10 - (8 + 22 + 24 + 6 * 24 + 20 + 24);
+        frame();
+        // Seven layers in a list of six rows: Foreground, Main 6, Main 5... Main
+        const top = 400 - 10 - (8 + 3 * 22 + 6 * 22);
         const left = 700 - 64 - 230 + 4;
-        click(left + 100, top + 4 + 48 + 6 * 24 + 9);
-        const texts = frame();
-        expect(texts).toEqual(expect.arrayContaining(['▲ 1 more', 'Main']));
-        expect(texts).not.toContain('Foreground (fg)');
+        const firstRow = { x: left + 80, y: top + 4 + 44 + 11 };
+        const zoom = session.track.zoomFactor;
 
+        // Scrolled by the wheel, within the 22 pixels of overflow, instead of zooming the track
+        wheel(firstRow.x, firstRow.y, 15);
+        wheel(firstRow.x, firstRow.y, 100);
+        expect(session.track.zoomFactor).toBe(zoom);
+        click(firstRow.x, firstRow.y);
+        expect(layers.active.name).toBe('Main 6');
+
+        // Kept when the interface is rebuilt
+        click(firstRow.x, firstRow.y);
+        expect(layers.active.name).toBe('Main 6');
+
+        // The title slides down to the bottom of the canvas, then back up
         click(left + 100, top + 4 + 11);
         expect(frame()).toContain('Layers (7) ▲');
-        expect(frame()).not.toContain('+ Main');
+        for (let i = 0; i < 12; i++) {
+            frame();
+        }
+        const closedTop = 400 - 10 - (8 + 22);
+        click(firstRow.x, firstRow.y);
+        expect(layers.active.name).toBe('Main 6');
+        click(left + 100, closedTop + 4 + 11);
+        for (let i = 0; i < 12; i++) {
+            frame();
+        }
+        expect(frame()).toContain('Layers (7) ▼');
+        click(left + 80, firstRow.y + 22);
+        expect(layers.active.name).toBe('Main 5');
     });
 
     test('is not displayed while racing', async () => {

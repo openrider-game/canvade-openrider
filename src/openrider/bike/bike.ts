@@ -1,10 +1,10 @@
 import { Vector } from 'canvade';
 import { Part } from '../entity/part';
 import { Wheel } from '../entity/wheel';
-import { Transform } from '../numeric/transform';
 import type { Track } from '../track/track';
 import type { BikeRunner } from './runner/bike-runner';
 import { CONTROL_NAMES, ControlName } from './runner/runner-controls';
+import { Rider, RiderPose } from './rider-pose';
 import { Spring } from './spring';
 
 /** Constructor of a concrete bike, also exposing its name as written in track and ghost codes. */
@@ -19,20 +19,6 @@ export interface BikeClass {
  * Each list is in increasing order, every time toggling the state of the control.
  */
 export type KeyLog = Map<ControlName, number[]>;
-
-/** Rider body positions in world units, used to build the ragdoll when crashing. */
-export interface Rider {
-    head: Vector;
-    hand: Vector;
-    shadowHand: Vector;
-    hip: Vector;
-    foot: Vector;
-    shadowFoot: Vector;
-    elbow: Vector;
-    shadowElbow: Vector;
-    knee: Vector;
-    shadowKnee: Vector;
-}
 
 /**
  * Bike physics shared by every bike model: three verlet points (the hitbox carrying the rider
@@ -171,72 +157,7 @@ export abstract class Bike {
 
     /** Computes the rider body positions from the current physics positions, in world units. */
     public getRider(): Rider {
-        const wheelsDistance = this.frontWheel.pos.sub(this.backWheel.pos);
-        const wheelsToHitboxMedian = this.hitbox.pos.sub(
-            this.frontWheel.pos.add(this.backWheel.pos).scale(0.5),
-        );
-        const wheelsDistance90deg = new Vector(
-            wheelsDistance.y * this.direction,
-            -wheelsDistance.x * this.direction,
-        );
-        const pedalPos = new Vector(6 * Math.cos(this.distance), 6 * Math.sin(this.distance));
-
-        const armLength = 9;
-        const forearmLength = 7;
-        const legPartLength = 13;
-
-        const headTransform = new Transform(
-            this.backWheel.pos,
-            wheelsDistance,
-            wheelsToHitboxMedian,
-        );
-        const bodyTransform = new Transform(
-            this.backWheel.pos,
-            wheelsDistance,
-            wheelsDistance90deg,
-        );
-
-        const head = headTransform.scale(0.35, 1.2);
-        const hand = bodyTransform.scale(0.8, 0.68);
-        const hip = bodyTransform.scale(0.2, 0.5);
-        const foot = bodyTransform.scale(0.4, 0.05).add(pedalPos);
-        const shadowFoot = bodyTransform.scale(0.4, 0.05).sub(pedalPos);
-
-        const headToHandDistance = head.sub(hand);
-        const headToHandDistance90deg = new Vector(
-            headToHandDistance.y * this.direction,
-            -headToHandDistance.x * this.direction,
-        );
-        const armLengthRatio =
-            (armLength ** 2 + forearmLength ** 2) / headToHandDistance90deg.lengthSquared();
-        const elbow = head.add(hand).scale(0.5).add(headToHandDistance90deg.scale(armLengthRatio));
-
-        const knee = this.getKnee(hip, foot, legPartLength);
-        const shadowKnee = this.getKnee(hip, shadowFoot, legPartLength);
-
-        return {
-            head,
-            hand,
-            shadowHand: hand.clone(),
-            hip,
-            foot,
-            shadowFoot,
-            elbow,
-            shadowElbow: elbow.clone(),
-            knee,
-            shadowKnee,
-        };
-    }
-
-    private getKnee(hip: Vector, foot: Vector, legPartLength: number): Vector {
-        const hipToFootDistance = hip.sub(foot);
-        const hipToFootDistance90deg = new Vector(
-            -hipToFootDistance.y * this.direction,
-            hipToFootDistance.x * this.direction,
-        );
-        const legLengthRatio = (2 * legPartLength ** 2) / hipToFootDistance90deg.lengthSquared();
-
-        return hip.add(foot).scale(0.5).add(hipToFootDistance90deg.scale(legLengthRatio));
+        return RiderPose.compute(this);
     }
 
     public clone(): Bike {

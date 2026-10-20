@@ -12,6 +12,12 @@ import { TrackViewState } from './track-view.state';
  * point.
  */
 export abstract class TrackPlayState extends TrackViewState {
+    /** Set when a debug step ran while paused, so that the bikes are displayed at that tick. */
+    private stepped = false;
+
+    public override allowsDebug(): boolean {
+        return true;
+    }
     protected override initState(): void {
         super.initState();
 
@@ -27,10 +33,15 @@ export abstract class TrackPlayState extends TrackViewState {
         ]);
     }
 
+    /** Runs a physics tick, unless the track is paused and no debug step is pending. */
     private simulate(): void {
         const track = this.track;
         if (track.paused) {
-            return;
+            if (!track.pendingSteps) {
+                return;
+            }
+            track.pendingSteps--;
+            this.stepped = true;
         }
 
         // The player runs before the ghosts so that when it saves a checkpoint, the ghosts
@@ -55,13 +66,16 @@ export abstract class TrackPlayState extends TrackViewState {
             void GhostService.saveGhost(track);
         }
 
-        if (!track.paused) {
+        if (!track.paused || this.stepped) {
+            // A debug step is displayed as it is, without interpolating towards the next tick
+            const displayProgress = track.paused ? 0 : progress;
+            this.stepped = false;
             track.ghostRunners.forEach((runner) => {
                 if (!runner.done) {
-                    runner.update(progress, delta);
+                    runner.update(displayProgress, delta);
                 }
             });
-            track.playerRunner.update(progress, delta);
+            track.playerRunner.update(displayProgress, delta);
         }
 
         if (track.focalPoint) {

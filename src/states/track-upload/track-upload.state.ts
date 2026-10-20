@@ -21,7 +21,7 @@ import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH, TrackUploadLayer } from './layers/tr
 export class TrackUploadState extends TrackViewState {
     protected initLayers(): Map<string, Layer> {
         return new Map<string, Layer>([
-            ['main', new TrackMainLayer(this, false)],
+            ['main', new TrackMainLayer(this)],
             ['overlay', new TrackUploadLayer()],
             ['interface', new TrackInterfaceLayer(this)],
         ]);
