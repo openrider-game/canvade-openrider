@@ -177,8 +177,8 @@ export class Track extends World {
      * the bottom one to the top one.
      *
      * The touched flags of the whole block are cleared first, so that a line spanning several
-     * cells collides only once. With a single main layer, as in the tracks of the original game,
-     * the collisions run exactly as in the original game.
+     * cells collides only once. The main layers are checked in stack order, which the recorded
+     * ghosts depend on.
      */
     public touch(part: Collidable): void {
         for (const layer of this.layers.main) {

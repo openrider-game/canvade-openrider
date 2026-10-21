@@ -8,7 +8,7 @@ export const GRID_CELL_SIZE = 100,
      * Order of the cells of a 2x2 block, as [x, y] offsets from its top left cell.
      *
      * The order affects the physics, as the parts collide with the cells in this order: it must
-     * stay the same as in the original game.
+     * not change, the recorded ghosts depending on it.
      */
     CELL_BLOCK_ACTION_OFFSET_ORDER: Array<[number, number]> = [
         [0, 0],

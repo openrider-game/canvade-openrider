@@ -233,8 +233,8 @@ export abstract class BikeRunner {
      * Runs one physics tick (50 per second): processes the items reached on the previous tick,
      * saves the pending checkpoint, then updates the controls, the springs and the points.
      *
-     * The order of the steps must not change: ghosts only replay identically if the physics
-     * match the original game.
+     * The order of the steps must not change: the recorded ghosts only replay identically with
+     * this exact order of computations.
      */
     public fixedUpdate(): void {
         // All the parts must run their fixedUpdate before saving, otherwise the bike clone gets

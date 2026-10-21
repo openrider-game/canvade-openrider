@@ -15,7 +15,7 @@ import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH, TrackUploadLayer } from './layers/tr
  * state with the generated track code and editor file in the session.
  *
  * Only the camera and fullscreen tools are available. The track is uploaded either as a track
- * code, playable by the original game, or as an editor file keeping its layers. Uploading
+ * code, merging the layers of each type, or as an editor file keeping its layers. Uploading
  * redirects to the page of the published track, cancelling pops back to the editing state.
  */
 export class TrackUploadState extends TrackViewState {

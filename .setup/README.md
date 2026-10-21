@@ -19,8 +19,7 @@ POST requests (see `src/openrider/constants/request.constants.ts`). They answer 
 
 ## Configuration
 
-The database is configured with environment variables, the defaults being those of the original
-game:
+The database is configured with environment variables:
 
 | Variable                | Default                                          |
 | ----------------------- | ------------------------------------------------ |
@@ -43,6 +42,6 @@ Then open `http://localhost:8000/` to edit and upload a track, and
 ## Deploying
 
 Serve the root of the project (`index.html`, `styles.css`, `dist/`, `media/` and `.setup/db/`)
-with PHP enabled. `sample.htaccess` holds optional Apache rules: the redirection of the track
-pages of the original game, `/tracks/<id>/`, to the game, and the protection of the shared
-helpers of the endpoints.
+with PHP enabled. `sample.htaccess` holds optional Apache rules: the redirection of the
+`/tracks/<id>/` pages to the game racing the track, and the protection of the shared helpers of
+the endpoints.

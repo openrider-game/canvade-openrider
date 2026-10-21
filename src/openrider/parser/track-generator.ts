@@ -121,7 +121,7 @@ export class TrackGenerator {
         };
     }
 
-    /** Track code of the track, playable by the original game, once every step is done. */
+    /** Track code of the track, its layers of each type merged, once every step is done. */
     public getCode(): string {
         return TrackFormat.toTrackCode(this.getDocument());
     }

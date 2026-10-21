@@ -10,8 +10,8 @@ const TRACK_ID = 'trackId',
     EXPORT_FORMAT = 'exportFormat';
 
 /**
- * Format of an export: a track code, playable by the original game, or an editor file keeping the
- * layers of the editor.
+ * Format of an export: a track code, merging the layers of each type, or an editor file keeping
+ * the layers of the editor.
  */
 export type ExportFormat = 'code' | 'editor';
 

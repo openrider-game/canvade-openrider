@@ -3,12 +3,16 @@
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
-<h1 align="center">Canvade OpenRider</h1>
+<h1 align="center">OpenRider</h1>
   <p align="center">
-    OpenRider, ported on the canvade engine
+    OpenRider, built on the canvade engine
     <br />
     <br />
-    <a href="https://github.com/tomiy/openrider">Original game</a>
+    <a href="https://tomiy.online/openrider/">View Demo</a>
+    ·
+    <a href="https://github.com/tomiy/canvade/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/tomiy/canvade/issues">Request Feature</a>
     ·
     <a href="https://github.com/tomiy/canvade">Canvade engine</a>
   </p>
@@ -39,35 +43,24 @@
 
 ## About The Project
 
-OpenRider is a bike riding game where players draw tracks and race on them, the last link in a long
-chain of reboots of FreeRider. This project is a TypeScript rewrite of the
-[JavaScript game](https://github.com/tomiy/openrider) on top of the
-[canvade](https://github.com/tomiy/canvade) engine, following the structure of the partial
-openrider-ts rewrite.
+OpenRider is a bike riding game where players draw tracks and race on them. This project is a TypeScript rewrite of the [JavaScript game](https://github.com/tomiy/openrider) on top of the [canvade](https://github.com/tomiy/canvade) engine.
 
-The physics reproduce the original game bit for bit, so that the tracks and the ghosts recorded with
-it remain compatible.
-
-A few bugs of the original game were fixed along the way:
-
-- the status items (reset, invincibility, slippery, no steer, engine off) are read from the track code,
-  they used to disappear when importing a track (ghosts recorded on such tracks without them may desync)
-- the status effects survive restarting from a checkpoint
-- exporting a track twice no longer loses its items
-- undoing removes a whole brush stroke or eraser drag, and the history is properly truncated
-- erasing and restoring teleporters no longer duplicates them
-- the fast renderer is always enabled when the browser supports it, and no longer blinks: cells
-  keep their previous image while the workers render them
-- the Slippery tool shortcut is `Shift+H` (it was shared with the Reset tool)
-- clicking with a line tool without moving the mouse no longer adds an empty line to the track
-
-It also adds a few features:
-
-- a zero gravity status item (`Z` in the track codes), cancelling the gravity until a reset item:
-  tracks using it cannot be played by the original game
-- the interface keeps its size on high density screens
-- the PHP backend is shipped with the game, see [.setup/README.md](.setup/README.md)
-- the editor works with any number of layers, saved in editor files (see [Layers](#layers))
+- **Physics**: verlet physics at 50 ticks per second, deterministic, so that a recorded ghost
+  replays exactly on its track.
+- **Items**: targets, checkpoints, boosts, gravity changes, bombs, slow motion, teleporters, and
+  status effects (reset, invincibility, slippery wheels, no steer, engine off, zero gravity) saved in
+  the checkpoints.
+- **Editor**: brushes, lines, eraser, items and start position on any number of layers (see
+  [Layers](#layers)), with an undo history where a brush stroke or an eraser drag is a single step.
+- **Racing**: published tracks raced against published ghosts, the player run being uploaded as a
+  ghost at the end of the race.
+- **Rendering**: the lines are cached in images per zoom level; the densest areas are rendered in
+  Web Workers when the browser supports them, each area keeping its previous image until the new one
+  is ready.
+- **Interface**: sized for every screen density, with a debug mode showing the physics, the cache
+  and live stats.
+- **Backend**: PHP endpoints storing the tracks and the ghosts, see
+  [.setup/README.md](.setup/README.md).
 
 This repository is **not endorsed nor approved** by FreeRiderHD, the official successor to the
 FreeRider series of games.
@@ -117,8 +110,8 @@ Check the types with `npm run typecheck`, and format the code with `npm run form
 
 Run the tests with `npm test`, and the coverage with `npm run coverage`. The suite covers:
 
-- the physics, with snapshots of rides checked tick by tick against the original game: a failing
-  physics snapshot means that the recorded ghosts would desync
+- the physics, with snapshots of recorded rides: a failing physics snapshot means that the
+  recorded ghosts would desync
 - the track and ghost codes, the items, the tools and the undo history
 - the fast renderer, with doubles of the workers
 - the states flow, from loading a track to editing, racing, exporting and uploading it, with a
@@ -191,13 +184,13 @@ right of the editor, like in an image editor:
 
 Two file formats hold the tracks, both read by the editor, the racing mode and the backend:
 
-| Format      | Content                                                           | Played by the original game |
-| ----------- | ----------------------------------------------------------------- | --------------------------- |
-| Track code  | one main and one foreground layer: the layers of each type merged | yes                         |
-| Editor file | JSON keeping every layer with its name, type and visibility       | no                          |
+| Format      | Content                                                                                           |
+| ----------- | ------------------------------------------------------------------------------------------------- |
+| Track code  | compact text with one main and one foreground layer, the layers of each type being merged into it |
+| Editor file | JSON keeping every layer with its name, type and visibility                                       |
 
-Importing a track code gives a "Main" and a "Foreground" layer; exporting it as an editor file
-converts it to the new format. An editor file is
+Importing a track code gives a "Main" and a "Foreground" layer, which can be exported as an editor
+file. An editor file is
 `{"format":"openrider-editor","version":1,"bike":"BMX","origin":"0 0","layers":[...]}`, each layer
 holding its `name`, `type` (`main` or `foreground`), `visible` flag, and its `solid`, `scenery` and
 `items` in the section format of the track codes.
@@ -260,8 +253,8 @@ The code follows the documentation conventions of canvade, with [TSDoc](https://
 - a doc comment starts with a summary sentence; tags use the TSDoc form, without types:
   `@param name - Description.`, `@returns Description.`, `@throws Description.`
 - inline `//` comments only explain why the code does something, and start with a capital letter
-- comments about the order of the physics computations or the compatibility with the original game
-  must be kept: changing that order would desync the recorded ghosts
+- comments about the order of the physics computations must be kept: changing that order would
+  desync the recorded ghosts
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -269,7 +262,7 @@ The code follows the documentation conventions of canvade, with [TSDoc](https://
 
 ## License
 
-Distributed under the GPL-3.0 License, like the original game. See `LICENSE` for more information.
+Distributed under the GPL-3.0 License. See `LICENSE` for more information.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

@@ -38,7 +38,7 @@ const TRACK_CODE_LAYERS = { main: 'Main', foreground: 'Foreground' } as const;
 /**
  * Reads and writes the two track formats.
  *
- * - **Track codes**, the format of the original game:
+ * - **Track codes**, a compact text format:
  *   `solid#scenery#items#foreground solid#foreground scenery#bike#origin`. They hold one main
  *   and one foreground layer, so writing a track code merges the main layers together, and the
  *   foreground layers together, in stack order.

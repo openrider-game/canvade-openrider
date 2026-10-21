@@ -40,7 +40,7 @@ export class Shard extends Entity implements Collidable {
         );
 
         this.track = explosion.track;
-        // Same random draws order as the original game
+        // The random draws stay in this order, which sets the look of each shard
         this.size = 2 + Math.random() * 9;
         this.rotation = Math.random() * 2 * Math.PI;
         this.rotationSpeed = Math.random() - Math.random();

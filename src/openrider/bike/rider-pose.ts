@@ -18,7 +18,7 @@ export interface Rider {
 
 /**
  * Pose of the rider on a bike, computed from the physics positions of the bike: the order of the
- * computations follows the original game, as the ragdoll of a crash starts from this pose.
+ * computations must not change, as the ragdoll of a crash starts from this pose.
  */
 export abstract class RiderPose {
     /** Computes the rider body positions from the current physics positions of a bike. */

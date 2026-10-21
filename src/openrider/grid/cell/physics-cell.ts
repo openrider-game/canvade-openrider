@@ -10,8 +10,8 @@ export type EraserRestriction = Record<TrackObjectKind, boolean>;
 /** Cell of the physics grid, used for collisions, erasing and exports. */
 export class PhysicsCell extends Cell {
     /**
-     * Collides a part with the lines then the items of the cell, in reverse order of insertion
-     * like in the original game. Items are skipped once the runner is dead.
+     * Collides a part with the lines then the items of the cell, in reverse order of insertion:
+     * the recorded ghosts depend on this order. Items are skipped once the runner is dead.
      */
     public touch(part: Collidable): void {
         for (let i = this.lines.length - 1; i >= 0; i--) {

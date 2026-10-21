@@ -27,7 +27,7 @@ export const DEBUG_OPTION_LABELS: Record<keyof DebugOptions, string> = {
     stats: 'Stats',
 };
 
-/** Overlays shown when the debug mode is first enabled: those of the original game, and stats. */
+/** Overlays shown when the debug mode is first enabled: grids, collisions, item ids and stats. */
 export function defaultDebugOptions(): DebugOptions {
     return {
         grids: true,
