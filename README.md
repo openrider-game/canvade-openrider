@@ -32,7 +32,6 @@
     </li>
     <li><a href="#usage">Usage</a></li>
     <li><a href="#project-structure">Project Structure</a></li>
-    <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#acknowledgments">Acknowledgments</a></li>
@@ -57,8 +56,9 @@ OpenRider is a bike riding game where players draw tracks and race on them. This
 - **Rendering**: the lines are cached in images per zoom level; the densest areas are rendered in
   Web Workers when the browser supports them, each area keeping its previous image until the new one
   is ready.
-- **Interface**: sized for every screen density, with a debug mode showing the physics, the cache
-  and live stats.
+- **Display**: the track and the interface keep their size on every screen density, the track
+  being drawn at the resolution of the screen; a debug mode shows the physics, the cache and live
+  stats.
 - **Backend**: PHP endpoints storing the tracks and the ghosts, see
   [.setup/README.md](.setup/README.md).
 
@@ -222,15 +222,6 @@ src/
 
 The states share data (track id and code, parsed track) through the canvade `manager.shared` map,
 accessed with the typed `Session` wrapper.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-<!-- ROADMAP -->
-
-## Roadmap
-
-- Render the track at the device pixel ratio, so that the track keeps its size on high density
-  screens like the interface
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

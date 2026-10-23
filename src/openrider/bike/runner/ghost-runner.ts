@@ -79,7 +79,8 @@ export class GhostRunner extends BikeRunner {
         );
 
         ctx.save();
-        ctx.font = `bold ${Math.min(25 * this.track.zoomFactor, 15)}px monospace`;
+        const maxFontSize = 15 * this.track.pixelRatio;
+        ctx.font = `bold ${Math.min(25 * this.track.zoomFactor, maxFontSize)}px monospace`;
 
         const ghostNameWidth = ctx.measureText(this.ghostName).width;
         ctx.fillStyle = this.color;

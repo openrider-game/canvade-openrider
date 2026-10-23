@@ -1,5 +1,6 @@
 import { RenderPriority, WorkerPool } from '../../thread/worker-pool';
-import { MAX_ZOOM, MIN_ZOOM, ZOOM_STEP } from '../../track/track.constants';
+import { MIN_ZOOM } from '../../track/track.constants';
+import { Zoom } from '../../track/zoom';
 import { Cell } from './cell';
 
 /** Stroke colors of the scenery and solid lines in the cell images. */
@@ -80,16 +81,24 @@ export class RenderCell extends Cell {
      * are requested to the workers with the {@link RenderPriority.VISIBLE} priority, and a stale
      * or another zoom image is returned meanwhile.
      *
+     * @param zoom - Pixel zoom, in canvas pixels per world unit.
      * @param opacityFactor - Opacity of the lines, depending on the layer.
      * @param fastRender - Whether heavy cells are rendered by the workers.
+     * @param pixelRatio - Pixel ratio of the screen, to prefetch the zoom levels around the
+     *   current one.
      * @returns The image, which may be stale or of another zoom, null if nothing can be displayed
      * yet.
      */
-    public getImage(zoom: number, opacityFactor: number, fastRender: boolean): CellImage | null {
+    public getImage(
+        zoom: number,
+        opacityFactor: number,
+        fastRender: boolean,
+        pixelRatio = 1,
+    ): CellImage | null {
         const image = this.images.get(zoom);
         if (image?.version === this.version) {
             if (fastRender && this.isHeavy()) {
-                this.prefetch(zoom, opacityFactor);
+                this.prefetch(zoom, opacityFactor, pixelRatio);
             }
             return image;
         }
@@ -99,26 +108,28 @@ export class RenderCell extends Cell {
         }
 
         WorkerPool.request(this, zoom, opacityFactor, RenderPriority.VISIBLE);
-        this.prefetch(zoom, opacityFactor);
+        this.prefetch(zoom, opacityFactor, pixelRatio);
 
         return image ?? this.getClosestImage(zoom);
     }
 
     /**
      * Renders in the background the images used while zooming: a low resolution image always
-     * available as a fallback, and the zoom levels around the current one.
+     * available as a fallback, and the zoom levels around the current one, the levels being
+     * stepped in view zoom.
      */
-    private prefetch(zoom: number, opacityFactor: number): void {
-        const round = (value: number) => Math.round(value * 100) / 100;
+    private prefetch(zoom: number, opacityFactor: number, pixelRatio: number): void {
+        const viewZoom = Zoom.toView(zoom, pixelRatio);
         const levels: Array<[number, RenderPriority]> = [
             [MIN_ZOOM, RenderPriority.FALLBACK],
-            [round(zoom - ZOOM_STEP), RenderPriority.ADJACENT],
-            [round(zoom + ZOOM_STEP), RenderPriority.ADJACENT],
+            [Zoom.step(viewZoom, -1), RenderPriority.ADJACENT],
+            [Zoom.step(viewZoom, 1), RenderPriority.ADJACENT],
         ];
 
         for (const [level, priority] of levels) {
-            if (level >= MIN_ZOOM && level <= MAX_ZOOM && !this.isUpToDate(level)) {
-                WorkerPool.request(this, level, opacityFactor, priority);
+            const pixelZoom = Zoom.toPixel(level, pixelRatio);
+            if (Zoom.isValid(level) && pixelZoom !== zoom && !this.isUpToDate(pixelZoom)) {
+                WorkerPool.request(this, pixelZoom, opacityFactor, priority);
             }
         }
     }

@@ -1,4 +1,4 @@
-import { GameRenderEvent, Layer } from 'canvade';
+import { Display, GameRenderEvent, Layer } from 'canvade';
 import { InterfaceScale } from '../../../openrider/numeric/interface-scale';
 
 /**
@@ -16,7 +16,7 @@ const FRAME_WIDTH = THUMBNAIL_WIDTH / 2,
  * Darkens the track around the thumbnail frame, centered on the canvas, and displays the
  * framing instructions.
  *
- * The frame is in canvas pixels, like the track it frames; the instructions are in UI pixels.
+ * The frame and the instructions keep their size on high density screens, like the track.
  */
 export class TrackUploadLayer extends Layer {
     public initLayer(): void {
@@ -27,21 +27,24 @@ export class TrackUploadLayer extends Layer {
         const ctx = e.detail.ctx;
         const { width, height } = ctx.canvas;
 
-        const x0 = (width - FRAME_WIDTH) / 2;
-        const x1 = x0 + FRAME_WIDTH;
-        const y0 = (height - FRAME_HEIGHT) / 2;
-        const y1 = y0 + FRAME_HEIGHT;
+        // The frame keeps its size on the screen, like the track it frames
+        const frameWidth = FRAME_WIDTH * Display.pixelRatio;
+        const frameHeight = FRAME_HEIGHT * Display.pixelRatio;
+        const x0 = (width - frameWidth) / 2;
+        const x1 = x0 + frameWidth;
+        const y0 = (height - frameHeight) / 2;
+        const y1 = y0 + frameHeight;
 
         ctx.save();
 
-        ctx.lineWidth = 1;
+        ctx.lineWidth = Display.pixelRatio;
         ctx.strokeStyle = '#fff';
         ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.fillRect(0, 0, width, y0);
         ctx.fillRect(0, y1, width, y0);
-        ctx.fillRect(0, y0, x0, FRAME_HEIGHT);
-        ctx.fillRect(x1, y0, x0, FRAME_HEIGHT);
-        ctx.strokeRect(x0, y0, FRAME_WIDTH, FRAME_HEIGHT);
+        ctx.fillRect(0, y0, x0, frameHeight);
+        ctx.fillRect(x1, y0, x0, frameHeight);
+        ctx.strokeRect(x0, y0, frameWidth, frameHeight);
 
         ctx.restore();
 

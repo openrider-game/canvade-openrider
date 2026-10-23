@@ -66,7 +66,7 @@ export abstract class Item extends TrackObject {
         const id = this.id.toString();
 
         ctx.save();
-        ctx.font = `bold ${Math.min(15 * this.track.zoomFactor, 15)}px monospace`;
+        ctx.font = `bold ${Math.min(15 * this.track.zoomFactor, 15 * this.track.pixelRatio)}px monospace`;
         ctx.fillStyle = '#000';
         ctx.fillText(id, pos.x - ctx.measureText(id).width / 2, pos.y - 15 * this.track.zoomFactor);
 

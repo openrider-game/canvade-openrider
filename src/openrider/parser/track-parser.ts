@@ -6,8 +6,8 @@ import { SceneryLine } from '../item/line/scenery-line';
 import { SolidLine } from '../item/line/solid-line';
 import { RenderPriority, WorkerPool } from '../thread/worker-pool';
 import { Track } from '../track/track';
-import { MIN_ZOOM } from '../track/track.constants';
 import { TrackLayer } from '../track/track-layer';
+import { Zoom } from '../track/zoom';
 import { TrackDocument, TrackFormat } from './track-format';
 
 interface ParserData {
@@ -224,8 +224,9 @@ export class TrackParser {
     }
 
     /**
-     * Pre-renders one cell per step at every zoom level up to 1, the densest cells being
-     * rendered by the workers. Waits for the workers before going to the next step.
+     * Pre-renders one cell per step at every view zoom up to 1, at the pixel ratio of the
+     * track, the densest cells being rendered by the workers. Waits for the workers before going
+     * to the next step.
      *
      * Without workers support, the cells are rendered when first displayed instead.
      */
@@ -239,15 +240,11 @@ export class TrackParser {
 
                 for (; this.cacheIndex < l; this.cacheIndex++) {
                     const cell = cacheCells[this.cacheIndex];
-                    for (
-                        let zoom = MIN_ZOOM;
-                        zoom <= 1;
-                        zoom = Math.round((zoom + 0.2) * 100) / 100
-                    ) {
+                    for (const viewZoom of Zoom.levels(1)) {
                         if (cell.isHeavy() && WorkerPool.supported) {
                             WorkerPool.request(
                                 cell,
-                                zoom,
+                                Zoom.toPixel(viewZoom, this.track.pixelRatio),
                                 layer.opacityFactor,
                                 RenderPriority.PRELOAD,
                                 () => this.proxyIndex++,

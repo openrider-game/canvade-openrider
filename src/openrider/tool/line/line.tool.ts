@@ -86,7 +86,8 @@ export abstract class LineTool extends Tool {
 
         const mousePx = this.track.toPixel(this.track.mousePos);
         const deltaVec = new Vector();
-        const deltaFactor = delta / 4 / this.track.zoomFactor;
+        // The same speed on the screen whatever its pixel ratio
+        const deltaFactor = delta / 4 / this.track.viewZoom;
 
         if (mousePx.x < EDGE_SCROLL_MARGIN) {
             deltaVec.x = -deltaFactor;

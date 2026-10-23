@@ -87,12 +87,14 @@ export class TrackUploadState extends TrackViewState {
             throw new Error('Cannot retrieve thumbnail context');
         }
 
-        track.zoomFactor *= 2;
+        // Twice the view zoom, whatever the pixel ratio: the thumbnail has a fixed size in pixels
+        const zoomFactor = track.zoomFactor;
+        track.zoomFactor = track.viewZoom * 2;
         viewContext.lineCap = 'round';
         viewContext.lineJoin = 'round';
         // Rendered synchronously: the thumbnail cannot wait for the workers
         TrackRenderer.render(viewContext, track, { fastRender: false });
-        track.zoomFactor /= 2;
+        track.zoomFactor = zoomFactor;
 
         thumbnailContext.drawImage(
             view,

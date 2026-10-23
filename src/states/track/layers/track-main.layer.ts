@@ -1,4 +1,4 @@
-import { GameMouseEvent, GameRenderEvent, GameWheelEvent, Layer } from 'canvade';
+import { Display, GameMouseEvent, GameRenderEvent, GameWheelEvent, Layer } from 'canvade';
 import { TrackRenderer } from '../../../openrider/track/track-renderer';
 import type { TrackViewState } from '../track-view.state';
 
@@ -26,8 +26,9 @@ export class TrackMainLayer extends Layer {
     private renderTrack(e: CustomEvent<GameRenderEvent>): void {
         const ctx = e.detail.ctx;
         const track = this.state.track;
-        // The track reads the canvas size to compute its view
+        // The track reads the canvas size to compute its view, and is drawn in device pixels
         track.canvas = ctx.canvas;
+        track.setPixelRatio(Display.pixelRatio);
 
         ctx.save();
         ctx.strokeStyle = '#000';

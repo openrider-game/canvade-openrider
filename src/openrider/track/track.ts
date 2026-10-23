@@ -1,4 +1,4 @@
-import { Vector, World, WorldVector } from 'canvade';
+import { Display, Vector, World, WorldVector } from 'canvade';
 import { BMX } from '../bike/bmx';
 import type { GhostRunner } from '../bike/runner/ghost-runner';
 import { PlayerRunner } from '../bike/runner/player-runner';
@@ -14,14 +14,8 @@ import { ToolCollection } from '../tool/tool-collection';
 import { ToolManager } from '../tool/tool-manager';
 import { DebugOptions, defaultDebugOptions } from './debug-options';
 import { LayerStack } from './layer-stack';
-import {
-    DEFAULT_ZOOM,
-    MAX_LINE_LENGTH,
-    MAX_ZOOM,
-    MIN_LINE_LENGTH,
-    MIN_ZOOM,
-    ZOOM_STEP,
-} from './track.constants';
+import { DEFAULT_ZOOM, MAX_LINE_LENGTH, MIN_LINE_LENGTH } from './track.constants';
+import { Zoom } from './zoom';
 import type { TrackLayer } from './track-layer';
 
 /**
@@ -79,6 +73,9 @@ export class Track extends World {
     /** Physics ticks to run while paused, requested by {@link Track.step}. */
     public pendingSteps = 0;
 
+    /** Device pixels per CSS pixel of the screen, the track being drawn in device pixels. */
+    public pixelRatio: number;
+
     /** Canvas the track is rendered on, known after the first render. */
     public canvas: HTMLCanvasElement | null = null;
 
@@ -88,7 +85,8 @@ export class Track extends World {
      * @param id - Id of the track when racing it, null when editing.
      */
     public constructor(public id: number | null = null) {
-        super(new Vector(), DEFAULT_ZOOM);
+        super(new Vector(), Zoom.toPixel(DEFAULT_ZOOM, Display.pixelRatio));
+        this.pixelRatio = Display.pixelRatio;
 
         this.playerRunner = new PlayerRunner(this, BMX);
     }
@@ -101,6 +99,26 @@ export class Track extends World {
     /** Height of the canvas, in pixels, 0 before the first render. */
     public get viewHeight(): number {
         return this.canvas?.height ?? 0;
+    }
+
+    /**
+     * Zoom chosen by the player, in CSS pixels per world unit, `zoomFactor` being the pixel zoom
+     * the track is drawn at (see {@link Zoom}).
+     */
+    public get viewZoom(): number {
+        return Zoom.toView(this.zoomFactor, this.pixelRatio);
+    }
+
+    /**
+     * Follows the pixel ratio of the screen, keeping the view zoom: the track keeps its size on
+     * the screen, drawn at its full resolution.
+     */
+    public setPixelRatio(pixelRatio: number): void {
+        if (pixelRatio !== this.pixelRatio) {
+            const viewZoom = this.viewZoom;
+            this.pixelRatio = pixelRatio;
+            this.zoomFactor = Zoom.toPixel(viewZoom, pixelRatio);
+        }
     }
 
     public isRace(): boolean {
@@ -118,13 +136,17 @@ export class Track extends World {
     }
 
     /**
-     * Zooms in or out, keeping the given point at the same place on the canvas.
+     * Zooms in or out by steps of the view zoom, keeping the given point at the same place on the
+     * canvas.
      *
      * @param point - World position to zoom at.
      * @param direction - Number of zoom steps, positive to zoom in, negative to zoom out.
      */
     public zoomAt(point: Vector, direction: number): void {
-        this.zoom(point, direction, this.viewWidth, this.viewHeight, MIN_ZOOM, MAX_ZOOM, ZOOM_STEP);
+        const pixel = this.toPixel(point);
+        this.zoomFactor = Zoom.toPixel(Zoom.step(this.viewZoom, direction), this.pixelRatio);
+        this.camera.x = point.x - (pixel.x - this.viewWidth / 2) / this.zoomFactor;
+        this.camera.y = point.y - (pixel.y - this.viewHeight / 2) / this.zoomFactor;
     }
 
     /** Syncs the track mouse positions with a world position, snapping it to the grid. */

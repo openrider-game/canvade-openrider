@@ -42,7 +42,7 @@ export function debugStats(track: Track, fps: number): string[] {
 
     return [
         `${round(fps)} fps · tick ${track.time}${track.paused ? ' (paused)' : ''}`,
-        `zoom ${track.zoomFactor.toFixed(2)} · ` +
+        `zoom ${track.viewZoom.toFixed(2)} · ` +
             `camera ${round(track.camera.x)} ${round(track.camera.y)}`,
         `mouse ${round(track.realMousePos.x)} ${round(track.realMousePos.y)}`,
         `${layers.length} layers · ${count((layer) => layer.grid.totalSolidLines)} lines · ` +

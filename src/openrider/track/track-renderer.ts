@@ -118,7 +118,12 @@ export abstract class TrackRenderer {
         options: RenderOptions,
     ): void {
         const zoom = track.zoomFactor;
-        const image = cell.getImage(zoom, layer.opacityFactor, options.fastRender);
+        const image = cell.getImage(
+            zoom,
+            layer.opacityFactor,
+            options.fastRender,
+            track.pixelRatio,
+        );
 
         if (image) {
             const x = Math.floor(track.viewWidth / 2 - track.camera.x * zoom + cell.x * zoom) - 1;
