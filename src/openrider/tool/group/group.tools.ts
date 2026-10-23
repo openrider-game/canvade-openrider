@@ -5,6 +5,7 @@ import {
     BoostTool,
     CheckpointTool,
     GravityTool,
+    LinkedCheckpointTool,
     SlowMoTool,
     TargetTool,
     TeleporterTool,
@@ -31,6 +32,7 @@ export class ItemGroupTool extends ToolGroupTool {
         super(track, [
             TargetTool,
             CheckpointTool,
+            LinkedCheckpointTool,
             BoostTool,
             GravityTool,
             BombTool,

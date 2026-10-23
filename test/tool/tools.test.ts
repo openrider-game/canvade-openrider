@@ -4,7 +4,13 @@ import { LinkedItem } from '../../src/openrider/item/linked-item';
 import { SolidLine } from '../../src/openrider/item/line/solid-line';
 import { Target } from '../../src/openrider/item/reachable/target';
 import { ItemGroupTool } from '../../src/openrider/tool/group/group.tools';
-import { BoostTool, TargetTool, TeleporterTool } from '../../src/openrider/tool/item/item.tools';
+import { LinkedCheckpoint } from '../../src/openrider/item/linked/linked-checkpoint';
+import {
+    BoostTool,
+    LinkedCheckpointTool,
+    TargetTool,
+    TeleporterTool,
+} from '../../src/openrider/tool/item/item.tools';
 import { SolidBrushTool, SolidLineTool } from '../../src/openrider/tool/line/line.tools';
 import { CameraTool } from '../../src/openrider/tool/misc/camera.tool';
 import { CancelCheckpointTool } from '../../src/openrider/tool/misc/cancel-checkpoint.tool';
@@ -265,6 +271,18 @@ describe('Item tools', () => {
         expect(entry.group).toBe(exit.group);
         track.history.undo();
         expect(objects()).toHaveLength(0);
+    });
+
+    test('place a pair of linked checkpoints', () => {
+        select(LinkedCheckpointTool);
+
+        click(0, 0);
+        click(100, 0);
+
+        const checkpoints = objects() as LinkedItem[];
+        expect(checkpoints).toHaveLength(2);
+        expect(checkpoints.every((item) => item instanceof LinkedCheckpoint)).toBe(true);
+        expect(checkpoints[0].group).toBe(checkpoints[1].group);
     });
 });
 

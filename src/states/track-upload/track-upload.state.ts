@@ -1,5 +1,6 @@
 import { Layer } from 'canvade';
-import { TRACKUPLOAD_URL } from '../../openrider/constants/request.constants';
+import { GameConfig } from '../../openrider/config/game-config';
+import { TRACKUPLOAD_PATH } from '../../openrider/constants/request.constants';
 import { Requests } from '../../openrider/request/requests';
 import { UPLOAD_TOOLBAR } from '../../openrider/tool/toolbar.constants';
 import { TrackRenderer } from '../../openrider/track/track-renderer';
@@ -117,13 +118,16 @@ export class TrackUploadState extends TrackViewState {
         const code = format === 'editor' ? this.session.editorCode : this.session.trackCode;
 
         try {
-            const response = await Requests.postJson<{ ID: number }>(TRACKUPLOAD_URL, {
-                trackCode: code ?? '',
-                thumbnail: image.replace('data:image/png;base64,', ''),
-            });
+            const response = await Requests.postJson<{ ID: number }>(
+                GameConfig.url(TRACKUPLOAD_PATH),
+                {
+                    trackCode: code ?? '',
+                    thumbnail: image.replace('data:image/png;base64,', ''),
+                },
+            );
 
-            // Races the published track, without relying on a URL rewriting of the server
-            location.href = `?track=${response.ID}`;
+            // Races the published track, on the track page of the hosting page when it gives one
+            location.href = GameConfig.trackPage(response.ID);
         } catch (e) {
             alert(`Your track was refused: ${e}`);
         }

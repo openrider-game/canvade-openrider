@@ -6,6 +6,7 @@ import { Gravity } from '../../src/openrider/item/directional/gravity';
 import { Item } from '../../src/openrider/item/item';
 import { LinkedItem } from '../../src/openrider/item/linked-item';
 import { LinkedItemGroup } from '../../src/openrider/item/linked-item-group';
+import { LinkedCheckpoint } from '../../src/openrider/item/linked/linked-checkpoint';
 import { Teleporter } from '../../src/openrider/item/linked/teleporter';
 import { SceneryLine } from '../../src/openrider/item/line/scenery-line';
 import { SolidLine } from '../../src/openrider/item/line/solid-line';
@@ -290,6 +291,53 @@ describe('Teleporters', () => {
             (cell) => cell.objects,
         );
         expect(cellObjects.filter((item) => item instanceof LinkedItem)).toHaveLength(2);
+    });
+});
+
+describe('Linked checkpoints', () => {
+    function placeCheckpoints(): LinkedCheckpoint[] {
+        const group = LinkedItemGroup.createGroup(
+            ['L', '3c', '0', '6g', '0'],
+            track,
+            LinkedCheckpoint,
+        );
+        place(group);
+        return group.instances as LinkedCheckpoint[];
+    }
+
+    test('reaching one reaches both, with a single checkpoint', () => {
+        const [first, second] = placeCheckpoints();
+
+        first.touch(playerAt(first.pos.x, first.pos.y).hitbox);
+        expect(first.reached && second.reached).toBe(true);
+        track.playerRunner.fixedUpdate();
+
+        expect(track.playerRunner.snapshots).toHaveLength(1);
+        const reached = track.playerRunner.reachablesReached;
+        expect(reached.has(first.id) && reached.has(second.id)).toBe(true);
+    });
+
+    test('the other one cannot be taken afterwards, even after restarting', () => {
+        const [first, second] = placeCheckpoints();
+        first.touch(playerAt(first.pos.x, first.pos.y).hitbox);
+        track.playerRunner.fixedUpdate();
+
+        second.touch(playerAt(second.pos.x, second.pos.y).hitbox);
+        track.playerRunner.fixedUpdate();
+        expect(track.playerRunner.snapshots).toHaveLength(1);
+
+        track.restart();
+        expect(first.reached && second.reached).toBe(true);
+        second.touch(playerAt(second.pos.x, second.pos.y).hitbox);
+        track.playerRunner.fixedUpdate();
+        expect(track.playerRunner.snapshots).toHaveLength(1);
+    });
+
+    test('are exported and parsed as a group', () => {
+        const [first] = placeCheckpoints();
+
+        expect(first.toString()).toBe('L 3c 0 6g 0');
+        expect(ITEM_MAP.get('L')).toBe(LinkedCheckpoint);
     });
 });
 

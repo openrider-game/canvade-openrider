@@ -6,7 +6,7 @@
  * POST `id`, answers `{"CODE": string, "THUMBNAIL": string|null}`, or 404 for an unknown track.
  */
 
-require __DIR__ . '/../api.php';
+require_once __DIR__ . '/../api.php';
 
 openrider_handle(function (PDO $db) {
     $id = openrider_int_param('id');

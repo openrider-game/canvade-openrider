@@ -3,3 +3,6 @@ node_modules/
 coverage
 
 dist
+
+# Local SQLite database of .setup/local/router.php
+.setup/local/*.db

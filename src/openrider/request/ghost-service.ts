@@ -1,5 +1,6 @@
 import { GhostRunner } from '../bike/runner/ghost-runner';
-import { GHOSTDATA_URL, GHOSTUPLOAD_URL } from '../constants/request.constants';
+import { GameConfig } from '../config/game-config';
+import { GHOSTDATA_PATH, GHOSTUPLOAD_PATH } from '../constants/request.constants';
 import { GhostParser } from '../parser/ghost-parser';
 import type { Track } from '../track/track';
 import { Requests } from './requests';
@@ -21,7 +22,8 @@ export abstract class GhostService {
 
         let ghostString = track.ghostCache.get(ghostId);
         if (ghostString === undefined) {
-            const response = await Requests.postJson<{ GHOSTSTRING: string }>(GHOSTDATA_URL, {
+            const url = GameConfig.url(GHOSTDATA_PATH);
+            const response = await Requests.postJson<{ GHOSTSTRING: string }>(url, {
                 trackId: track.id ?? 0,
                 id: ghostId,
             });
@@ -52,11 +54,14 @@ export abstract class GhostService {
         }
 
         try {
-            const response = await Requests.postJson<{ ID: number }>(GHOSTUPLOAD_URL, {
-                ghostString: GhostParser.generate(track.playerRunner),
-                trackId: track.id ?? 0,
-                time: track.time,
-            });
+            const response = await Requests.postJson<{ ID: number }>(
+                GameConfig.url(GHOSTUPLOAD_PATH),
+                {
+                    ghostString: GhostParser.generate(track.playerRunner),
+                    trackId: track.id ?? 0,
+                    time: track.time,
+                },
+            );
 
             console.log(`Ghost saved: ${response.ID}`);
         } catch (e) {

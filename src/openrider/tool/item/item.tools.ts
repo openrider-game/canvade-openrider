@@ -1,8 +1,9 @@
-import { Control, KEYB, KEYC, KEYG, KEYO, KEYS, KEYT, KEYW, SHIFT } from 'canvade';
+import { Control, KEYB, KEYC, KEYG, KEYL, KEYO, KEYS, KEYT, KEYW, SHIFT } from 'canvade';
 import { Boost } from '../../item/directional/boost';
 import { Gravity } from '../../item/directional/gravity';
 import { DirectionalItemClass } from '../../item/directional-item';
 import { LinkedItemClass } from '../../item/linked-item';
+import { LinkedCheckpoint } from '../../item/linked/linked-checkpoint';
 import { Teleporter } from '../../item/linked/teleporter';
 import { Bomb } from '../../item/misc/bomb';
 import { SlowMo } from '../../item/misc/slow-mo';
@@ -13,6 +14,7 @@ import {
     BOOST_IMAGE,
     CHECKPOINT_IMAGE,
     GRAVITY_IMAGE,
+    LINKED_CHECKPOINT_IMAGE,
     SLOWMO_IMAGE,
     TARGET_IMAGE,
     TELEPORTER_IMAGE,
@@ -102,5 +104,17 @@ export class TeleporterTool extends LinkedItemTool {
 
     protected get itemClass(): LinkedItemClass {
         return Teleporter;
+    }
+}
+
+/** Places a pair of linked checkpoints, of which only one can be taken in a run. */
+export class LinkedCheckpointTool extends LinkedItemTool {
+    public static override readonly toolName: string = 'Linked Checkpoint';
+    public static override readonly keyLabel: string = 'Shift+L';
+    public static override readonly key = new Control(KEYL, SHIFT);
+    public static override readonly icon = LINKED_CHECKPOINT_IMAGE;
+
+    protected get itemClass(): LinkedItemClass {
+        return LinkedCheckpoint;
     }
 }

@@ -6,7 +6,7 @@
  * POST `trackCode`, and `thumbnail` (a base64 PNG, optional), answers `{"ID": number}`.
  */
 
-require __DIR__ . '/../api.php';
+require_once __DIR__ . '/../api.php';
 
 openrider_handle(function (PDO $db) {
     $trackCode = openrider_string_param('trackCode');

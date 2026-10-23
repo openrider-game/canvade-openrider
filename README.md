@@ -46,9 +46,10 @@ OpenRider is a bike riding game where players draw tracks and race on them. This
 
 - **Physics**: verlet physics at 50 ticks per second, deterministic, so that a recorded ghost
   replays exactly on its track.
-- **Items**: targets, checkpoints, boosts, gravity changes, bombs, slow motion, teleporters, and
-  status effects (reset, invincibility, slippery wheels, no steer, engine off, zero gravity) saved in
-  the checkpoints.
+- **Items**: targets, checkpoints, linked checkpoints (reaching one also reaches the other, which
+  cannot be taken anymore), boosts, gravity changes, bombs, slow motion, teleporters, and status
+  effects (reset, invincibility, slippery wheels, no steer, engine off, zero gravity) saved in the
+  checkpoints.
 - **Editor**: brushes, lines, eraser, items and start position on any number of layers (see
   [Layers](#layers)), with an undo history where a brush stroke or an eraser drag is a single step.
 - **Racing**: published tracks raced against published ghosts, the player run being uploaded as a
@@ -76,7 +77,9 @@ FreeRider series of games.
 - NPM
 - The canvade repository, cloned next to this one
 - VS Code Live Server extension, or any static file server (optional)
-- PHP and a PostgreSQL or SQLite database (optional, to publish and race tracks and save ghosts,
+- PHP and a PostgreSQL or SQLite database (optional, to publish and race tracks and save ghosts;
+  a local server with a sample website and tracks runs with
+  `php -S localhost:8000 .setup/local/router.php`,
   see [.setup/README.md](.setup/README.md))
 
 ### Installation
@@ -126,30 +129,47 @@ Run the tests with `npm test`, and the coverage with `npm run coverage`. The sui
 Opening `index.html` edits the default track. Opening `index.html?track=<id>` races the published
 track `<id>`, fetched from the backend (see `src/openrider/constants/request.constants.ts`).
 
+The game runs in the `#game` element of any page loading `dist/main.js`, which configures it with
+data attributes (see `src/openrider/config/game-config.ts`):
+
+| Attribute        | Setting                                                                   | Default                |
+| ---------------- | ------------------------------------------------------------------------- | ---------------------- |
+| `data-track-id`  | Published track to race                                                   | `?track=<id>`, or none |
+| `data-base-url`  | URL of the folder holding the backend (`.setup/db/`) and icons (`media/`) | The folder of the page |
+| `data-track-url` | Page opened after uploading a track, `{id}` being its id                  | `?track={id}`          |
+
+```html
+<div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>
+<script src="/dist/main.js" defer></script>
+```
+
 The page hosting the game can make the player race against published ghosts:
 
 ```js
+// Adds or removes a ghost, returns false while the track is not parsed yet
 window.OpenRider.toggleGhost(ghostId);
+// Ids of the ghosts racing, fastest first
+window.OpenRider.racingGhosts();
 ```
 
 ### Controls
 
-| Action                                                             | Keys                                    |
-| ------------------------------------------------------------------ | --------------------------------------- |
-| Ride, brake, lean                                                  | Arrows                                  |
-| Turn around                                                        | `Z`                                     |
-| Pause, restart, last checkpoint                                    | `Space`, `Enter`, `Backspace`           |
-| Switch bike, focus a ghost                                         | `Ctrl+B`, `Ctrl+G`                      |
-| Camera, fullscreen                                                 | `R`, `F`                                |
-| Undo, redo                                                         | `M`, `N`                                |
-| Solid / scenery brush                                              | `A`, `S`                                |
-| Solid / scenery line                                               | `Q`, `W`                                |
-| Eraser, grid snapping                                              | `E`, `G`                                |
-| Items, status effects                                              | `I`, `J`                                |
-| Target, checkpoint, boost, gravity, bomb, slow motion, teleporter  | `Shift+T`, `C`, `B`, `G`, `O`, `S`, `W` |
-| Reset, invincibility, slippery, no steer, engine off, zero gravity | `Shift+R`, `I`, `H`, `N`, `E`, `Z`      |
-| Start position                                                     | `P`                                     |
-| Debug                                                              | `Ctrl+D`                                |
+| Action                                                                               | Keys                                         |
+| ------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Ride, brake, lean                                                                    | Arrows                                       |
+| Turn around                                                                          | `Z`                                          |
+| Pause, restart, last checkpoint                                                      | `Space`, `Enter`, `Backspace`                |
+| Switch bike, focus a ghost                                                           | `Ctrl+B`, `Ctrl+G`                           |
+| Camera, fullscreen                                                                   | `R`, `F`                                     |
+| Undo, redo                                                                           | `M`, `N`                                     |
+| Solid / scenery brush                                                                | `A`, `S`                                     |
+| Solid / scenery line                                                                 | `Q`, `W`                                     |
+| Eraser, grid snapping                                                                | `E`, `G`                                     |
+| Items, status effects                                                                | `I`, `J`                                     |
+| Target, checkpoint, linked checkpoint, boost, gravity, bomb, slow motion, teleporter | `Shift+T`, `C`, `L`, `B`, `G`, `O`, `S`, `W` |
+| Reset, invincibility, slippery, no steer, engine off, zero gravity                   | `Shift+R`, `I`, `H`, `N`, `E`, `Z`           |
+| Start position                                                                       | `P`                                          |
+| Debug                                                                                | `Ctrl+D`                                     |
 
 Letter shortcuts follow the keyboard layout (the undo key is the M key of an AZERTY keyboard too).
 
@@ -200,7 +220,7 @@ holding its `name`, `type` (`main` or `foreground`), `visible` flag, and its `so
 ## Project Structure
 
 ```
-.setup/               PHP backend: endpoints, database tables and Apache rules
+.setup/               PHP backend: endpoints, database tables, Apache rules, local server and sample website
 src/
 ├── main.ts           entry point: creates the canvade game, reads ?track=<id>, exposes window.OpenRider
 ├── states/           canvade states and layers
@@ -211,6 +231,7 @@ src/
 │   └── track-upload/     frames the thumbnail and uploads the track
 └── openrider/        game logic, independent from the states
     ├── bike/             bikes, springs, renderers, player and ghost runners
+    ├── config/           settings given by the page hosting the game
     ├── entity/           points with verlet physics, ragdoll, explosion
     ├── grid/             spatial grids: physics cells and cached render cells
     ├── item/             lines and items of the tracks

@@ -1,0 +1,19 @@
+/*
+ * Host element of the game. The game sizes its canvas after the host element when it starts:
+ * 700x400, narrower on small screens.
+ */
+
+.game {
+    display: flex;
+    flex-flow: column;
+    width: 702px;
+    max-width: 100%;
+    height: 402px;
+    margin: 0 auto;
+    border: 1px solid #000;
+    background: #fff;
+}
+
+.game canvas {
+    outline: none;
+}

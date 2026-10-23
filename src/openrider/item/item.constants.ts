@@ -1,6 +1,7 @@
 import { Boost } from './directional/boost';
 import { Gravity } from './directional/gravity';
 import { ItemClass } from './item';
+import { LinkedCheckpoint } from './linked/linked-checkpoint';
 import { Teleporter } from './linked/teleporter';
 import { Bomb } from './misc/bomb';
 import { SlowMo } from './misc/slow-mo';
@@ -23,6 +24,7 @@ export const ITEM_MAP = new Map<string, ItemClass>(
         Gravity,
         Target,
         Teleporter,
+        LinkedCheckpoint,
         Reset,
         Invincibility,
         Slippery,

@@ -6,7 +6,7 @@
  * POST `trackId` and `id`, answers `{"GHOSTSTRING": string}`, or 404 for an unknown ghost.
  */
 
-require __DIR__ . '/../api.php';
+require_once __DIR__ . '/../api.php';
 
 openrider_handle(function (PDO $db) {
     $trackId = openrider_int_param('trackId');

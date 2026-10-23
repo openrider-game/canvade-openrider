@@ -7,7 +7,7 @@
  * when the track does not exist.
  */
 
-require __DIR__ . '/../api.php';
+require_once __DIR__ . '/../api.php';
 
 openrider_handle(function (PDO $db) {
     $ghostString = openrider_string_param('ghostString');

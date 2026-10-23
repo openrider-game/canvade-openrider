@@ -1,5 +1,6 @@
 import { State, StateClass, StateManager } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { GameConfig } from '../../src/openrider/config/game-config';
 import { Session } from '../../src/states/session';
 import {
     STATE_TRACK_EDITING,
@@ -153,6 +154,38 @@ describe('Upload state', () => {
         expect(params.get('trackCode')).toBe('-18 1i 18 1i,#####BMX#0 0');
         expect(params.get('thumbnail')).toBe('THUMBNAIL');
         expect(location.href).toBe('?track=77');
+    });
+
+    test('uploads to the backend and opens the track page configured by the host', async () => {
+        GameConfig.configure({
+            dataset: { baseUrl: '/', trackUrl: '/tracks/{id}/' },
+        } as unknown as HTMLElement);
+        try {
+            const fetch = fetchMock();
+            vi.stubGlobal('fetch', fetch);
+            vi.stubGlobal('location', { href: '' });
+            manager.push(STATE_TRACK_FETCHER);
+            await runFrames(400, STATE_TRACK_EDITING);
+            manager.render(createCanvasMock().context);
+            (manager.getCurrent() as TrackEditingState).getButtons()[3].action();
+            await runFrames(400, STATE_TRACK_UPLOAD);
+            const toDataURL = vi.fn(() => 'data:image/png;base64,THUMBNAIL');
+            const createElement = document.createElement;
+            vi.stubGlobal('document', {
+                ...document,
+                createElement: (tag: string) => Object.assign(createElement(tag), { toDataURL }),
+            });
+
+            (manager.getCurrent() as TrackUploadState).getButtons()[1].action();
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            const [url] = fetch.mock.calls.at(-1) as unknown as [string];
+            expect(url).toBe('/.setup/db/trackupload/');
+            expect(location.href).toBe('/tracks/77/');
+        } finally {
+            GameConfig.baseUrl = './';
+            GameConfig.trackUrl = '?track={id}';
+        }
     });
 
     test('goes back to the editing state when cancelled', async () => {

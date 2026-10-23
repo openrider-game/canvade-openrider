@@ -1,0 +1,21 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "OpenRider: build",
+            "type": "npm",
+            "script": "build",
+            "problemMatcher": []
+        },
+        {
+            // Serves the game and the backend on SQLite, with the PHP of the PHP extension setting
+            "label": "OpenRider: local server",
+            "type": "process",
+            "command": "${config:php.validate.executablePath}",
+            "args": ["-S", "localhost:8000", ".setup/local/router.php"],
+            "dependsOn": "OpenRider: build",
+            "isBackground": true,
+            "problemMatcher": []
+        }
+    ]
+}

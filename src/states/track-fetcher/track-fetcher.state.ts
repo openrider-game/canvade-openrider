@@ -1,5 +1,6 @@
 import { Layer } from 'canvade';
-import { TRACKDATA_URL } from '../../openrider/constants/request.constants';
+import { GameConfig } from '../../openrider/config/game-config';
+import { TRACKDATA_PATH } from '../../openrider/constants/request.constants';
 import { Requests } from '../../openrider/request/requests';
 import {
     TRACK_DEFAULT,
@@ -63,7 +64,7 @@ export class TrackFetcherState extends OpenRiderState {
 
     private async fetchTrack(trackId: number): Promise<void> {
         try {
-            const response = await Requests.post(TRACKDATA_URL, { id: trackId });
+            const response = await Requests.post(GameConfig.url(TRACKDATA_PATH), { id: trackId });
             await Requests.check(response);
 
             // Compressed responses give their real size in a custom header

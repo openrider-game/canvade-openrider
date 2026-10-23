@@ -15,7 +15,8 @@ POST requests (see `src/openrider/constants/request.constants.ts`). They answer 
 ## Requirements
 
 - PHP 7.4 or later, with the PDO driver of the database
-- PostgreSQL (`db/tables.sql`), or SQLite 3.35 or later (`db/tables.sqlite.sql`)
+- PostgreSQL (`db/tables.sql`), or SQLite 3.35 or later (`db/tables.sqlite.sql`, with the
+  `pdo_sqlite` extension)
 
 ## Configuration
 
@@ -29,15 +30,57 @@ The database is configured with environment variables:
 
 ## Running locally
 
-With SQLite and the PHP built-in server, from the root of the project once the game is built:
+`local/router.php` runs the game and the backend with the PHP built-in server and SQLite, from
+the root of the project once the game is built:
 
 ```sh
-sqlite3 openrider.db < .setup/db/tables.sqlite.sql
-OPENRIDER_DB_DSN="sqlite:$PWD/openrider.db" php -S localhost:8000
+php -S localhost:8000 .setup/local/router.php
 ```
 
-Then open `http://localhost:8000/` to edit and upload a track, and
-`http://localhost:8000/?track=1` to race it.
+On the first request, it creates the database `.setup/local/openrider.db` with the tables and the
+sample data of `local/sample.sql`; delete the file to start over. Setting `OPENRIDER_DB_DSN` uses
+that database instead. The router also serves the endpoints, as the built-in server does not
+resolve the `index.php` of directories under `.setup`.
+
+In VS Code, the `OpenRider: local server` task builds the game, then starts the server with the
+PHP executable of the `php.validate.executablePath` setting (e.g. `C:\xampp\php\php.exe`).
+
+### Sample website
+
+`http://localhost:8000/` is a sample website embedding the game in its pages:
+
+- `/` lists the tracks, newest first, with their thumbnail, title, bike, number of ghosts and best
+  time;
+- `/tracks/<id>/` runs the game racing the track, with the leaderboard of its ghosts under it,
+  ordered by time. Clicking a rider adds their ghost to the race, and clicking it again removes
+  it;
+- `/create/` runs the game editing a new track, whose upload opens its track page.
+
+Each page loads `dist/main.js` with a `#game` element configuring it (see "Usage" in the main
+README), and the leaderboard drives the game through its page API (`window.OpenRider`). The game
+alone stays at `/index.html`.
+
+The backend stores no track title: the site reads them from its own `LOCAL_TRACK_TITLES` table,
+and names the other tracks after their id.
+
+```
+local/
+├── router.php            router of the built-in server: database, endpoints, then the site
+├── sample.sql            sample tracks, ghosts and titles
+└── site/
+    ├── app.php           front controller: routes of the site and static files
+    ├── src/              database queries, formatting, template rendering
+    ├── templates/        layout, pages and partials (track card, game host element)
+    └── public/           static files served under /assets/: css/, js/ and the favicon
+```
+
+The sample holds three tracks, each with a ghost finishing it:
+
+| Track | Title              | Bike | Ghost        | Shows                                    |
+| ----- | ------------------ | ---- | ------------ | ---------------------------------------- |
+| 1     | First ride         | BMX  | 1, `Rookie`  | A jump, a checkpoint and scenery         |
+| 2     | Linked checkpoints | MTB  | 2, `Linker`  | A boost and a pair of linked checkpoints |
+| 3     | Hills              | BMX  | 3, `Climber` | Hills and a foreground layer             |
 
 ## Deploying
 

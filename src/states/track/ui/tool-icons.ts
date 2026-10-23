@@ -1,4 +1,5 @@
 import { Display } from 'canvade';
+import { GameConfig } from '../../../openrider/config/game-config';
 import type { ToolIcon } from '../../../openrider/tool/tool';
 
 /** Size of the tool icons, in UI pixels. */
@@ -53,7 +54,7 @@ export abstract class ToolIcons {
                 image.height * scale,
             );
         });
-        image.src = typeof icon === 'string' ? `media/icon/${icon}.svg` : icon.data;
+        image.src = typeof icon === 'string' ? GameConfig.url(`media/icon/${icon}.svg`) : icon.data;
 
         return canvas;
     }

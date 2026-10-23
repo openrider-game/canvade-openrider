@@ -1,4 +1,5 @@
 import { Game, State, StateClass } from 'canvade';
+import { GameConfig } from './openrider/config/game-config';
 import { GAME_UPS } from './openrider/constants/game.constants';
 import { GhostService } from './openrider/request/ghost-service';
 import { Session } from './states/session';
@@ -10,12 +11,14 @@ if (!hostElement) {
     throw new Error('No host element found');
 }
 
+// The host element configures the game for its page, see GameConfig
+GameConfig.configure(hostElement);
+
 const game = new Game(hostElement, { updatesPerSecond: GAME_UPS });
 const session = new Session(game.shared);
 
-// The `?track=<id>` URL parameter races a published track, otherwise the default track is edited
-const trackId = Number(new URLSearchParams(location.search).get('track'));
-session.trackId = Number.isInteger(trackId) && trackId > 0 ? trackId : null;
+// Races a published track, otherwise the default track is edited
+session.trackId = GameConfig.trackId(hostElement, location.search);
 
 game.addStates(
     new Map<string, StateClass<State>>(
@@ -36,13 +39,22 @@ const api = {
      * the first time. Does nothing until a track has been parsed.
      *
      * @param ghostId - Id of the published ghost.
+     * @returns Whether the ghost was toggled, false while no track is parsed.
      */
-    toggleGhost(ghostId: number): void {
-        if (session.hasTrack()) {
-            GhostService.toggleGhost(session.track, ghostId).catch((e) =>
-                console.error(`Cannot load ghost ${ghostId}`, e),
-            );
+    toggleGhost(ghostId: number): boolean {
+        if (!session.hasTrack()) {
+            return false;
         }
+
+        GhostService.toggleGhost(session.track, ghostId).catch((e) =>
+            console.error(`Cannot load ghost ${ghostId}`, e),
+        );
+        return true;
+    },
+
+    /** Ids of the ghosts racing, fastest first; empty while no track is parsed. */
+    racingGhosts(): number[] {
+        return session.hasTrack() ? [...session.track.ghostRunners.keys()] : [];
     },
 };
 
