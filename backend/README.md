@@ -59,9 +59,14 @@ an account.
 - `/` lists the published tracks, newest first, with their thumbnail, title, author, bike,
   number of ghosts and best time, marking the unverified ones;
 - `/tracks/<id>/` runs the game racing the track, under its title, author, description and
-  verifier, with the leaderboard of its ghosts under it, ordered by time, the run verifying the
-  track first among them. Clicking a rider adds their ghost to the race, and clicking it again
-  removes it. A finished race is saved for the account logged in, named after it;
+  verifier, with its leaderboard under it, in two tabs: the 10 best riders, ranked by their best
+  ghost (a rider holding several of the best times counts once), their other ghosts folded under
+  it; and the ghosts of the account logged in, with its rank and its ghosts waiting for an admin.
+  The run verifying the track is marked. Clicking a rider adds their ghost to the race, and
+  clicking it again removes it. A finished race is saved for the account logged in, named after
+  it;
+- `/users/` lists the accounts by name, 50 a page, with the number of their tracks and ghosts,
+  and searches them by name (`?q=`), whatever its case; the header links to it;
 - `/users/<name>/` lists the tracks published by an account, and its ghosts with their rank;
 - `/reviews/` lists the ghosts and the verifying runs waiting for an admin, for the admins only
   (see "Reviews");

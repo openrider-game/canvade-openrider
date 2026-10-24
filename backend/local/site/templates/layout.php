@@ -28,6 +28,7 @@
             <a class="site-header__home" href="/">OpenRider</a>
             <nav class="site-header__nav">
                 <?php $user = site_user(); ?>
+                <a class="button" href="/users/">Users</a>
                 <?php if ($user !== null): ?>
                     <a class="site-header__user" href="/users/<?= rawurlencode($user['NAME']) ?>/">
                         <?= h($user['NAME']) ?>

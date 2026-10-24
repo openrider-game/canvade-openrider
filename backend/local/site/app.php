@@ -8,6 +8,7 @@
  * | ------------------------------------ | ----------------------------------------------------- |
  * | `/`                                  | the published tracks                                  |
  * | `/tracks/<id>/`                      | the game racing a track, and the leaderboard under it |
+ * | `/users/`                            | the accounts, searched by name                        |
  * | `/users/<name>/`                     | the tracks and ghosts of an account                   |
  * | `/register/`, `/login/`, `/logout/`  | the account forms                                     |
  * | `/create/`                           | the game editing a new track                          |
@@ -62,6 +63,12 @@ const SITE_GAME_REQUEST_PATTERN =
 /** Actions of the admins on a ghost or a verifying run: its kind, id and the action. */
 const SITE_REVIEW_ACTION_PATTERN = '#^/reviews/(ghosts|tracks)/([0-9]+)/(approve|reject)/$#';
 
+/** Riders listed in the top of a track, each with their best ghost. */
+const SITE_LEADERBOARD_RIDERS = 10;
+
+/** Accounts listed on a page of `/users/`. */
+const SITE_USERS_PER_PAGE = 50;
+
 /** Maximum length of the title of a track, in characters. */
 const SITE_TITLE_MAX_LENGTH = 60;
 
@@ -108,6 +115,8 @@ function site_handle(string $path): bool
         site_home_page();
     } elseif (preg_match('#^/tracks/([0-9]+)/?$#', $path, $match)) {
         site_track_page((int) $match[1]);
+    } elseif ($path === '/users/') {
+        site_users_page();
     } elseif (preg_match('#^/users/([^/]+)/?$#', $path, $match)) {
         site_user_page(rawurldecode($match[1]));
     } elseif ($path === '/register/' || $path === '/login/') {
@@ -159,21 +168,90 @@ function site_track_page(int $trackId): void
         return;
     }
 
-    // The ghosts waiting for an admin are only listed for their account and the admins
+    $ghosts = site_find_ghosts($db, $trackId);
     $viewer = site_user();
-    $ghosts = array_values(array_filter(
-        site_find_ghosts($db, $trackId),
-        fn (array $ghost) => $ghost['REVIEW'] === null || site_can_delete($viewer, $ghost['USERID'])
+    // The ghosts waiting for an admin are out of the ranking, listed for their account only
+    $ranked = array_filter($ghosts, fn (array $ghost) => $ghost['REVIEW'] === null);
+    $riders = site_group_riders($ranked);
+    $mine = $viewer === null ? [] : array_values(array_filter(
+        $ghosts,
+        fn (array $ghost) => (int) $ghost['USERID'] === $viewer['ID']
     ));
+    $myRank = array_search('user:' . ($viewer['ID'] ?? ''), array_keys($riders), true);
 
     site_render_page(
         'track',
         site_track_title($track),
-        ['track' => $track, 'ghosts' => $ghosts],
+        [
+            'track' => $track,
+            // Indexed by rank from 0, the keys of the riders dropped
+            'top' => array_slice(array_values($riders), 0, SITE_LEADERBOARD_RIDERS),
+            'riderCount' => count($riders),
+            'mine' => $mine,
+            'myRank' => $myRank === false ? null : $myRank + 1,
+        ],
         ['game.css'],
-        // The leaderboard drives the game through its page API, set up by the game script
-        ['/dist/main.js', '/assets/js/leaderboard.js'],
+        // The leaderboard drives the game through its page API, set up by the game script, and
+        // shows its tabs and the other ghosts of its riders with its own script
+        ['/dist/main.js', '/assets/js/leaderboard.js', '/assets/js/leaderboard-tabs.js'],
     );
+}
+
+/**
+ * Groups the ghosts of a track by rider, the riders ranked by their best ghost: a rider with
+ * several of the best times counts once.
+ *
+ * The riders are the accounts of the ghosts, or the names of their ghost strings for the ghosts
+ * saved without the site.
+ *
+ * @param array[] $ghosts Ghosts, fastest first, see site_find_ghosts().
+ * @return array[] Riders by key (`user:<id>` or `name:<name>`), best first: their `NAME` and
+ * their `GHOSTS`, fastest first.
+ */
+function site_group_riders(array $ghosts): array
+{
+    $riders = [];
+    foreach ($ghosts as $ghost) {
+        $key = $ghost['USERID'] !== null
+            ? 'user:' . (int) $ghost['USERID']
+            : 'name:' . strtolower(site_ghost_name($ghost['GHOSTSTRING']));
+        // The first ghost of a rider is their best: they keep the rank it gives them
+        $riders[$key] ??= [
+            'NAME' => $ghost['RIDER'] ?? site_ghost_name($ghost['GHOSTSTRING']),
+            'GHOSTS' => [],
+        ];
+        $riders[$key]['GHOSTS'][] = $ghost;
+    }
+
+    return $riders;
+}
+
+/**
+ * The accounts by name, SITE_USERS_PER_PAGE a page, with the number of their tracks and ghosts:
+ * the `q` parameter of the URL searches the names holding it, `page` gives the page, from 1.
+ */
+function site_users_page(): void
+{
+    $search = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
+    $page = max(1, (int) filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT));
+
+    $db = site_db();
+    $count = site_count_users($db, $search);
+    $pages = max(1, (int) ceil($count / SITE_USERS_PER_PAGE));
+    $page = min($page, $pages);
+
+    site_render_page('users', 'Users', [
+        'search' => $search,
+        'count' => $count,
+        'page' => $page,
+        'pages' => $pages,
+        'users' => site_find_users(
+            $db,
+            $search,
+            ($page - 1) * SITE_USERS_PER_PAGE,
+            SITE_USERS_PER_PAGE
+        ),
+    ]);
 }
 
 /** The published tracks and the ghosts of an account. */

@@ -187,7 +187,7 @@ a {
 }
 
 .leaderboard__rider {
-    width: 100%;
+    min-width: 8em;
     text-align: left;
 }
 
@@ -357,4 +357,83 @@ textarea.field__input {
 
 .leaderboard__table .delete-form {
     margin-right: 4px;
+}
+
+/* Users page: search above the list, pages under it */
+
+.users-search {
+    display: flex;
+    gap: 8px;
+    max-width: 400px;
+    margin-bottom: 16px;
+}
+
+.leaderboard__table .users__count {
+    width: 6em;
+    text-align: right;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+}
+
+/* Track page: tabs of the leaderboard, and the other ghosts of the top riders */
+
+.tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    border-bottom: var(--border);
+}
+
+.tabs__tab {
+    margin-bottom: -2px;
+    padding: 6px 12px;
+    border: var(--border);
+    background: var(--color-background);
+    color: var(--color-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.tabs__tab:hover {
+    background: var(--color-hover);
+}
+
+.tabs__tab[aria-selected='true'] {
+    border-bottom-color: var(--color-background);
+    color: var(--color-text);
+    font-weight: bold;
+}
+
+.tabs__tab:focus-visible,
+.leaderboard__more:focus-visible {
+    outline: 2px solid var(--color-toggled);
+    outline-offset: 2px;
+}
+
+.tabs__heading {
+    margin: 16px 0 8px;
+    font-size: 16px;
+}
+
+.leaderboard__more {
+    margin-left: 6px;
+    padding: 0 8px;
+    font-size: 14px;
+}
+
+.leaderboard__more::after {
+    content: ' \25BE';
+}
+
+.leaderboard__more[aria-expanded='true']::after {
+    content: ' \25B4';
+}
+
+.leaderboard__other td {
+    background: #f6f6f6;
 }

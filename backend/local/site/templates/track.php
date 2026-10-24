@@ -2,13 +2,17 @@
 /**
  * Track page: the game racing the track, and the leaderboard of its ghosts.
  *
- * The riders are the accounts of the ghosts, or the names of their ghost strings for the ghosts
- * saved without the site. Clicking a rider toggles their ghost in the game, see
- * `public/js/leaderboard.js`. The run verifying the track is marked, and the ghosts waiting for
- * an admin, listed for their own account and the admins only, have no rank.
+ * The leaderboard has two tabs (see `public/js/leaderboard-tabs.js`): the top riders, ranked by
+ * their best ghost, their other ghosts folded under it, and the ghosts of the account, with
+ * those waiting for an admin. The riders are the accounts of the ghosts, or the names of their
+ * ghost strings for the ghosts saved without the site. Clicking a rider toggles their ghost in
+ * the game, see `public/js/leaderboard.js`. The run verifying the track is marked.
  *
- * @var array   $track  Track, see site_find_track().
- * @var array[] $ghosts Ghosts of the track, fastest first, see site_find_ghosts().
+ * @var array    $track      Track, see site_find_track().
+ * @var array[]  $top        Best riders, best first, see site_group_riders().
+ * @var int      $riderCount Number of riders ranked.
+ * @var array[]  $mine       Ghosts of the account, fastest first, see site_find_ghosts().
+ * @var int|null $myRank     Rank of the account among the riders, null when it has none.
  */
 
 $user = site_user();
@@ -54,77 +58,106 @@ $user = site_user();
 
 <section class="leaderboard" aria-labelledby="leaderboard-title">
     <h2 id="leaderboard-title">Leaderboard</h2>
+    <p class="muted">Click a rider to race against their ghost, and again to remove it.</p>
 
-    <?php if ($user === null): ?>
-        <?php $next = rawurlencode('/tracks/' . (int) $track['ID'] . '/'); ?>
-        <p class="muted">
-            <a href="/login/?next=<?= $next ?>">Log in</a> to save your time on the leaderboard.
-        </p>
-    <?php endif; ?>
+    <?php // Shown by the script of the tabs, which hides the panel not selected ?>
+    <div class="tabs" role="tablist" aria-labelledby="leaderboard-title" hidden>
+        <button class="tabs__tab" type="button" role="tab" id="leaderboard-tab-top"
+            aria-controls="leaderboard-top" aria-selected="true">Top riders</button>
+        <button class="tabs__tab" type="button" role="tab" id="leaderboard-tab-mine"
+            aria-controls="leaderboard-mine" aria-selected="false" tabindex="-1">My ghosts</button>
+    </div>
 
-    <?php if (!$ghosts): ?>
-        <p class="muted">No ghost yet: finish the track and save your time to be the first one.</p>
-    <?php else: ?>
-        <p class="muted">Click a rider to race against their ghost, and again to remove it.</p>
-        <table class="leaderboard__table">
-            <thead>
-                <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Rider</th>
-                    <th scope="col">Bike</th>
-                    <th scope="col" class="leaderboard__time">Time</th>
-                    <?php if ($user !== null): ?>
-                        <th scope="col"><span class="visually-hidden">Actions</span></th>
-                    <?php endif; ?>
-                </tr>
-            </thead>
-            <tbody>
-                <?php $rank = 0; ?>
-                <?php foreach ($ghosts as $ghost): ?>
-                    <?php
-                    $verifying = (int) $track['VERIFICATIONGHOSTID'] === (int) $ghost['ID'];
-                    $reviewed = $ghost['REVIEW'] === null;
-                    ?>
-                    <tr>
-                        <td><?= $reviewed ? ++$rank : '&ndash;' ?></td>
-                        <td>
-                            <button class="button leaderboard__rider" type="button"
-                                data-ghost-id="<?= (int) $ghost['ID'] ?>" aria-pressed="false">
-                                <?= h($ghost['RIDER'] ?? site_ghost_name($ghost['GHOSTSTRING'])) ?>
-                            </button>
-                            <?php if ($verifying): ?>
-                                <span class="badge">verifier</span>
-                            <?php endif; ?>
-                            <?php if (!$reviewed): ?>
-                                <span class="badge badge--review"
-                                    title="<?= h($ghost['REVIEW']) ?>">
-                                    checked by an admin
-                                </span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?= h(site_ghost_bike($ghost['GHOSTSTRING'])) ?></td>
-                        <td class="leaderboard__time">
-                            <?= site_duration((int) $ghost['TIME']) ?>
-                        </td>
-                        <?php if ($user !== null): ?>
-                            <td>
-                                <?php // The verifying run is the proof of the track: admins only ?>
-                                <?php if (
-                                    site_can_delete($user, $ghost['USERID'])
-                                    && (!$verifying || site_is_admin($user))
-                                ): ?>
-                                    <?php site_render('partials/delete-form', [
-                                        'action' => '/ghosts/' . (int) $ghost['ID'] . '/delete/',
-                                        'label' => 'Delete',
-                                        'confirm' => 'Delete this ghost?',
-                                    ]); ?>
-                                <?php endif; ?>
-                            </td>
-                        <?php endif; ?>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        <p class="leaderboard__status muted" role="status"></p>
-    <?php endif; ?>
+    <div class="tabs__panel" role="tabpanel" id="leaderboard-top"
+        aria-labelledby="leaderboard-tab-top">
+        <h3 class="tabs__heading">Top riders</h3>
+        <?php if (!$top): ?>
+            <p class="muted">
+                No ghost yet: finish the track and save your time to be the first one.
+            </p>
+        <?php else: ?>
+            <p class="muted">
+                The <?= count($top) ?> best of <?= $riderCount ?>
+                <?= $riderCount === 1 ? 'rider' : 'riders' ?>, by their best time.
+            </p>
+            <table class="leaderboard__table">
+                <?php site_render('partials/ghost-head', ['user' => $user]); ?>
+                <tbody>
+                    <?php foreach ($top as $rank => $rider): ?>
+                        <?php
+                        $group = 'rider-' . ($rank + 1);
+                        $others = array_slice($rider['GHOSTS'], 1);
+                        ?>
+                        <?php site_render('partials/ghost-row', [
+                            'track' => $track,
+                            'ghost' => $rider['GHOSTS'][0],
+                            'name' => $rider['NAME'],
+                            'rank' => (string) ($rank + 1),
+                            'user' => $user,
+                            'group' => null,
+                            'more' => $others ? ['group' => $group, 'count' => count($others)] : [],
+                        ]); ?>
+                        <?php foreach ($others as $ghost): ?>
+                            <?php site_render('partials/ghost-row', [
+                                'track' => $track,
+                                'ghost' => $ghost,
+                                'name' => $rider['NAME'],
+                                'rank' => '',
+                                'user' => $user,
+                                'group' => $group,
+                                'more' => [],
+                            ]); ?>
+                        <?php endforeach; ?>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    </div>
+
+    <div class="tabs__panel" role="tabpanel" id="leaderboard-mine"
+        aria-labelledby="leaderboard-tab-mine">
+        <h3 class="tabs__heading">My ghosts</h3>
+        <?php if ($user === null): ?>
+            <?php $next = rawurlencode('/tracks/' . (int) $track['ID'] . '/'); ?>
+            <p class="muted">
+                <a href="/login/?next=<?= $next ?>">Log in</a> to save your times on the
+                leaderboard and find them here.
+            </p>
+        <?php elseif (!$mine): ?>
+            <p class="muted">No ghost yet: finish the track and save your time.</p>
+        <?php else: ?>
+            <p class="muted">
+                <?php if ($myRank !== null): ?>
+                    You rank <?= $myRank ?> of <?= $riderCount ?>
+                    <?= $riderCount === 1 ? 'rider' : 'riders' ?> with your best time.
+                <?php else: ?>
+                    Your ghosts are checked by an admin before they rank.
+                <?php endif; ?>
+            </p>
+            <table class="leaderboard__table">
+                <?php site_render('partials/ghost-head', ['user' => $user]); ?>
+                <tbody>
+                    <?php $rankShown = false; ?>
+                    <?php foreach ($mine as $ghost): ?>
+                        <?php
+                        // The rank of the account shows on its best ghost out of review
+                        $ranked = !$rankShown && $myRank !== null && $ghost['REVIEW'] === null;
+                        $rankShown = $rankShown || $ranked;
+                        ?>
+                        <?php site_render('partials/ghost-row', [
+                            'track' => $track,
+                            'ghost' => $ghost,
+                            'name' => $user['NAME'],
+                            'rank' => $ranked ? (string) $myRank : '',
+                            'user' => $user,
+                            'group' => null,
+                            'more' => [],
+                        ]); ?>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
+    </div>
+
+    <p class="leaderboard__status muted" role="status"></p>
 </section>

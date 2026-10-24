@@ -119,6 +119,58 @@ function site_find_user(PDO $db, int $userId): ?array
 }
 
 /**
+ * Condition on `LOCAL_USERS u` keeping the names holding a text whatever its case, `:pattern`
+ * being the text escaped by site_like_pattern().
+ */
+const SITE_USER_NAME_SEARCH = 'LOWER(u."NAME") LIKE LOWER(:pattern) ESCAPE \'!\'';
+
+/** LIKE pattern finding a text anywhere, its `%` and `_` (allowed in user names) as they are. */
+function site_like_pattern(string $text): string
+{
+    return '%' . strtr($text, ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
+}
+
+/**
+ * Accounts by name, with the number of tracks they published (`TRACKS`) and of their ghosts not
+ * waiting for an admin (`GHOSTS`).
+ *
+ * @param string $search Text of the names to list, empty for every account.
+ * @return array[]
+ */
+function site_find_users(PDO $db, string $search, int $offset, int $limit): array
+{
+    $statement = $db->prepare(
+        'SELECT u."ID", u."NAME",'
+        . ' (SELECT COUNT(*) FROM "LOCAL_TRACK_DETAILS" d WHERE d."USERID" = u."ID") AS "TRACKS",'
+        . ' (SELECT COUNT(*) FROM "LOCAL_GHOST_OWNERS" o WHERE o."USERID" = u."ID"'
+        . ' AND o."GHOSTID" NOT IN (SELECT "GHOSTID" FROM "LOCAL_GHOST_REVIEWS")) AS "GHOSTS"'
+        . ' FROM "LOCAL_USERS" u WHERE ' . SITE_USER_NAME_SEARCH
+        . ' ORDER BY LOWER(u."NAME") LIMIT :limit OFFSET :offset'
+    );
+    $statement->bindValue('pattern', site_like_pattern($search));
+    $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+    $statement->bindValue('offset', $offset, PDO::PARAM_INT);
+    $statement->execute();
+
+    return $statement->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Number of accounts whose name holds a text.
+ *
+ * @param string $search Text of the names to count, empty for every account.
+ */
+function site_count_users(PDO $db, string $search): int
+{
+    $statement = $db->prepare(
+        'SELECT COUNT(*) FROM "LOCAL_USERS" u WHERE ' . SITE_USER_NAME_SEARCH
+    );
+    $statement->execute(['pattern' => site_like_pattern($search)]);
+
+    return (int) $statement->fetchColumn();
+}
+
+/**
  * An account by its name, whatever its case, with its password hash (`PASSWORDHASH`), or null
  * when it does not exist.
  */
