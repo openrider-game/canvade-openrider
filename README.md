@@ -61,7 +61,7 @@ OpenRider is a bike riding game where players draw tracks and race on them. This
   being drawn at the resolution of the screen; a debug mode shows the physics, the cache and live
   stats.
 - **Backend**: PHP endpoints storing the tracks and the ghosts, see
-  [.setup/README.md](.setup/README.md).
+  [backend/README.md](backend/README.md).
 
 This repository is **not endorsed nor approved** by FreeRiderHD, the official successor to the
 FreeRider series of games.
@@ -79,8 +79,8 @@ FreeRider series of games.
 - VS Code Live Server extension, or any static file server (optional)
 - PHP and a PostgreSQL or SQLite database (optional, to publish and race tracks and save ghosts;
   a local server with a sample website and tracks runs with
-  `php -S localhost:8000 .setup/local/router.php`,
-  see [.setup/README.md](.setup/README.md))
+  `php -S localhost:8000 backend/local/router.php`,
+  see [backend/README.md](backend/README.md))
 
 ### Installation
 
@@ -132,11 +132,12 @@ track `<id>`, fetched from the backend (see `src/openrider/constants/request.con
 The game runs in the `#game` element of any page loading `dist/main.js`, which configures it with
 data attributes (see `src/openrider/config/game-config.ts`):
 
-| Attribute        | Setting                                                                   | Default                |
-| ---------------- | ------------------------------------------------------------------------- | ---------------------- |
-| `data-track-id`  | Published track to race                                                   | `?track=<id>`, or none |
-| `data-base-url`  | URL of the folder holding the backend (`.setup/db/`) and icons (`media/`) | The folder of the page |
-| `data-track-url` | Page opened after uploading a track, `{id}` being its id                  | `?track={id}`          |
+| Attribute         | Setting                                                                    | Default                |
+| ----------------- | -------------------------------------------------------------------------- | ---------------------- |
+| `data-track-id`   | Published track to race                                                    | `?track=<id>`, or none |
+| `data-track-mode` | `edit` to edit the track of `data-track-id` instead of racing it           | Racing it              |
+| `data-base-url`   | URL of the folder holding the backend (`backend/db/`) and icons (`media/`) | The folder of the page |
+| `data-track-url`  | Page opened after uploading a track, `{id}` being its id                   | `?track={id}`          |
 
 ```html
 <div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>
@@ -220,7 +221,8 @@ holding its `name`, `type` (`main` or `foreground`), `visible` flag, and its `so
 ## Project Structure
 
 ```
-.setup/               PHP backend: endpoints, database tables, Apache rules, local server and sample website
+.htaccess             Apache rules of the deployed sample website (see backend/README.md)
+backend/              PHP backend: endpoints, database tables, local server and sample website
 src/
 ├── main.ts           entry point: creates the canvade game, reads ?track=<id>, exposes window.OpenRider
 ├── states/           canvade states and layers
@@ -229,16 +231,17 @@ src/
 │   ├── track/            editing and racing states, track rendering, HUD and interface layers
 │   ├── track-generator/  generates the track code to export or upload
 │   └── track-upload/     frames the thumbnail and uploads the track
-└── openrider/        game logic, independent from the states
-    ├── bike/             bikes, springs, renderers, player and ghost runners
-    ├── config/           settings given by the page hosting the game
-    ├── entity/           points with verlet physics, ragdoll, explosion
-    ├── grid/             spatial grids: physics cells and cached render cells
-    ├── item/             lines and items of the tracks
-    ├── parser/           track code parser and generator, ghost strings
-    ├── thread/           workers of the fast renderer
-    ├── tool/             editor and race tools
-    └── track/            track, layers and renderer
+├── openrider/        game logic, independent from the states
+│   ├── bike/             bikes, springs, renderers, player and ghost runners
+│   ├── config/           settings given by the page hosting the game
+│   ├── entity/           points with verlet physics, ragdoll, explosion
+│   ├── grid/             spatial grids: physics cells and cached render cells
+│   ├── item/             lines and items of the tracks
+│   ├── parser/           track code parser and generator, ghost strings
+│   ├── thread/           workers of the fast renderer
+│   ├── tool/             editor and race tools
+│   └── track/            track, layers and renderer
+└── verify/           ghost verifier of the backend, replaying the ghosts in Node (dist/verify-ghost.cjs)
 ```
 
 The states share data (track id and code, parsed track) through the canvade `manager.shared` map,

@@ -52,30 +52,46 @@ export class LinkedItemGroup extends ReachableItem {
     }
 
     /**
-     * Reaches the group when one of its items is touched.
+     * Reaches the group when one of its items is touched, once per run.
      *
-     * The player marks every item as reached and queues them for its runner, while ghosts never
-     * mark them. The touched item effect is then applied towards each other item of the group.
+     * The player marks every item as reached, while ghosts never mark them: the reached sets
+     * and the action queue of their runner tell instead whether they already reached the group.
+     * Every item is queued for the runner, then the touched item effect is applied towards each
+     * other item of the group.
      */
     public touchFrom(part: Collidable, touchedInstance: LinkedItem): void {
         const runner = part.bike.runner;
 
-        if (runner.isGhost || !this.reached) {
-            if (!runner.isGhost) {
-                this.reached = true;
-                for (const instance of this.instances) {
-                    instance.reached = true;
-                    if (!runner.reachablesReached.has(instance.id)) {
-                        runner.actionQueue.set(instance.id, instance);
-                    }
-                }
-            }
+        // A ghost replays the run of the player, so it must reach the group exactly when the
+        // player did: otherwise it is teleported back by the other teleporter, and its run
+        // diverges
+        const reached = runner.isGhost
+            ? this.instances.some(
+                  (instance) =>
+                      runner.actionQueue.has(instance.id) ||
+                      runner.reachablesReached.has(instance.id),
+              )
+            : this.reached;
+        if (reached) {
+            return;
+        }
 
-            this.onReach(part);
-            for (const other of this.instances) {
-                if (other !== touchedInstance) {
-                    touchedInstance.onReach(part, other);
-                }
+        if (!runner.isGhost) {
+            this.reached = true;
+        }
+        for (const instance of this.instances) {
+            if (!runner.isGhost) {
+                instance.reached = true;
+            }
+            if (!runner.reachablesReached.has(instance.id)) {
+                runner.actionQueue.set(instance.id, instance);
+            }
+        }
+
+        this.onReach(part);
+        for (const other of this.instances) {
+            if (other !== touchedInstance) {
+                touchedInstance.onReach(part, other);
             }
         }
     }

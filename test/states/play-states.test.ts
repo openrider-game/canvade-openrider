@@ -180,7 +180,7 @@ describe('Upload state', () => {
             await new Promise((resolve) => setTimeout(resolve, 10));
 
             const [url] = fetch.mock.calls.at(-1) as unknown as [string];
-            expect(url).toBe('/.setup/db/trackupload/');
+            expect(url).toBe('/backend/db/trackupload/');
             expect(location.href).toBe('/tracks/77/');
         } finally {
             GameConfig.baseUrl = './';

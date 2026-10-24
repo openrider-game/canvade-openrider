@@ -272,6 +272,37 @@ describe('Teleporters', () => {
         expect(entry.reached && exit.reached).toBe(true);
     });
 
+    test('teleport a ghost once, without sending it back from the other teleporter', () => {
+        const [entry, exit] = placeTeleporters();
+        const ghost = new GhostRunner(track, ',,,,,100,BMX,Ghost');
+        ghost.createBike();
+        const bike = ghost.instance;
+        if (!bike) throw new Error('No ghost bike');
+        bike.hitbox.pos.set(entry.pos.clone());
+        const before = bike.points.map((point) => point.pos.clone());
+
+        // Landing on the exit, touched again on the same tick
+        entry.touch(bike.hitbox);
+        exit.touch(bike.hitbox);
+
+        const distance = exit.pos.sub(entry.pos);
+        bike.points.forEach((point, i) => {
+            expect(point.pos).toEqual(before[i].add(distance));
+        });
+
+        // Then on the next tick
+        ghost.fixedUpdate();
+        const afterTick = bike.points.map((point) => point.pos.clone());
+        exit.touch(bike.hitbox);
+        bike.points.forEach((point, i) => {
+            expect(point.pos).toEqual(afterTick[i]);
+        });
+        // Ghosts never mark the items, their runner records them instead
+        expect(entry.reached || exit.reached).toBe(false);
+        const reached = ghost.reachablesReached;
+        expect(reached.has(entry.id) && reached.has(exit.id)).toBe(true);
+    });
+
     test('are added, removed and exported as a whole', () => {
         const [entry, exit] = placeTeleporters();
 

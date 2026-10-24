@@ -12,8 +12,9 @@ import { STATE_TRACK_PARSER } from '../state-names';
 import { TrackFetcherLayer } from './layers/track-fetcher.layer';
 
 /**
- * First state of the game: downloads the track to race when the session has a track id, otherwise
- * edits the session track code (the default track when there is none).
+ * First state of the game: downloads the track when the session has a track id, to race it, or
+ * to edit it when the host element asks for it (see GameConfig); otherwise edits the session
+ * track code (the default track when there is none).
  *
  * Sets the session track mode, then pushes the parser state on the next update once the track
  * code is available.
@@ -46,7 +47,7 @@ export class TrackFetcherState extends OpenRiderState {
         const trackId = session.trackId;
 
         if (trackId) {
-            session.trackMode = TRACK_MODE_RACING;
+            session.trackMode = GameConfig.editTrack ? TRACK_MODE_EDITING : TRACK_MODE_RACING;
             void this.fetchTrack(trackId);
         } else {
             session.trackMode = TRACK_MODE_EDITING;

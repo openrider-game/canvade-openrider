@@ -25,7 +25,7 @@ export type ExportFormat = 'code' | 'editor';
 export class Session {
     public constructor(private readonly shared: Map<string, unknown>) {}
 
-    /** Id of the published track to race, `null` when editing a track. */
+    /** Id of the published track to download, to race or edit; `null` to edit a new track. */
     public get trackId(): number | null {
         return (this.shared.get(TRACK_ID) as number | undefined) ?? null;
     }

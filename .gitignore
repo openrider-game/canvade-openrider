@@ -4,5 +4,5 @@ coverage
 
 dist
 
-# Local SQLite database of .setup/local/router.php
-.setup/local/*.db
+# Local SQLite database of backend/local/router.php
+backend/local/*.db

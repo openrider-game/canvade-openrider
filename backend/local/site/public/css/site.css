@@ -1,0 +1,360 @@
+/*
+ * Styles of the sample website, after the look of the game interface: white elements with a
+ * square black border, darker while hovered or pressed.
+ */
+
+:root {
+    --color-text: #000;
+    --color-muted: #666;
+    --color-background: #fff;
+    --color-hover: #ddd;
+    --color-active: #ccc;
+    --color-toggled: #077;
+    --color-toggled-text: #fff;
+    --color-error: #b00;
+    --border: 2px solid #000;
+    --page-width: 960px;
+    --content-width: 702px;
+    --gutter: 16px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: 1.4;
+}
+
+h1 {
+    margin: 0 0 16px;
+    font-size: 22px;
+}
+
+h2 {
+    margin: 24px 0 8px;
+    font-size: 18px;
+}
+
+a {
+    color: inherit;
+}
+
+.muted {
+    color: var(--color-muted);
+}
+
+/* Buttons and button links */
+
+.button {
+    display: inline-block;
+    padding: 6px 12px;
+    border: var(--border);
+    background: var(--color-background);
+    color: var(--color-text);
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.button:hover {
+    background: var(--color-hover);
+}
+
+.button:active {
+    background: var(--color-active);
+}
+
+.button[aria-pressed='true'] {
+    background: var(--color-toggled);
+    color: var(--color-toggled-text);
+}
+
+/* Header and page */
+
+.site-header {
+    margin-bottom: 24px;
+    border-bottom: var(--border);
+}
+
+.site-header__inner,
+.page {
+    max-width: var(--page-width);
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+}
+
+.site-header__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--gutter);
+    padding-block: 16px;
+}
+
+.site-header__home {
+    font-size: 24px;
+    font-weight: bold;
+    text-decoration: none;
+}
+
+.page {
+    padding-bottom: 32px;
+}
+
+/* Front page: grid of track cards */
+
+.track-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--gutter);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.track-card {
+    display: block;
+    border: var(--border);
+    text-decoration: none;
+}
+
+.track-card:hover {
+    background: var(--color-hover);
+}
+
+.track-card__thumbnail {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 5 / 3;
+    border-bottom: var(--border);
+    background: var(--color-background);
+}
+
+.track-card__thumbnail--empty {
+    display: grid;
+    place-items: center;
+    color: var(--color-muted);
+}
+
+.track-card__info {
+    display: block;
+    padding: 8px 12px;
+}
+
+.track-card__title {
+    display: block;
+    font-weight: bold;
+}
+
+.track-card__meta {
+    display: block;
+    margin-top: 4px;
+    color: var(--color-muted);
+    font-size: 14px;
+}
+
+/* Track page: leaderboard under the game */
+
+.leaderboard,
+.game-help {
+    max-width: var(--content-width);
+    margin-inline: auto;
+}
+
+.leaderboard__table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.leaderboard__table th,
+.leaderboard__table td {
+    padding: 6px 10px;
+    border: var(--border);
+    text-align: left;
+}
+
+.leaderboard__table .leaderboard__time {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.leaderboard__rider {
+    width: 100%;
+    text-align: left;
+}
+
+.leaderboard__status:empty {
+    display: none;
+}
+
+/* Track page: description under the title */
+
+.track-description {
+    max-width: var(--content-width);
+    margin: -8px 0 16px;
+}
+
+/* Upload page: thumbnail of the uploaded track, then the form of its title and description */
+
+.upload {
+    max-width: var(--content-width);
+}
+
+.upload__thumbnail {
+    display: block;
+    width: 100%;
+    max-width: 500px;
+    height: auto;
+    border: var(--border);
+}
+
+.field {
+    margin-bottom: 16px;
+}
+
+.field__label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: bold;
+}
+
+.field__input {
+    display: block;
+    width: 100%;
+    padding: 6px 8px;
+    border: var(--border);
+    border-radius: 0;
+    background: var(--color-background);
+    color: var(--color-text);
+    font: inherit;
+}
+
+.field__input:focus {
+    outline: 2px solid var(--color-toggled);
+    outline-offset: 2px;
+}
+
+.field__input[aria-invalid='true'] {
+    border-color: var(--color-error);
+}
+
+textarea.field__input {
+    resize: vertical;
+}
+
+.field__error {
+    margin: 4px 0 0;
+    color: var(--color-error);
+}
+
+/* Header: links side by side */
+
+.site-header__nav {
+    display: flex;
+    gap: 8px;
+}
+
+/* Header: account name, and the log out form inline with the links */
+
+.site-header__nav form {
+    display: contents;
+}
+
+.site-header__user {
+    align-self: center;
+    font-weight: bold;
+}
+
+/* Account forms */
+
+.account {
+    max-width: 400px;
+}
+
+.field__help {
+    margin: 4px 0 0;
+    font-size: 14px;
+}
+
+/* Deleting: red buttons, inline with the content */
+
+.delete-form {
+    display: inline-block;
+    margin: 0 0 16px;
+}
+
+.leaderboard__table .delete-form {
+    margin: 0;
+}
+
+.button--danger {
+    border-color: var(--color-error);
+    color: var(--color-error);
+}
+
+/* Text for screen readers only, e.g. the header of a column of buttons */
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* Badges next to the riders: the run verifying the track, and the ghosts checked by an admin */
+
+.badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border: 1px solid var(--color-toggled);
+    color: var(--color-toggled);
+    font-size: 12px;
+}
+
+.badge--review {
+    border-color: var(--color-error);
+    color: var(--color-error);
+}
+
+/* Track and verification pages: verification under the title, actions side by side */
+
+.track-verification {
+    margin: -8px 0 16px;
+}
+
+.verification__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 16px;
+    margin-bottom: 16px;
+}
+
+.verification__actions form {
+    margin: 0;
+}
+
+.verification__verifier {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.verification__verifier .field__input {
+    width: 12em;
+}
+
+.leaderboard__table .delete-form {
+    margin-right: 4px;
+}

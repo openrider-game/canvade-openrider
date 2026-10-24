@@ -9,6 +9,7 @@ import {
     Vector,
 } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { GameConfig } from '../../src/openrider/config/game-config';
 import { GhostService } from '../../src/openrider/request/ghost-service';
 import { TRACK_DEFAULT, TRACK_MODE_RACING } from '../../src/openrider/track/track.constants';
 import { Session } from '../../src/states/session';
@@ -70,6 +71,7 @@ beforeEach(() => {
 
 afterEach(() => {
     Display.pixelRatio = 1;
+    GameConfig.editTrack = false;
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
 });
@@ -286,6 +288,19 @@ describe('Racing a track', () => {
         // Only the racing tools are available
         expect(session.track.toolCollection.getByToolName('Eraser')).toBeUndefined();
         expect(session.track.toolCollection.getByToolName('Pause')).toBeDefined();
+    });
+
+    test('edits the downloaded track instead when the host element asks for it', async () => {
+        GameConfig.editTrack = true;
+        session.trackId = 5;
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+
+        expect(session.trackCode).toBe(RACE_CODE);
+        // Edited as a new track: finishing it offers no ghost to save
+        expect(session.track.isRace()).toBe(false);
+        expect(session.track.targets.size).toBe(1);
+        expect(session.track.toolCollection.getByToolName('Eraser')).toBeDefined();
     });
 
     test('shows the error when the track does not exist', async () => {

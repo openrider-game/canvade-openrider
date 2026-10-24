@@ -9,13 +9,14 @@ function host(dataset: Record<string, string> = {}): HTMLElement {
 afterEach(() => {
     GameConfig.baseUrl = './';
     GameConfig.trackUrl = '?track={id}';
+    GameConfig.editTrack = false;
 });
 
 describe('Game configuration', () => {
     test('defaults to the folder of the page', () => {
         GameConfig.configure(host());
 
-        expect(GameConfig.url('.setup/db/trackdata/')).toBe('./.setup/db/trackdata/');
+        expect(GameConfig.url('backend/db/trackdata/')).toBe('./backend/db/trackdata/');
         expect(GameConfig.trackPage(7)).toBe('?track=7');
     });
 
@@ -24,6 +25,17 @@ describe('Game configuration', () => {
 
         expect(GameConfig.url('media/icon/pause.svg')).toBe('/openrider/media/icon/pause.svg');
         expect(GameConfig.trackPage(7)).toBe('/tracks/7/');
+    });
+
+    test('races the downloaded track, unless the host element asks to edit it', () => {
+        GameConfig.configure(host());
+        expect(GameConfig.editTrack).toBe(false);
+
+        GameConfig.configure(host({ trackMode: 'edit' }));
+        expect(GameConfig.editTrack).toBe(true);
+
+        GameConfig.configure(host({ trackMode: 'race' }));
+        expect(GameConfig.editTrack).toBe(false);
     });
 
     test('races the track of the host element, else the one of the page URL', () => {

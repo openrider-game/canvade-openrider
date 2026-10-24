@@ -1,0 +1,28 @@
+# Apache rules of the sample website, served from the root of the project at the root of the
+# domain (see backend/README.md). For the game alone, use backend/sample.htaccess instead.
+
+Options -Indexes
+DirectoryIndex disabled
+RewriteEngine On
+
+# Never served: the sources of the site and its local database, the shared helpers of the
+# endpoints, and the files of the project that are not part of the game
+RewriteRule ^backend/local/ - [F,L]
+RewriteRule ^backend/db/api\.php$ - [F,L]
+RewriteRule ^(src|test|node_modules)/ - [F,L]
+RewriteRule (^|/)\. - [F,L]
+# Files only: the drafts of the site download from /uploads/<id>/track.openrider.json
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule \.(md|sql|db|json|ts|mjs|cjs|map)$ - [F,L]
+
+# The site saves the tracks and ghosts itself, for its accounts and checks: the endpoints of the
+# backend would bypass them
+RewriteRule ^backend/db/(trackupload|ghostupload)/ - [F,L]
+
+# The other endpoints, by the index of their folder
+RewriteRule ^backend/db/([a-z]+)/$ backend/db/$1/index.php [L]
+
+# The front page and every path that is not a file go to the site
+RewriteRule ^$ backend/site.php [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ backend/site.php [L]

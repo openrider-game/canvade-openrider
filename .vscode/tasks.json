@@ -12,7 +12,7 @@
             "label": "OpenRider: local server",
             "type": "process",
             "command": "${config:php.validate.executablePath}",
-            "args": ["-S", "localhost:8000", ".setup/local/router.php"],
+            "args": ["-S", "localhost:8000", "backend/local/router.php"],
             "dependsOn": "OpenRider: build",
             "isBackground": true,
             "problemMatcher": []
