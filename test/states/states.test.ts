@@ -140,12 +140,12 @@ describe('Editing a track', () => {
                 name: 'keyboardDown',
                 consumed: false,
                 keyboardEvent: {} as KeyboardEvent,
-                key: 'Solid Line',
+                key: 'Line',
             }),
         );
         Keyboard.onKeyUp(keyEvent('KeyQ', 'q'));
 
-        expect(session.track.toolManager.tool?.toolClass.toolName).toBe('Solid Line');
+        expect(session.track.toolManager.tool?.toolClass.toolName).toBe('Line');
     });
 
     test('draws with the mouse, the interface keeping the mouse positions in sync', async () => {
@@ -153,7 +153,7 @@ describe('Editing a track', () => {
         await runUntil(STATE_TRACK_EDITING);
         manager.render(createCanvasMock().context);
         const state = manager.getCurrent();
-        session.track.toolCollection.getByToolName('Solid Line')?.run();
+        session.track.toolCollection.getByToolName('Line')?.run();
         const lines = session.track.layers.main[0].grid.totalSolidLines;
         const before = lines.size;
 
@@ -225,11 +225,11 @@ describe('Editing a track', () => {
         // The icons are rasterized in canvas pixels, to stay sharp
         expect(ToolIcons.get('pause').width).toBe(48);
 
-        // Third button of the right toolbar, 26 UI pixels wide, in canvas pixels
+        // Third button of the right toolbar, the eraser, 26 UI pixels wide, in canvas pixels
         const state = manager.getCurrent();
         state?.dispatch('mouseDown', mouseEvent('mouseDown', 2 * (700 - 13), 2 * (2 * 26 + 13)));
         state?.dispatch('mouseUp', mouseEvent('mouseUp', 2 * (700 - 13), 2 * (2 * 26 + 13)));
-        expect(session.track.toolManager.tool?.toolClass.toolName).toBe('Solid Line');
+        expect(session.track.toolManager.tool?.toolClass.toolName).toBe('Eraser');
     });
 
     test('exports the track code as a file', async () => {
@@ -433,7 +433,7 @@ describe('Touch screens', () => {
         expect(left.y + left.height).toBeLessThanOrEqual(byClass(elements, 'action-0').y);
         expect(up.y + up.height).toBeLessThanOrEqual(byClass(elements, 'layers').y);
 
-        session.track.toolCollection.getByToolName('Solid Line')?.run();
+        session.track.toolCollection.getByToolName('Line')?.run();
         expect(touchButtons()).toEqual([]);
     });
 

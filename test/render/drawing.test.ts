@@ -4,7 +4,8 @@ import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
 import { MODIFIERS } from '../../src/openrider/item/modifiers';
 import { BoostTool, TargetTool, TeleporterTool } from '../../src/openrider/tool/item/item.tools';
 import { ResetTool } from '../../src/openrider/tool/item/status.tools';
-import { SolidBrushTool, SolidLineTool } from '../../src/openrider/tool/line/line.tools';
+import { BrushTool } from '../../src/openrider/tool/line/brush.tool';
+import { LineTool } from '../../src/openrider/tool/line/line.tool';
 import { EraserTool } from '../../src/openrider/tool/misc/eraser.tool';
 import { StartPositionTool } from '../../src/openrider/tool/misc/start-position.tool';
 import { Tool } from '../../src/openrider/tool/tool';
@@ -108,7 +109,7 @@ describe('Tool previews', () => {
     });
 
     test('draws the line being drawn with its length and angle', () => {
-        const { context } = preview(SolidLineTool, () => {
+        const { context } = preview(LineTool, () => {
             track.lastClick.set(new Vector(0, 50));
             track.toolManager.onMouseDown(mouseEvent());
         });
@@ -118,7 +119,7 @@ describe('Tool previews', () => {
     });
 
     test('draws the brush size', () => {
-        const { context } = preview(SolidBrushTool);
+        const { context } = preview(BrushTool);
 
         expect(vi.mocked(context.fillText).mock.calls.map(([text]) => text)).toContain('20');
     });

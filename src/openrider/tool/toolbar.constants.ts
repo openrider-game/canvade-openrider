@@ -1,10 +1,9 @@
-import { ItemGroupTool, StatusGroupTool } from './group/group.tools';
 import {
-    SceneryBrushTool,
-    SceneryLineTool,
-    SolidBrushTool,
-    SolidLineTool,
-} from './line/line.tools';
+    ItemGroupTool,
+    LineGroupTool,
+    ShapeGroupTool,
+    StatusGroupTool,
+} from './group/group.tools';
 import { CameraTool } from './misc/camera.tool';
 import { CancelCheckpointTool } from './misc/cancel-checkpoint.tool';
 import { ControlsTool } from './misc/controls.tool';
@@ -40,10 +39,8 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
     LEFT_TOOLBAR_EDITING: ToolbarEntries = [...LEFT_TOOLBAR_VIEWING, null, UndoTool, RedoTool],
     /** Right toolbar in the editor, with the drawing tools. */
     RIGHT_TOOLBAR: ToolbarEntries = [
-        SolidBrushTool,
-        SceneryBrushTool,
-        SolidLineTool,
-        SceneryLineTool,
+        LineGroupTool,
+        ShapeGroupTool,
         EraserTool,
         GridSnapTool,
         null,

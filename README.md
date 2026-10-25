@@ -207,8 +207,8 @@ from the `ghostdata` endpoint. The sample website does it for the track of the d
 | Camera, fullscreen                                                                   | `R`, `F`                                     |
 | Controls panel                                                                       | `Ctrl+K`                                     |
 | Undo, redo                                                                           | `M`, `N`                                     |
-| Solid / scenery brush                                                                | `A`, `S`                                     |
-| Solid / scenery line                                                                 | `Q`, `W`                                     |
+| Lines: brush, line                                                                   | `D`: `A`, `Q`                                |
+| Shapes: curve, circle                                                                | `O`: `V`, `C`                                |
 | Eraser, grid snapping                                                                | `E`, `G`                                     |
 | Items, status effects                                                                | `I`, `J`                                     |
 | Target, checkpoint, linked checkpoint, boost, gravity, bomb, slow motion, teleporter | `Shift+T`, `C`, `L`, `B`, `G`, `O`, `S`, `W` |
@@ -260,8 +260,14 @@ Besides the targets, checkpoints and teleporters, the items act on the bikes tou
   editor shows what each block acts on, and the hidden objects faded.
 
 - The mouse wheel zooms, the right mouse button drags the camera whatever the tool.
-- Holding a line tool key draws lines connected to the previous one on each click.
-- Holding the brush or eraser key while scrolling changes its size.
+- The drawing tools (brush, line and shapes) draw solid or scenery lines, as chosen in the options
+  of any of them, the kind being shared by them all and shown by their icons.
+- Holding the line key draws lines connected to the previous one on each click.
+- The size of the brush is chosen in its options; holding the brush or eraser key while scrolling
+  changes its size too.
+- The shape tools draw a shape of connected lines: the curve is dragged from its start to its end,
+  then bent through the point clicked; the circle is dragged from its center to its radius. A
+  shape is undone at once.
 - The options of the current tool are in the drawer at the top of the screen, opened and closed with
   its button: what the eraser removes, the start position reset...
 - The editor imports track codes and editor files, exports either of them, and uploads either of

@@ -11,7 +11,16 @@ import {
     TargetTool,
     TeleporterTool,
 } from '../../src/openrider/tool/item/item.tools';
-import { SolidBrushTool, SolidLineTool } from '../../src/openrider/tool/line/line.tools';
+import { BrushTool } from '../../src/openrider/tool/line/brush.tool';
+import { DrawingLines } from '../../src/openrider/tool/line/drawing-lines';
+import { LineTool } from '../../src/openrider/tool/line/line.tool';
+import { LineGroupTool } from '../../src/openrider/tool/group/group.tools';
+import {
+    SCENERY_LINE_IMAGE,
+    SOLID_BRUSH_IMAGE,
+    SOLID_LINE_IMAGE,
+} from '../../src/openrider/tool/tool.constants';
+import { CircleTool, CurveTool } from '../../src/openrider/tool/shape/shape.tools';
 import { CameraTool } from '../../src/openrider/tool/misc/camera.tool';
 import { CancelCheckpointTool } from '../../src/openrider/tool/misc/cancel-checkpoint.tool';
 import { EraserTool } from '../../src/openrider/tool/misc/eraser.tool';
@@ -76,12 +85,14 @@ afterEach(() => {
     for (const code of ['KeyQ', 'KeyA']) {
         Keyboard.onKeyUp(keyEvent(code, code.slice(3).toLowerCase()));
     }
+    // The kind of lines is shared by the drawing tools
+    DrawingLines.setScenery(false);
     vi.unstubAllGlobals();
 });
 
 describe('Line tools', () => {
     test('ignore a click without moving the mouse', () => {
-        select(SolidLineTool);
+        select(LineTool);
 
         click(10, 10);
 
@@ -89,8 +100,54 @@ describe('Line tools', () => {
         track.history.undo();
     });
 
+    test('draw solid or scenery lines as chosen in the options, shared by the drawing tools', () => {
+        const line = select(LineTool);
+        const sceneryLines = () => [...track.layers.main[0].grid.totalSceneryLines.values()];
+        expect(line.getOptions()[0].label).toBe('Lines: solid');
+        expect(line.getIcon()).toBe(SOLID_LINE_IMAGE);
+
+        line.getOptions()[0].action();
+        drag(new Vector(0, 0), new Vector(100, 0));
+        expect(solidLines()).toHaveLength(0);
+        expect(sceneryLines()).toHaveLength(1);
+        expect(line.getIcon()).toBe(SCENERY_LINE_IMAGE);
+
+        // The same for the brush and the shapes
+        expect(select(BrushTool).getOptions()[0].label).toBe('Lines: scenery');
+        expect(select(CircleTool).getOptions()[0].label).toBe('Lines: scenery');
+    });
+
+    test('change the brush size from its options, or by scrolling with its key held', () => {
+        const brush = select(BrushTool);
+        const size = () => brush.getOptions()[1].label;
+        expect(size()).toBe('Size: 20');
+
+        brush.getOptions()[1].action();
+        expect(size()).toBe('Size: 40');
+        brush.getOptions()[1].action();
+        brush.getOptions()[1].action();
+        brush.getOptions()[1].action();
+        // Back to the smallest size after the largest one
+        expect(size()).toBe('Size: 4');
+
+        Keyboard.onKeyDown(keyEvent('KeyA', 'a'));
+        brush.onScroll({ deltaY: -1 } as WheelEvent);
+        brush.onScroll({ deltaY: -1 } as WheelEvent);
+        expect(size()).toBe('Size: 20');
+        brush.onScroll({ deltaY: -1 } as WheelEvent);
+        // From a size between two of them, the next one up
+        brush.getOptions()[1].action();
+        expect(size()).toBe('Size: 40');
+    });
+
+    test('are grouped, the brush first', () => {
+        const group = new LineGroupTool(track);
+        expect(group.instances.map((tool) => tool.toolClass.toolName)).toEqual(['Brush', 'Line']);
+        expect(group.getIcon()).toBe(SOLID_BRUSH_IMAGE);
+    });
+
     test('draw a line from the click to the release position, undone at once', () => {
-        select(SolidLineTool);
+        select(LineTool);
 
         drag(new Vector(0, 0), new Vector(100, 20));
 
@@ -105,7 +162,7 @@ describe('Line tools', () => {
     });
 
     test('draw on the active layer, showing it when it is hidden', () => {
-        select(SolidLineTool);
+        select(LineTool);
         const foreground = track.layers.foreground[0];
         track.layers.setActive(foreground);
         track.layers.setVisible(foreground, false);
@@ -118,7 +175,7 @@ describe('Line tools', () => {
     });
 
     test('draw connected lines on each click while the tool key is held', () => {
-        select(SolidLineTool);
+        select(LineTool);
         Keyboard.onKeyDown(keyEvent('KeyQ', 'q'));
 
         for (const x of [0, 50, 100]) {
@@ -135,7 +192,7 @@ describe('Line tools', () => {
     });
 
     test('a brush stroke draws a line each time the mouse moves further than its size', () => {
-        const tool = select(SolidBrushTool);
+        const tool = select(BrushTool);
 
         drag(new Vector(0, 0), new Vector(200, 0), 20, () => tool.update(0, 16));
 
@@ -149,7 +206,7 @@ describe('Line tools', () => {
     });
 
     test('scroll the camera when drawing near the canvas borders', () => {
-        select(SolidLineTool);
+        select(LineTool);
         moveMouse(track, 0, 0);
         track.toolManager.onMouseDown(mouseEvent());
         // Near the right border of the 700 pixels wide canvas
@@ -288,7 +345,7 @@ describe('Item tools', () => {
 
 describe('Tool manager', () => {
     test('keeps the current tool when selecting it again', () => {
-        const tool = select(SolidLineTool);
+        const tool = select(LineTool);
         expect(tool.isActive()).toBe(true);
         track.uiInvalidated = false;
 
@@ -439,7 +496,7 @@ describe('View tools', () => {
     });
 
     test('change the brush and eraser sizes when scrolling with their key held', () => {
-        const brush = select(SolidBrushTool);
+        const brush = select(BrushTool);
         Keyboard.onKeyDown(keyEvent('KeyA', 'a'));
         const zoom = track.zoomFactor;
 
@@ -536,5 +593,81 @@ describe('Toolbars', () => {
 
         expect(shortcuts.size).toBeGreaterThan(30);
         expect(toolClasses(UPLOAD_TOOLBAR)).toEqual([CameraTool, expect.anything()]);
+    });
+});
+
+describe('Shape tools', () => {
+    const sceneryLines = () => [...track.layers.main[0].grid.totalSceneryLines.values()];
+
+    test('draw a circle from its center to its radius, undone at once', () => {
+        select(CircleTool);
+        drag(new Vector(0, 0), new Vector(100, 0));
+
+        const lines = solidLines();
+        // About 20 units long each, all around
+        expect(lines).toHaveLength(31);
+        for (const line of lines) {
+            expect(Math.abs(line.pos.getLength() - 100)).toBeLessThanOrEqual(1);
+            expect(Number.isInteger(line.pos.x) && Number.isInteger(line.pos.y)).toBe(true);
+        }
+        // Closed, each line starting where the previous one ends
+        expect(lines[0].pos).toEqual(lines[lines.length - 1].endPos);
+        lines.slice(1).forEach((line, i) => expect(line.pos).toEqual(lines[i].endPos));
+
+        track.history.undo();
+        expect(solidLines()).toHaveLength(0);
+        track.history.redo();
+        expect(solidLines()).toHaveLength(31);
+    });
+
+    test('draw nothing for a click, and scenery lines once chosen', () => {
+        const circle = select(CircleTool);
+        click(50, 50);
+        expect(solidLines()).toHaveLength(0);
+
+        expect(circle.getOptions()[0].label).toBe('Lines: solid');
+        circle.getOptions()[0].action();
+        expect(circle.getOptions()[0].label).toBe('Lines: scenery');
+        drag(new Vector(0, 0), new Vector(0, 40));
+        expect(solidLines()).toHaveLength(0);
+        expect(sceneryLines()).toHaveLength(13);
+
+        // Shared by the shape tools
+        expect(select(CurveTool).getOptions()[0].label).toBe('Lines: scenery');
+        circle.getOptions()[0].action();
+    });
+
+    test('draw a curve from its start to its end, through the point clicked then', () => {
+        const curve = select(CurveTool);
+        drag(new Vector(0, 0), new Vector(200, 0));
+        expect(solidLines()).toHaveLength(0);
+        expect(curve.getOptions()[1].label).toBe('Next: click where the curve passes');
+
+        click(100, -50);
+        const lines = solidLines();
+        expect(lines.length).toBeGreaterThan(5);
+        expect(lines[0].pos).toEqual(new Vector(0, 0));
+        expect(lines[lines.length - 1].endPos).toEqual(new Vector(200, 0));
+        expect(lines.some(({ endPos }) => endPos.x === 100 && endPos.y === -50)).toBe(true);
+        lines.slice(1).forEach((line, i) => expect(line.pos).toEqual(lines[i].endPos));
+        expect(curve.getOptions()[1].label).toBe('Next: drag from its start to its end');
+
+        track.history.undo();
+        expect(solidLines()).toHaveLength(0);
+    });
+
+    test('start no curve with a click, and forget the curve started when changing tool', () => {
+        const curve = select(CurveTool);
+        click(10, 10);
+        click(20, 20);
+        expect(solidLines()).toHaveLength(0);
+
+        drag(new Vector(0, 0), new Vector(200, 0));
+        select(LineTool);
+        track.toolManager.setTool(curve);
+        click(100, -50);
+        // The click started nothing: the curve was forgotten
+        expect(solidLines()).toHaveLength(0);
+        expect(curve.getOptions()[1].label).toBe('Next: drag from its start to its end');
     });
 });

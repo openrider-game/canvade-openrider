@@ -1,22 +1,39 @@
-import { Vector } from 'canvade';
+import { Control, KEYQ, Vector } from 'canvade';
 import type { LineClass } from '../../item/line/line';
 import { InterfaceScale } from '../../numeric/interface-scale';
 import { LinePath } from '../../numeric/line-path';
 import { MAX_LINE_LENGTH, MIN_LINE_LENGTH } from '../../track/track.constants';
-import { Tool } from '../tool';
+import { Tool, ToolIcon, ToolOption } from '../tool';
+import { SCENERY_LINE_IMAGE, SOLID_LINE_IMAGE } from '../tool.constants';
+import { DrawingLines } from './drawing-lines';
 
 /** Distance to the canvas border under which the camera scrolls while drawing, in pixels. */
 const EDGE_SCROLL_MARGIN = 50;
 
 /**
- * Draws a line from the press position to the release position.
+ * Draws a line from the press position to the release position, solid or scenery as chosen in
+ * the options (see {@link DrawingLines}).
  *
  * Holding the tool key draws connected lines: each click adds a line from the end of the previous
  * one. Lines are drawn on the active layer of the track.
  */
-export abstract class LineTool extends Tool {
-    /** Class of the drawn lines (solid or scenery). */
-    protected abstract get lineClass(): LineClass;
+export class LineTool extends Tool {
+    public static override readonly toolName: string = 'Line';
+    public static override readonly key = new Control(KEYQ);
+    public static override readonly icon = SOLID_LINE_IMAGE;
+
+    /** Class of the drawn lines, solid or scenery. */
+    protected get lineClass(): LineClass {
+        return DrawingLines.lineClass;
+    }
+
+    public override getIcon(): ToolIcon {
+        return DrawingLines.isScenery ? SCENERY_LINE_IMAGE : SOLID_LINE_IMAGE;
+    }
+
+    public override getOptions(): ToolOption[] {
+        return [DrawingLines.option(this.track)];
+    }
 
     /** End of the last drawn line, where the next connected line starts, in world units. */
     protected lastLine: Vector | null = null;

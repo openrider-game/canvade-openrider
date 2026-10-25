@@ -50,25 +50,25 @@ export const TELEPORTER_IMAGE: ToolIcon = {
     data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAAXNSR0IArs4c6QAAANdJREFUOE+d0jFqAlEQxvGfZxCrSA4QW69g0mqheAOLwNZaZbdKak8hWqxtFo+QNoJlQCvxBhbhLQhrdpG4Uw3vvf+bmW++hprRqMmpAh/x2tTshk9PTl+Y41As8hd8Qzw01NbO3+3traxCGiO5wEUwVPpZWgpgMQI4MgpHHWxDUgTf+/rTVFo59sDA2voDsyuwpfU5Nn6e5+OUIxJZWGRHx5e7wImJVFoGcbPVnp6NTblVPOG7SpxEIs5FrRYnXFyt4+xsZyeT3VzHRZEHRPca4N8OrO3VXy/aQA8BldDfAAAAAElFTkSuQmCC',
 };
 
-/** Icon of the `SolidLineTool`. */
+/** Icon of the `LineTool` drawing solid lines. */
 export const SOLID_LINE_IMAGE: ToolIcon = {
     type: 'b64',
     data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAY0lEQVQ4T53S0QmAMAyE4b9LuIlO4bhOoZs4hUQMlNImV/OcjwtcCj+nTLgFOL79TYWOVuACJNiiHbizxC6ycyM4RBEM0QimqAcl1EIZ1XAK1fAEvNy3p+yjvA6DNhLKegxDHzm4IA9ZY5FTAAAAAElFTkSuQmCC',
 };
 
-/** Icon of the `SceneryLineTool`. */
+/** Icon of the `LineTool` drawing scenery lines. */
 export const SCENERY_LINE_IMAGE: ToolIcon = {
     type: 'b64',
     data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAdElEQVQ4T2NkIBMwEqtv3bp1Yn/+/NkCUh8WFmZGlEYkTaYMDAynidKIromFhcUnKCjoFV4bcWkCORenRnyacGokpAmrRmI0YWgkVhOKRlI0wTWSqgmucdWqVacYGBjAkQuLJ0IpChwdUI0MxGrCG4+EbAQAEzpiD4Q7bNkAAAAASUVORK5CYII=',
 };
 
-/** Icon of the `SolidBrushTool`. */
+/** Icon of the `BrushTool` drawing solid lines. */
 export const SOLID_BRUSH_IMAGE: ToolIcon = {
     type: 'b64',
     data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAJ0lEQVQ4T2NkIBMwkqmPYaRrPAUNODNsAYgvcMjWiDemRnp04A0cADZMAg80IkHmAAAAAElFTkSuQmCC',
 };
 
-/** Icon of the `SceneryBrushTool`. */
+/** Icon of the `BrushTool` drawing scenery lines. */
 export const SCENERY_BRUSH_IMAGE: ToolIcon = {
     type: 'b64',
     data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAALklEQVQ4T2NkIBMwkqmPYURrXLVq1SlQwIWFhZlhC0CcgUO2RkLRNKKjg1DgAACPswgPeqoQowAAAABJRU5ErkJggg==',
