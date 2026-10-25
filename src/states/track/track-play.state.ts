@@ -19,6 +19,11 @@ export abstract class TrackPlayState extends TrackViewState {
     public override allowsDebug(): boolean {
         return true;
     }
+
+    public override showsTouchControls(): boolean {
+        return true;
+    }
+
     protected override initState(): void {
         super.initState();
 

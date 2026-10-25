@@ -10,6 +10,7 @@ import { ToolGroupTool } from '../../../openrider/tool/group/tool-group.tool';
 import { CameraTool } from '../../../openrider/tool/misc/camera.tool';
 import { Tool } from '../../../openrider/tool/tool';
 import { ToolCollection } from '../../../openrider/tool/tool-collection';
+import { TouchControls, TouchInsets } from '../../../openrider/touch/touch-controls';
 import type { TrackViewState } from '../track-view.state';
 import { ToolbarSide } from '../track-view.definitions';
 import { DebugPanel } from '../ui/debug-panel';
@@ -102,9 +103,14 @@ export class TrackInterfaceLayer extends Layer {
     private builtHeight = Infinity;
     private readonly optionsDrawer = new OptionsDrawer();
     private readonly layersPanel = new LayersPanel();
+    /** Layout of the touch controls the interface was built with, null without them. */
+    private builtTouchControls: string | null = null;
 
     public constructor(private readonly state: TrackViewState) {
         super();
+
+        // The touch controls above the panel follow it while it slides
+        this.layersPanel.onToggle = (duration) => this.moveTouchControls(duration);
 
         // Handlers subscribed after `super()` run after the canvade UI handlers, so `consumed`
         // tells whether the interface caught the mouse
@@ -129,6 +135,12 @@ export class TrackInterfaceLayer extends Layer {
         this.subscribe('mouseMove', this.syncMouse);
         this.subscribe('mouseUp', this.syncMouse);
         this.subscribe('mouseOut', this.clearHover);
+        this.subscribe('touchStart', this.revealTouchControls);
+    }
+
+    /** Shows the touch controls from the first touch of the screen, see `TouchControls`. */
+    private revealTouchControls(): void {
+        TouchControls.enabled = true;
     }
 
     /** Creates the tools of the state toolbars, the camera being the default tool. */
@@ -168,18 +180,71 @@ export class TrackInterfaceLayer extends Layer {
     }
 
     /**
-     * Rebuilds the interface when the tools invalidated it (see `Track.invalidateUI`), or when
-     * the canvas height changed while a group is open, e.g. in fullscreen: the tools of the open
-     * groups are laid out after it. Rebuilding drops the state of the interface, e.g. the scroll
-     * of the layers panel: it is not rebuilt for nothing.
+     * Rebuilds the interface when the tools invalidated it (see `Track.invalidateUI`), when the
+     * canvas height changed while a group is open, e.g. in fullscreen: the tools of the open
+     * groups are laid out after it, or when the touch controls show, hide or move. Rebuilding
+     * drops the state of the interface, e.g. the scroll of the layers panel: it is not rebuilt
+     * for nothing.
      */
     private refreshInterface(): void {
         const track = this.state.track;
         const resized = this.uiHeight() !== this.builtHeight && this.hasOpenGroup();
-        if (track.uiInvalidated || resized) {
+        const touchControlsMoved = this.touchControlsLayout() !== this.builtTouchControls;
+        if (track.uiInvalidated || resized || touchControlsMoved) {
             track.uiInvalidated = false;
             this.buildInterface();
         }
+    }
+
+    /**
+     * Layout of the touch controls: the canvas height and the space taken by the interface, null
+     * while they are hidden, e.g. before the screen is touched.
+     */
+    private touchControlsLayout(): string | null {
+        if (!TouchControls.enabled || !this.state.showsTouchControls()) {
+            return null;
+        }
+        return JSON.stringify([this.uiHeight(), this.touchInsets()]);
+    }
+
+    /**
+     * Animates the touch controls to their place for the current space around them, e.g. along
+     * with the layers panel sliding, without rebuilding the interface, which would end the
+     * animation of the panel.
+     */
+    private moveTouchControls(duration: number): void {
+        if (this.builtTouchControls === null || !this.root) {
+            return;
+        }
+
+        const { styles } = TouchControls.ui(this.builtHeight, this.touchInsets());
+        for (const element of this.root.children) {
+            const className = element.classNames.find((name) => `.${name}` in styles);
+            const y = className ? styles[`.${className}`].y : undefined;
+            if (typeof y === 'number' && y !== element.v('y')) {
+                element.animate('y', y, { duration });
+            }
+        }
+        this.builtTouchControls = this.touchControlsLayout();
+    }
+
+    /** Space taken by the toolbars, the bottom buttons and the layers panel. */
+    private touchInsets(): TouchInsets {
+        const sides = new Set(
+            this.toolbars.filter(({ tools }) => tools.some(Boolean)).map(({ side }) => side),
+        );
+        const bottomButtons = this.state
+            .getButtons()
+            .filter((button) => button.verticalAlign === 'bottom');
+
+        return {
+            left: sides.has('left') ? TOOL_SIZE : 0,
+            right: sides.has('right') ? TOOL_SIZE : 0,
+            bottomLeft: Math.max(0, ...bottomButtons.map((button) => button.y + button.height)),
+            bottomRight: this.state.editsLayers()
+                ? this.layersPanel.bottomHeight(this.state.track)
+                : 0,
+        };
     }
 
     /** Whether the tools of a group are displayed, one of them being the current tool. */
@@ -260,6 +325,12 @@ export class TrackInterfaceLayer extends Layer {
         }
         if (this.state.allowsDebug() && this.state.track.debug) {
             DebugPanel.build(this.state.track, structure, styles);
+        }
+        this.builtTouchControls = this.touchControlsLayout();
+        if (this.builtTouchControls !== null) {
+            const touch = TouchControls.ui(this.builtHeight, this.touchInsets());
+            structure.push(...touch.structure);
+            Object.assign(styles, touch.styles);
         }
         structure.push(...openGroups);
 

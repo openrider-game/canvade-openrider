@@ -218,6 +218,18 @@ from the `ghostdata` endpoint. The sample website does it for the track of the d
 
 Letter shortcuts follow the keyboard layout (the undo key is the M key of an AZERTY keyboard too).
 
+On touch screens (phones and tablets), the game shows riding buttons from the first touch, at the
+bottom corners: lean back and forward at the left, brake and accelerate at the right, and turn
+around above them. They are buttons of the interface, each one holding down its player control
+while pressed (`Keyboard.press` of canvade), a finger sliding from a button to the next one, so the
+runs and ghosts are the same as with a keyboard. Canvade handles the touches: one finger elsewhere
+acts as the mouse (the toolbars, drawing, dragging the view with the camera tool), and two fingers
+pinch, the game dragging the view and zooming with them. In the editor, the riding buttons show
+with the camera tool only, to draw anywhere with the other tools. Where the browser cannot make an
+element fullscreen (the iPhone), the fullscreen button makes the game fill the page. Without a
+touch, nothing changes: the computers keep the mouse and the keyboard alone (see
+`src/openrider/touch/`).
+
 Besides the targets, checkpoints and teleporters, the items act on the bikes touching them:
 
 - **Boost** pushes the bike in its direction on every tick it touches it; **launcher** kicks it
@@ -305,6 +317,7 @@ src/
 │   ├── parser/           track code parser and generator, ghost strings
 │   ├── thread/           workers of the fast renderer
 │   ├── tool/             editor and race tools
+│   ├── touch/            touch screens: the riding buttons of the interface
 │   └── track/            track, layers and renderer
 └── verify/           ghost verifier of the backend, replaying the ghosts and endurance runs in Node (dist/verify-ghost.cjs)
 ```

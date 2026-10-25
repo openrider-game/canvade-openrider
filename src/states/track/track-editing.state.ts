@@ -1,4 +1,5 @@
 import { TrackFormat } from '../../openrider/parser/track-format';
+import { CameraTool } from '../../openrider/tool/misc/camera.tool';
 import { LEFT_TOOLBAR_EDITING, RIGHT_TOOLBAR } from '../../openrider/tool/toolbar.constants';
 import type { ExportFormat } from '../session';
 import { STATE_TRACK_GENERATOR } from '../state-names';
@@ -15,6 +16,14 @@ const ACTION_BUTTON = { y: 10, height: 26, verticalAlign: 'bottom' } as const;
 export class TrackEditingState extends TrackPlayState {
     public override editsLayers(): boolean {
         return true;
+    }
+
+    /**
+     * Shows the touch controls with the camera tool only: the fingers draw with the other tools,
+     * all over the canvas.
+     */
+    public override showsTouchControls(): boolean {
+        return this.track.toolManager.tool instanceof CameraTool;
     }
 
     public getToolbars(): ToolbarDefinition[] {

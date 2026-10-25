@@ -2,6 +2,7 @@ import { FRAME_DURATION } from '../../../openrider/constants/game.constants';
 import type { EnduranceResult } from '../../../openrider/endurance/endurance-records';
 import type { RunUpload } from '../../../openrider/endurance/endurance-run';
 import { modifierNames } from '../../../openrider/item/modifiers';
+import { TouchControls } from '../../../openrider/touch/touch-controls';
 import { Time } from '../../../openrider/numeric/time';
 import { HUD_MARGIN, LINE_HEIGHT, TrackHudLayer } from '../../track/layers/track-hud.layer';
 import type { TrackEnduranceState } from '../track-endurance.state';
@@ -91,7 +92,11 @@ export class EnduranceHudLayer extends TrackHudLayer {
             ? EnduranceHudLayer.upload(this.endurance.run.upload)
             : '';
         ctx.fillText(upload, width / 2, y + 78, PANEL_WIDTH - 16);
-        ctx.fillText('Enter: try again    N: new track', width / 2, y + 102);
+        // The keys, or the buttons of the toolbar on touch screens
+        const hint = TouchControls.enabled
+            ? 'Try again or ride a new track from the toolbar'
+            : 'Enter: try again    N: new track';
+        ctx.fillText(hint, width / 2, y + 102, PANEL_WIDTH - 16);
         ctx.restore();
     }
 

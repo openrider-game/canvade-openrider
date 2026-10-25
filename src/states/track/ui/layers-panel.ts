@@ -39,6 +39,11 @@ const PANEL_WIDTH = 230,
  * slides the panel down to its title, and back up.
  */
 export class LayersPanel {
+    /**
+     * Called once the panel starts opening or closing, with the duration of its animation, e.g.
+     * to move the elements above it along with it.
+     */
+    public onToggle: ((duration: number) => void) | null = null;
     private open = true;
     /** Scroll position of the list of layers, kept when the interface is rebuilt. */
     private scrollTop = 0;
@@ -111,6 +116,11 @@ export class LayersPanel {
         return 2 * PADDING + 3 * ROW_HEIGHT + listHeight + 3 * GAP;
     }
 
+    /** Height the panel takes from the bottom of the canvas, open or closed, in UI pixels. */
+    public bottomHeight(track: Track): number {
+        return PANEL_BOTTOM + LayersPanel.height(this.open, track.layers.all.length);
+    }
+
     private toggleLabel(layerCount: number): string {
         return `Layers (${layerCount}) ${this.open ? '▼' : '▲'}`;
     }
@@ -131,6 +141,7 @@ export class LayersPanel {
         if (toggleButton instanceof UIButton) {
             toggleButton.getProperty('text').setValue(this.toggleLabel(layerCount));
         }
+        this.onToggle?.(TOGGLE_DURATION);
     }
 
     /** Row of a layer, `index` being its position in the list, from the top layer. */

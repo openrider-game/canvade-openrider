@@ -6,11 +6,14 @@ import {
     State,
     StateClass,
     StateManager,
+    UIElement,
     Vector,
 } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
+import { PLAYER_CONTROL_NAMES } from '../../src/openrider/bike/runner/player-runner';
 import { GameConfig } from '../../src/openrider/config/game-config';
+import { TouchControls } from '../../src/openrider/touch/touch-controls';
 import { GhostService } from '../../src/openrider/request/ghost-service';
 import { TRACK_DEFAULT, TRACK_MODE_RACING } from '../../src/openrider/track/track.constants';
 import { Session } from '../../src/states/session';
@@ -339,6 +342,141 @@ describe('Endurance mode', () => {
         expect(state.run?.over).toBe(true);
         expect(texts()).toContain('Enter: try again    N: new track');
         expect(texts()).toContain('New record!');
+    });
+});
+
+describe('Touch screens', () => {
+    /** Touch event of the game, at a position in canvas pixels. */
+    const touch = (name: string, id: number, x: number, y: number) =>
+        EventFactory.createGameEvent({
+            name,
+            consumed: false,
+            id,
+            position: new Vector(x, y),
+            touchEvent: {} as TouchEvent,
+        });
+    /** Elements of the interface, laid out on a frame. */
+    const interfaceElements = () => {
+        manager.update(0.5, 20);
+        manager.render(createCanvasMock().context);
+        const root = manager.getCurrent()?.layers.get('interface')?.uiRenderer.getRootElement();
+        return root?.children ?? [];
+    };
+    const touchButtons = () =>
+        interfaceElements().filter((element) => element.classNames.includes('touch'));
+    const byClass = (elements: UIElement[], className: string) => {
+        const element = elements.find((candidate) => candidate.classNames.includes(className));
+        if (!element) throw new Error(`No element .${className}`);
+        return element.getBounds();
+    };
+
+    afterEach(() => {
+        TouchControls.enabled = false;
+        Object.values(PLAYER_CONTROL_NAMES).forEach((name) => Keyboard.release(name));
+    });
+
+    test('ride with UI buttons once the screen is touched, never shown before', async () => {
+        manager.push(STATE_ENDURANCE_SETUP);
+        await runUntil(STATE_TRACK_ENDURANCE);
+        const state = manager.getCurrent();
+        expect(touchButtons()).toEqual([]);
+
+        // The first touch shows them from the next frame
+        state?.dispatch('touchStart', touch('touchStart', 1, 350, 200));
+        state?.dispatch('touchEnd', touch('touchEnd', 1, 350, 200));
+        const buttons = touchButtons();
+        expect(buttons.map((element) => element.v('text'))).toEqual(['◀', '▶', '▼', '▲', '⇄']);
+
+        const up = byClass(buttons, 'touch-up');
+        const [x, y] = [up.x + up.width / 2, up.y + up.height / 2];
+        const press = touch('touchStart', 2, x, y);
+        state?.dispatch('touchStart', press);
+        expect(press.detail.consumed).toBe(true);
+        expect(Keyboard.isDown(PLAYER_CONTROL_NAMES.up)).toBe(true);
+
+        state?.dispatch('touchEnd', touch('touchEnd', 2, x, y));
+        expect(Keyboard.isDown(PLAYER_CONTROL_NAMES.up)).toBe(false);
+    });
+
+    test('show the buttons in the editor with the camera tool only, clear of the interface', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        TouchControls.enabled = true;
+
+        expect(session.track.toolManager.tool?.toolClass.toolName).toBe('Camera');
+        const elements = interfaceElements();
+        const left = byClass(elements, 'touch-left');
+        const up = byClass(elements, 'touch-up');
+        // Above the action buttons at the bottom left, and the layers panel at the bottom right
+        expect(left.y + left.height).toBeLessThanOrEqual(byClass(elements, 'action-0').y);
+        expect(up.y + up.height).toBeLessThanOrEqual(byClass(elements, 'layers').y);
+
+        session.track.toolCollection.getByToolName('Solid Line')?.run();
+        expect(touchButtons()).toEqual([]);
+    });
+
+    test('slide the layers panel with the buttons above it, keeping the interface', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        TouchControls.enabled = true;
+        const elements = interfaceElements();
+        const panel = elements.find((element) => element.classNames.includes('layers'));
+        const descendants = (element: UIElement): UIElement[] => [
+            element,
+            ...element.children.flatMap(descendants),
+        ];
+        const toggle = descendants(panel as UIElement).find((element) =>
+            String(element.properties.text?.getValue() ?? '').startsWith('Layers ('),
+        );
+        if (!panel || !toggle) throw new Error('No layers panel');
+        const openHeight = panel.getBounds().height;
+        const upBefore = byClass(elements, 'touch-up').y;
+
+        // Closing the panel: 200 ms of animation, frames of 20 ms
+        const bounds = toggle.getBounds();
+        toggle.handleClick(bounds.x + 1, bounds.y + 1, {} as MouseEvent);
+        for (let frame = 0; frame < 4; frame++) {
+            interfaceElements();
+        }
+        expect(interfaceElements()).toContain(panel);
+        const height = panel.getBounds().height;
+        expect(height).toBeLessThan(openHeight);
+        expect(height).toBeGreaterThan(30);
+
+        for (let frame = 0; frame < 15; frame++) {
+            interfaceElements();
+        }
+        const after = interfaceElements();
+        expect(after).toContain(panel);
+        const up = byClass(after, 'touch-up');
+        expect(up.y).toBeGreaterThan(upBefore);
+        expect(up.y + up.height).toBeLessThanOrEqual(panel.getBounds().y);
+    });
+
+    test('drag the view with two fingers and zoom by pinching them', async () => {
+        manager.push(STATE_ENDURANCE_SETUP);
+        await runUntil(STATE_TRACK_ENDURANCE);
+        const state = manager.getCurrent();
+        const track = session.track;
+        const pinch = (name: string, x: number, scale: number) =>
+            EventFactory.createGameEvent({
+                name,
+                consumed: false,
+                center: new Vector(x, 200),
+                scale,
+            });
+        const zoom = track.viewZoom;
+
+        state?.dispatch('pinchStart', pinch('pinchStart', 350, 1));
+        const cameraX = track.camera.x;
+        state?.dispatch('pinchMove', pinch('pinchMove', 400, 1));
+        expect(track.focalPoint).toBeNull();
+        expect(track.camera.x).toBeCloseTo(cameraX - 50 / track.zoomFactor);
+
+        // Twice as far apart: three steps of 1.25
+        state?.dispatch('pinchMove', pinch('pinchMove', 400, 2));
+        state?.dispatch('pinchEnd', pinch('pinchEnd', 400, 2));
+        expect(track.viewZoom).toBeGreaterThan(zoom);
     });
 });
 

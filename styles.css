@@ -18,6 +18,10 @@ body,
   flex-flow: column;
   width: 700px;
   height: 400px;
+  max-width: 100%;
+  /* Phones held sideways: the game fits the height of the screen */
+  max-height: calc(100vh - 2px);
+  max-height: calc(100svh - 2px);
   background-color: white;
   border: 1px solid black;
 }

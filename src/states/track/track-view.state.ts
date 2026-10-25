@@ -1,4 +1,4 @@
-import { GameKeyboardEvent, GameUpdateEvent } from 'canvade';
+import { GameControlEvent, GameUpdateEvent } from 'canvade';
 import type { Track } from '../../openrider/track/track';
 import { OpenRiderState } from '../openrider.state';
 import { ButtonDefinition, ToolbarDefinition } from './track-view.definitions';
@@ -34,6 +34,14 @@ export abstract class TrackViewState extends OpenRiderState {
         return false;
     }
 
+    /**
+     * Whether the state shows the buttons riding the bike on touch screens (see
+     * `TouchControls`), false by default: the states riding the bike show them.
+     */
+    public showsTouchControls(): boolean {
+        return false;
+    }
+
     /** Text buttons of the state, none by default. */
     public getButtons(): ButtonDefinition[] {
         return [];
@@ -56,7 +64,7 @@ export abstract class TrackViewState extends OpenRiderState {
         this.track.editing = this.editsLayers();
     }
 
-    private runToolShortcut(e: CustomEvent<GameKeyboardEvent>): void {
+    private runToolShortcut(e: CustomEvent<GameControlEvent>): void {
         const key = e.detail.key;
         if (key) {
             this.track.toolCollection.getByKeyLabel(key)?.run();

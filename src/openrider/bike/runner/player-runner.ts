@@ -4,13 +4,25 @@ import { Bike, BikeClass } from '../bike';
 import { BikeRunner } from './bike-runner';
 import { ControlName } from './runner-controls';
 
+/**
+ * Names of the player controls in `Keyboard`, held down by their keys, or by the buttons of the
+ * touch screens (see `TouchControls`).
+ */
+export const PLAYER_CONTROL_NAMES = {
+    up: 'Up',
+    down: 'Down',
+    left: 'Left',
+    right: 'Right',
+    turn: 'Z',
+} as const;
+
 /** Runner control, keyboard control name and default key of each player control. */
 const PLAYER_CONTROLS: Array<[ControlName, string, Control]> = [
-    ['upPressed', 'Up', new Control(ARROWUP)],
-    ['downPressed', 'Down', new Control(ARROWDOWN)],
-    ['leftPressed', 'Left', new Control(ARROWLEFT)],
-    ['rightPressed', 'Right', new Control(ARROWRIGHT)],
-    ['turnPressed', 'Z', new Control(KEYZ, NONE, true)],
+    ['upPressed', PLAYER_CONTROL_NAMES.up, new Control(ARROWUP)],
+    ['downPressed', PLAYER_CONTROL_NAMES.down, new Control(ARROWDOWN)],
+    ['leftPressed', PLAYER_CONTROL_NAMES.left, new Control(ARROWLEFT)],
+    ['rightPressed', PLAYER_CONTROL_NAMES.right, new Control(ARROWRIGHT)],
+    ['turnPressed', PLAYER_CONTROL_NAMES.turn, new Control(KEYZ, NONE, true)],
 ];
 
 /**

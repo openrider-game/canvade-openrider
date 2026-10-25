@@ -1,6 +1,6 @@
 /*
  * Host element of the game. The game sizes its canvas after the host element when it starts:
- * 700x400, narrower on small screens.
+ * 700x400, narrower on small screens, and lower on phones held sideways.
  */
 
 .game {
@@ -9,6 +9,8 @@
     width: 702px;
     max-width: 100%;
     height: 402px;
+    max-height: calc(100vh - 16px);
+    max-height: calc(100svh - 16px);
     margin: 0 auto;
     border: 1px solid #000;
     background: #fff;
@@ -16,4 +18,21 @@
 
 .game canvas {
     outline: none;
+}
+
+/* Touch screens held upright: the game is larger sideways, or in fullscreen */
+
+.game-rotate-hint {
+    display: none;
+    max-width: var(--content-width);
+    margin: 8px auto 0;
+    color: var(--color-muted);
+    font-size: 14px;
+    text-align: center;
+}
+
+@media (pointer: coarse) and (orientation: portrait) {
+    .game-rotate-hint {
+        display: block;
+    }
 }
