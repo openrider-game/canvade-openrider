@@ -23,30 +23,47 @@
     <?php endforeach; ?>
 </head>
 <body>
+    <?php
+    $user = site_user();
+    $path = (string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+    // Sections of the site, each one current on its pages
+    $sections = [
+        ['Tracks', '/', $path === '/' || strpos($path, '/tracks/') === 0],
+        ['Endurance', '/endurance/', strpos($path, '/endurance/') === 0],
+        ['Users', '/users/', strpos($path, '/users/') === 0],
+    ];
+    ?>
     <header class="site-header">
         <div class="site-header__inner">
             <a class="site-header__home" href="/">OpenRider</a>
-            <nav class="site-header__nav">
-                <?php $user = site_user(); ?>
-                <a class="button" href="/users/">Users</a>
+            <nav class="site-header__nav" aria-label="Sections">
+                <?php foreach ($sections as [$label, $href, $current]): ?>
+                    <a class="site-header__link" href="<?= $href ?>"
+                        <?= $current ? 'aria-current="page"' : '' ?>><?= $label ?></a>
+                <?php endforeach; ?>
+            </nav>
+            <div class="site-header__account">
+                <a class="button" href="/create/">Create a track</a>
                 <?php if ($user !== null): ?>
-                    <a class="site-header__user" href="/users/<?= rawurlencode($user['NAME']) ?>/">
-                        <?= h($user['NAME']) ?>
-                    </a>
-                    <?php if (site_is_admin($user)): ?>
-                        <a class="button" href="/reviews/">Reviews</a>
-                    <?php endif; ?>
-                    <a class="button" href="/drafts/">Drafts</a>
-                    <a class="button" href="/create/">Create a track</a>
-                    <form method="post" action="/logout/">
-                        <input type="hidden" name="csrf" value="<?= h(site_csrf_token()) ?>" />
-                        <button class="button" type="submit">Log out</button>
-                    </form>
+                    <details class="account-menu">
+                        <summary class="button account-menu__toggle"><?= h($user['NAME']) ?></summary>
+                        <div class="account-menu__panel">
+                            <a href="/users/<?= rawurlencode($user['NAME']) ?>/">Profile</a>
+                            <a href="/drafts/">Drafts</a>
+                            <?php if (site_is_admin($user)): ?>
+                                <a href="/reviews/">Reviews</a>
+                            <?php endif; ?>
+                            <form method="post" action="/logout/">
+                                <input type="hidden" name="csrf" value="<?= h(site_csrf_token()) ?>" />
+                                <button type="submit">Log out</button>
+                            </form>
+                        </div>
+                    </details>
                 <?php else: ?>
-                    <a class="button" href="/login/">Log in</a>
+                    <a class="site-header__link" href="/login/">Log in</a>
                     <a class="button" href="/register/">Register</a>
                 <?php endif; ?>
-            </nav>
+            </div>
         </div>
     </header>
     <main class="page">

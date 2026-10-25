@@ -11,6 +11,18 @@ const TRACK_CODE =
 const GHOST = '0,,99 119,74 97 122 138 148 159,,227,BMX,Rookie';
 const TIME = 227;
 
+/**
+ * Track 4 of the sample, its command blocks opening the way, and the ghost of `Operator` holding
+ * the up key from the start.
+ */
+const COMMAND_TRACK_CODE =
+    '-34 1i 1ug 1i 1ug e2 2e4 e2 2e4 1i 404 1i 404 -4m,1es -4m 1es 1i,1ug 1i 2e4 1i,374 -4m 374' +
+    ' 1i#1du 1i 1du -5k 1fq -5k 1fq 1i,366 1i 366 -5k 382 -5k 382 1i,1u6 1i 1u6 0,2ee 1i 2ee 0,' +
+    '13a k 14i k 148 a,1nk k 1os k 1oi a,2ms k 2o4 k 2nq a#A 7q 16 0 34,A fk 16 1 1es -u 2b,' +
+    'A 13u 16 2 1e8 -5a 1fg 1s,A 1ji 16 0 18,A 1o8 16 3 1u6 18 2ee 1s,' +
+    'A 2ng 16 4 36g -5a 37o 1s 0 -7q 1i,A 3dc 16 0 1s,C 2iq 16,T 3ps 16###BMX#0 0';
+const COMMAND_GHOST = '0,,,,,212,BMX,Operator';
+
 const LIMITS = { maxTicks: 10000, deadline: Number.MAX_SAFE_INTEGER };
 
 beforeEach(() => {
@@ -22,6 +34,17 @@ afterEach(() => {
 });
 
 describe('Ghost verifier', () => {
+    test('accepts the sample run through the command blocks, refused without them', () => {
+        expect(GhostVerifier.verify(COMMAND_TRACK_CODE, COMMAND_GHOST, 212, LIMITS)).toEqual({
+            valid: true,
+            reason: '',
+        });
+
+        // The door, the missing bridge and the sliding door stop the same run
+        const withoutBlocks = COMMAND_TRACK_CODE.replace(/A [^,]*,/g, '');
+        expect(GhostVerifier.verify(withoutBlocks, COMMAND_GHOST, 212, LIMITS).valid).toBe(false);
+    });
+
     test('accepts a recorded run, finishing at its time', () => {
         expect(GhostVerifier.verify(TRACK_CODE, GHOST, TIME, LIMITS)).toEqual({
             valid: true,

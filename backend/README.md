@@ -56,8 +56,13 @@ PHP executable of the `php.validate.executablePath` setting (e.g. `C:\xampp\php\
 everyone can browse and race the tracks, while creating tracks and saving drafts and ghosts need
 an account.
 
-- `/` lists the published tracks, newest first, with their thumbnail, title, author, bike,
-  number of ghosts and best time, marking the unverified ones;
+- `/` presents the endurance mode, linking to the track of the day and to a new track, then lists
+  the published tracks, newest first, with their thumbnail, title, author, bike, number of ghosts
+  and best time, marking the unverified ones;
+- `/endurance/` runs the game in endurance mode (`data-game-mode="endurance"`): a new track on
+  each load, or the track of its `seed` parameter, the number the game shows (`data-seed`, from 0
+  to 4294967295). The track of the day is the same for everyone, its seed derived from the date
+  in UTC. The records stay in the browser, saved by the game; the header links to the page;
 - `/tracks/<id>/` runs the game racing the track, under its title, author, description and
   verifier, with its leaderboard under it, in two tabs: the 10 best riders, ranked by their best
   ghost (a rider holding several of the best times counts once), their other ghosts folded under
@@ -71,7 +76,9 @@ an account.
 - `/reviews/` lists the ghosts and the verifying runs waiting for an admin, for the admins only
   (see "Reviews");
 - `/register/` and `/login/` create an account (a user name of 3 to 20 letters, digits, `_` or
-  `-`, and a password of 8 characters at least) and log in; the header logs out (`/logout/`);
+  `-`, and a password of 8 characters at least) and log in; the account menu of the header
+  links to the profile, the drafts and the reviews (admins only) of the account, and logs out
+  (`/logout/`);
 - `/create/` runs the game editing a new track, whose upload opens the page of the upload;
 - `/uploads/<id>/` asks for the title (60 characters at most) and the description (500
   characters at most) of an uploaded track, both required. A track code also needs a verifier,
@@ -93,8 +100,8 @@ Each page loads `dist/main.js` with a `#game` element configuring it (see "Usage
 README), and the leaderboard drives the game through its page API (`window.OpenRider`). The game
 alone stays at `/index.html`.
 
-The game gets the URL of its page as base URL, `/tracks/<id>/`, `/create/`, `/drafts/<id>/` or
-`/verify/<id>/`, so that its uploads of tracks and ghosts reach the site instead of the backend
+The game gets the URL of its page as base URL, `/tracks/<id>/`, `/create/`, `/drafts/<id>/`,
+`/verify/<id>/` or `/endurance/` (which only serves the icons of the game), so that its uploads of tracks and ghosts reach the site instead of the backend
 endpoints, to know their account and check them. The site keeps the uploaded tracks in its own
 `LOCAL_UPLOADS` table, and adds a track code to the tracks of the backend only once verified and
 published. On a draft or verification page, it also answers the `trackdata` endpoint with the
@@ -186,13 +193,14 @@ local/
     └── public/           static files served under /assets/: css/, js/ and the favicon
 ```
 
-The sample holds three tracks, each with a ghost finishing it:
+The sample holds four tracks, each with a ghost finishing it:
 
-| Track | Title              | Bike | Ghost        | Shows                                    |
-| ----- | ------------------ | ---- | ------------ | ---------------------------------------- |
-| 1     | First ride         | BMX  | 1, `Rookie`  | A jump, a checkpoint and scenery         |
-| 2     | Linked checkpoints | MTB  | 2, `Linker`  | A boost and a pair of linked checkpoints |
-| 3     | Hills              | BMX  | 3, `Climber` | Hills and a foreground layer             |
+| Track | Title              | Bike | Ghost         | Shows                                          |
+| ----- | ------------------ | ---- | ------------- | ---------------------------------------------- |
+| 1     | First ride         | BMX  | 1, `Rookie`   | A jump, a checkpoint and scenery               |
+| 2     | Linked checkpoints | MTB  | 2, `Linker`   | A boost and a pair of linked checkpoints       |
+| 3     | Hills              | BMX  | 3, `Climber`  | Hills and a foreground layer                   |
+| 4     | Command blocks     | BMX  | 4, `Operator` | Zoom, camera, a door, a bridge, a sliding door |
 
 ## Deploying
 

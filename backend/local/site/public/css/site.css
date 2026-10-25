@@ -71,7 +71,8 @@ a {
     background: var(--color-active);
 }
 
-.button[aria-pressed='true'] {
+.button[aria-pressed='true'],
+.button[aria-current='page'] {
     background: var(--color-toggled);
     color: var(--color-toggled-text);
 }
@@ -102,6 +103,137 @@ a {
     font-size: 24px;
     font-weight: bold;
     text-decoration: none;
+}
+
+/* Header: the sections as plain links, the current one underlined, then the account */
+
+.site-header__nav {
+    display: flex;
+    gap: 4px;
+    margin-right: auto;
+}
+
+.site-header__link {
+    padding: 6px 8px;
+    text-decoration: none;
+}
+
+.site-header__link:hover {
+    background: var(--color-hover);
+}
+
+.site-header__link[aria-current='page'] {
+    font-weight: bold;
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 6px;
+}
+
+.site-header__account {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Account menu: the name of the account, opening its links under it */
+
+.account-menu {
+    position: relative;
+}
+
+.account-menu__toggle {
+    display: block;
+    max-width: 12em;
+    overflow: hidden;
+    list-style: none;
+    font-weight: bold;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.account-menu__toggle::-webkit-details-marker {
+    display: none;
+}
+
+.account-menu__toggle::after {
+    content: ' \25BE';
+}
+
+.account-menu[open] .account-menu__toggle::after {
+    content: ' \25B4';
+}
+
+.account-menu__panel {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 10;
+    min-width: 160px;
+    border: var(--border);
+    background: var(--color-background);
+}
+
+.account-menu__panel a,
+.account-menu__panel button {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.account-menu__panel form {
+    margin: 0;
+    border-top: 1px solid var(--color-active);
+}
+
+.account-menu__panel a:hover,
+.account-menu__panel button:hover {
+    background: var(--color-hover);
+}
+
+.account-menu__toggle:focus-visible,
+.account-menu__panel a:focus-visible,
+.account-menu__panel button:focus-visible,
+.site-header__link:focus-visible {
+    outline: 2px solid var(--color-toggled);
+    outline-offset: 2px;
+}
+
+/* Narrow screens: the sections on their own row under the name of the site and the account */
+
+@media (max-width: 640px) {
+    .site-header__inner {
+        flex-wrap: wrap;
+    }
+
+    .site-header__nav {
+        order: 1;
+        width: 100%;
+        margin-right: 0;
+    }
+
+    .site-header__home {
+        font-size: 20px;
+    }
+
+    .site-header__account {
+        gap: 4px;
+        margin-left: auto;
+    }
+
+    .site-header__account .button {
+        padding-inline: 8px;
+    }
+
+    .account-menu__toggle {
+        max-width: 7em;
+    }
 }
 
 .page {
@@ -256,22 +388,6 @@ textarea.field__input {
 }
 
 /* Header: links side by side */
-
-.site-header__nav {
-    display: flex;
-    gap: 8px;
-}
-
-/* Header: account name, and the log out form inline with the links */
-
-.site-header__nav form {
-    display: contents;
-}
-
-.site-header__user {
-    align-self: center;
-    font-weight: bold;
-}
 
 /* Account forms */
 
@@ -436,4 +552,52 @@ textarea.field__input {
 
 .leaderboard__other td {
     background: #f6f6f6;
+}
+
+/* Endurance page: the tracks to ride above the game */
+
+.endurance-intro {
+    max-width: var(--content-width);
+    margin: 0 auto 16px;
+}
+
+.endurance-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    max-width: var(--content-width);
+    margin: 0 auto 16px;
+}
+
+.endurance-options__form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.endurance-options__label {
+    font-weight: bold;
+}
+
+.endurance-options .endurance-options__input {
+    width: 8.5em;
+}
+
+/* Front page: the endurance mode above the tracks */
+
+.mode-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 24px;
+    padding: 12px 16px;
+    border: var(--border);
+}
+
+.mode-banner__text {
+    flex: 1 1 300px;
+    margin: 0;
 }

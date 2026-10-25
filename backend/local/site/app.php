@@ -54,11 +54,14 @@ const SITE_GAME_MEDIA_DIR = __DIR__ . '/../../../media',
 
 /**
  * Requests of the game under the URL of its page: the endpoints of the backend and the icons.
- * Captures the page (`create`, `drafts/<id>`, `tracks/<id>` or `verify/<id>`) and the requested
- * path.
+ * Captures the page (`create`, `endurance`, `drafts/<id>`, `tracks/<id>` or `verify/<id>`) and the
+ * requested path.
  */
 const SITE_GAME_REQUEST_PATTERN =
-    '#^/(create|(?:drafts|tracks|verify)/[0-9]+)/(backend/db/[a-z]+/|media/.+)$#';
+    '#^/(create|endurance|(?:drafts|tracks|verify)/[0-9]+)/(backend/db/[a-z]+/|media/.+)$#';
+
+/** Largest seed of an endurance track: the game takes 32 bits unsigned integers. */
+const SITE_MAX_ENDURANCE_SEED = 4294967295;
 
 /** Actions of the admins on a ghost or a verifying run: its kind, id and the action. */
 const SITE_REVIEW_ACTION_PATTERN = '#^/reviews/(ghosts|tracks)/([0-9]+)/(approve|reject)/$#';
@@ -125,6 +128,8 @@ function site_handle(string $path): bool
         site_logout();
     } elseif ($path === '/create/') {
         site_create_page();
+    } elseif ($path === '/endurance/') {
+        site_endurance_page();
     } elseif (preg_match('#^/uploads/([0-9]+)/?$#', $path, $match)) {
         site_upload_page((int) $match[1]);
     } elseif (preg_match('#^/uploads/([0-9]+)/track\.openrider\.json$#', $path, $match)) {
@@ -150,6 +155,33 @@ function site_handle(string $path): bool
     }
 
     return true;
+}
+
+/**
+ * Endurance page: the game riding an infinite generated track, the one of the `seed` parameter
+ * (the track number shown by the game), else a new one on each load. The track of the day is the
+ * same for everyone, from the date in UTC.
+ */
+function site_endurance_page(): void
+{
+    $seed = $_GET['seed'] ?? null;
+    $seed = is_string($seed) && preg_match('/^[0-9]{1,10}$/', $seed)
+        && (int) $seed <= SITE_MAX_ENDURANCE_SEED ? (int) $seed : null;
+
+    site_render_page(
+        'endurance',
+        'Endurance',
+        ['seed' => $seed, 'dailySeed' => site_daily_endurance_seed()],
+        ['game.css'],
+        ['/dist/main.js'],
+    );
+}
+
+/** Seed of the endurance track of the day, from the date in UTC. */
+function site_daily_endurance_seed(): int
+{
+    // Unsigned 32 bits, as PHP runs on 64 bits
+    return crc32('openrider-endurance-' . gmdate('Y-m-d')) & SITE_MAX_ENDURANCE_SEED;
 }
 
 /** The published tracks, newest first. */
@@ -483,7 +515,8 @@ function site_draft_page(int $draftId): void
  * track pages, to know their account, and the download of the draft of a draft page. The other
  * endpoints of the backend and the icons are served as they are.
  *
- * @param string $page Page of the game: `create`, `drafts/<id>` or `tracks/<id>`.
+ * @param string $page Page of the game: `create`, `endurance`, `drafts/<id>`, `tracks/<id>` or
+ *   `verify/<id>`.
  * @param string $file Path requested under the page, an endpoint or an icon.
  */
 function site_game_request(string $page, string $file): void
@@ -493,6 +526,12 @@ function site_game_request(string $page, string $file): void
 
     if (strpos($file, 'media/') === 0) {
         site_serve_file(SITE_GAME_MEDIA_DIR, substr($file, strlen('media/')));
+        return;
+    }
+
+    // The endurance mode generates its tracks and saves its records in the browser
+    if ($kind === 'endurance') {
+        openrider_respond(404, ['error' => 'Not found']);
         return;
     }
 
