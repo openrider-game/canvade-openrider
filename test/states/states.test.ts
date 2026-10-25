@@ -9,6 +9,7 @@ import {
     Vector,
 } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
 import { GameConfig } from '../../src/openrider/config/game-config';
 import { GhostService } from '../../src/openrider/request/ghost-service';
 import { TRACK_DEFAULT, TRACK_MODE_RACING } from '../../src/openrider/track/track.constants';
@@ -281,6 +282,40 @@ describe('Endurance mode', () => {
         expect(track.toolCollection.getByToolName('New Track')).toBeDefined();
         expect(track.toolCollection.getByToolName('Cancel Checkpoint')).toBeUndefined();
         expect(track.toolCollection.getByToolName('Eraser')).toBeUndefined();
+    });
+
+    test('focuses the ghosts in turn with the toolbar button, as with the shortcut', async () => {
+        manager.push(STATE_ENDURANCE_SETUP);
+        await runUntil(STATE_TRACK_ENDURANCE);
+        const state = manager.getCurrent();
+        const track = session.track;
+        const ghosts = [1, 2].map((id) => {
+            const ghost = new GhostRunner(track, '0,,,,,500,BMX,Ghost', false);
+            ghost.createBike();
+            track.ghostRunners.set(id, ghost);
+            return ghost;
+        });
+        manager.render(createCanvasMock().context);
+        // Runner followed by the camera: 0 for the player, then the ghosts, -1 for none
+        const followed = () =>
+            [track.playerRunner, ...ghosts].findIndex(
+                (runner) => runner.instance?.hitbox === track.focalPoint,
+            );
+        const click = (x: number, y: number) => {
+            state?.dispatch('mouseDown', mouseEvent('mouseDown', x, y));
+            state?.dispatch('mouseUp', mouseEvent('mouseUp', x, y));
+            return followed();
+        };
+        // Sixth button of the left toolbar
+        const focusButton = () => click(13, 5 * 26 + 13);
+
+        expect(followed()).toBe(0);
+        expect(focusButton()).toBe(1);
+        expect(focusButton()).toBe(2);
+        expect(focusButton()).toBe(1);
+
+        // Clicking the track itself stops following the bike
+        expect(click(350, 250)).toBe(-1);
     });
 
     test('shows the run, then its result once the rider fell', async () => {

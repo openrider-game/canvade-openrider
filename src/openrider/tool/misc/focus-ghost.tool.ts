@@ -8,12 +8,14 @@ export class FocusGhostTool extends Tool {
     public static override readonly key = new Control(KEYG, CTRL);
     public static override readonly icon = 'focus';
 
+    /** Index of the ghost followed, -1 for the player; the first ghost when racing starts. */
     private currentGhostIndex = 0;
 
     public override run(): void {
         const track = this.track;
+        // Following the player, or nothing: the first ghost comes next
         if (track.focalPoint === null || track.focalPoint === track.playerRunner.instance?.hitbox) {
-            this.currentGhostIndex = 0;
+            this.currentGhostIndex = -1;
         }
 
         if (track.ghostRunners.size) {

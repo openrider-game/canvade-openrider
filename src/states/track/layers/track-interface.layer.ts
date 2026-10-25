@@ -111,6 +111,13 @@ export class TrackInterfaceLayer extends Layer {
         this.subscribe('mouseMove', (e) => {
             this.state.track.uiHovered = e.detail.consumed;
         });
+        // Clicking the track stops following the bike, not clicking a button, e.g. the one
+        // focusing the next ghost
+        this.subscribe('mouseDown', (e) => {
+            if (!e.detail.consumed) {
+                this.state.track.focalPoint = null;
+            }
+        });
     }
 
     public initLayer(): void {
@@ -291,8 +298,6 @@ export class TrackInterfaceLayer extends Layer {
         const track = this.state.track;
         track.setMousePosition(Mouse.worldPos);
         track.lastClick.set(track.mousePos);
-        // Clicking stops following the bike
-        track.focalPoint = null;
     }
 
     private clearHover(): void {

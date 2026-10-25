@@ -463,12 +463,23 @@ describe('View tools', () => {
             return ghost;
         });
         const focus = new FocusGhostTool(track);
-        track.focalPoint = track.playerRunner.instance?.hitbox ?? null;
+        // Runner followed by the camera: 0 for the player, then the ghosts
+        const next = () => {
+            focus.run();
+            return [track.playerRunner, ...ghosts].findIndex(
+                (runner) => runner.instance?.hitbox === track.focalPoint,
+            );
+        };
 
-        focus.run();
-        expect(track.focalPoint).toBe(ghosts[1].instance?.hitbox);
-        focus.run();
-        expect(track.focalPoint).toBe(ghosts[0].instance?.hitbox);
+        // Racing, the camera starts on the first ghost
+        track.focalPoint = ghosts[0].instance?.hitbox ?? null;
+        expect(next()).toBe(2);
+
+        // From the player, the first ghost, then the others in turn
+        track.focalPoint = track.playerRunner.instance?.hitbox ?? null;
+        expect(next()).toBe(1);
+        expect(next()).toBe(2);
+        expect(next()).toBe(1);
     });
 
     test('toggle the fullscreen mode of the element hosting the canvas', () => {
