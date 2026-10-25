@@ -4,6 +4,7 @@ import type { PhysicsCell } from '../grid/cell/physics-cell';
 import type { Grid } from '../grid/grid';
 import type { Track } from '../track/track';
 import type { TrackLayer } from '../track/track-layer';
+import type { CommandBlock } from './command/command-block';
 
 /** Kind of a track object, deciding in which list of a grid cell it is stored. */
 export type TrackObjectKind = 'solid' | 'scenery' | 'item';
@@ -40,6 +41,11 @@ export abstract class TrackObject {
      * {@link TrackObject.removeFromTrack} idempotent.
      */
     public onTrack = false;
+    /**
+     * Command block hiding, showing or moving the object when a bike triggers it, null for the
+     * objects outside of every command area (see `CommandRegistry`).
+     */
+    public command: CommandBlock | null = null;
 
     public constructor(
         pos: Vector,

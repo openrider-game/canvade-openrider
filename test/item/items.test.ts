@@ -22,6 +22,12 @@ import { Reset } from '../../src/openrider/item/status/reset';
 import { Slippery } from '../../src/openrider/item/status/slippery';
 import { ZeroGravity } from '../../src/openrider/item/status/zero-gravity';
 import { ITEM_MAP } from '../../src/openrider/item/item.constants';
+import { Launcher, LAUNCH_STRENGTH } from '../../src/openrider/item/directional/launcher';
+import { Mud, MUD_GRIP } from '../../src/openrider/item/misc/mud';
+import { Heavy, HEAVY_GRAVITY_SCALE } from '../../src/openrider/item/status/heavy';
+import { LowGravity, LOW_GRAVITY_SCALE } from '../../src/openrider/item/status/low-gravity';
+import { Mirror } from '../../src/openrider/item/status/mirror';
+import { Turbo, TURBO_ENGINE_SCALE } from '../../src/openrider/item/status/turbo';
 import { Track } from '../../src/openrider/track/track';
 import { stubBrowser } from '../helpers/canvas';
 import { parseTrack, runTicks } from '../helpers/track';
@@ -248,6 +254,167 @@ describe('Item effects', () => {
 
         expect(track.playerRunner.instance?.engineValueScale).toBe(0);
         expect(track.playerRunner.modifiersMask).toBe(MODIFIERS.ENGINE_OFF);
+    });
+});
+
+describe('Gravity, engine and steering effects', () => {
+    test('heavy and low gravity scale the gravity, replacing the other gravity effects', () => {
+        const bike = playerAt(100, 0);
+        const runner = track.playerRunner;
+
+        place(new ZeroGravity(new Vector(100, 0), track)).touch(bike.hitbox);
+        place(new Heavy(new Vector(100, 0), track)).touch(bike.hitbox);
+        expect(bike.gravityValueScale).toBe(HEAVY_GRAVITY_SCALE);
+        expect(runner.modifiersMask).toBe(MODIFIERS.HEAVY);
+
+        place(new LowGravity(new Vector(100, 0), track)).touch(bike.hitbox);
+        expect(bike.gravityValueScale).toBe(LOW_GRAVITY_SCALE);
+        expect(runner.modifiersMask).toBe(MODIFIERS.LOW_GRAVITY);
+
+        // The last gravity effect wins, the zero gravity too
+        place(new ZeroGravity(new Vector(100, 0), track)).touch(bike.hitbox);
+        expect(runner.modifiersMask).toBe(MODIFIERS.ZERO_GRAVITY);
+    });
+
+    test('a heavy bike falls faster, a low gravity one slower', () => {
+        // Starting high above the ground line
+        const fall = (itemClass: typeof Heavy | typeof LowGravity | null) => {
+            track = parseTrack('-50 1i 2000 1i#####BMX#0 -3k');
+            const bike = track.playerRunner.instance;
+            if (!bike) throw new Error('No player bike');
+            const startY = bike.hitbox.pos.y;
+            if (itemClass) place(new itemClass(bike.hitbox.pos.clone(), track)).touch(bike.hitbox);
+            runTicks(track, 20);
+            return bike.hitbox.pos.y - startY;
+        };
+
+        const normal = fall(null);
+        expect(fall(Heavy)).toBeGreaterThan(normal * 1.4);
+        expect(fall(LowGravity)).toBeLessThan(normal * 0.5);
+    });
+
+    test('mirror swaps the lean controls, replacing no steer, and turbo powers the engine', () => {
+        const bike = playerAt(100, 0);
+        const runner = track.playerRunner;
+
+        place(new NoSteer(new Vector(100, 0), track)).touch(bike.hitbox);
+        place(new Mirror(new Vector(100, 0), track)).touch(bike.hitbox);
+        expect(bike.steerValueScale).toBe(-1);
+        expect(runner.modifiersMask).toBe(MODIFIERS.MIRROR);
+
+        place(new EngineOff(new Vector(100, 0), track)).touch(bike.hitbox);
+        place(new Turbo(new Vector(100, 0), track)).touch(bike.hitbox);
+        expect(bike.engineValueScale).toBe(TURBO_ENGINE_SCALE);
+        expect(runner.modifiersMask).toBe(MODIFIERS.MIRROR | MODIFIERS.TURBO);
+
+        // Engine off replaces the turbo in turn
+        place(new EngineOff(new Vector(100, 0), track)).touch(bike.hitbox);
+        expect(runner.modifiersMask).toBe(MODIFIERS.MIRROR | MODIFIERS.ENGINE_OFF);
+    });
+
+    test('a mirrored rider leans the other way', () => {
+        const lean = (mirrored: boolean) => {
+            track = parseTrack('-50 1i 2000 1i#####BMX#0 0');
+            const bike = track.playerRunner.instance;
+            if (!bike) throw new Error('No player bike');
+            if (mirrored) place(new Mirror(bike.hitbox.pos.clone(), track)).touch(bike.hitbox);
+            track.playerRunner.controls.leftPressed = true;
+            bike.updatePhysics();
+            return bike.headToBack.len;
+        };
+
+        const rest = parseTrack('-50 1i 2000 1i#####BMX#0 0').playerRunner.instance?.headToBack.len;
+        expect(Math.sign(lean(true) - (rest ?? 0))).toBe(-Math.sign(lean(false) - (rest ?? 0)));
+    });
+
+    test('the reset item removes them, and they survive restarting from a checkpoint', () => {
+        const bike = playerAt(100, 0);
+        place(new Heavy(new Vector(100, 0), track)).touch(bike.hitbox);
+        place(new Mirror(new Vector(100, 0), track)).touch(bike.hitbox);
+        place(new Turbo(new Vector(100, 0), track)).touch(bike.hitbox);
+        track.playerRunner.mustSave = true;
+        track.playerRunner.fixedUpdate();
+
+        track.restart();
+        const restarted = track.playerRunner.instance;
+        if (!restarted) throw new Error('No player bike');
+        expect(restarted.gravityValueScale).toBe(HEAVY_GRAVITY_SCALE);
+        expect(restarted.steerValueScale).toBe(-1);
+        expect(restarted.engineValueScale).toBe(TURBO_ENGINE_SCALE);
+
+        place(new Reset(restarted.hitbox.pos.clone(), track)).touch(restarted.hitbox);
+        expect(restarted.gravityValueScale).toBe(1);
+        expect(restarted.steerValueScale).toBe(1);
+        expect(restarted.engineValueScale).toBe(1);
+        expect(track.playerRunner.modifiersMask).toBe(0);
+    });
+});
+
+describe('Launchers and mud', () => {
+    test('a launcher kicks the bike once in its direction, again on the next pass', () => {
+        // Rotation 180: pointing up
+        const launcher = place(new Launcher(new Vector(100, 0), 180, track));
+        const bike = playerAt(100, 0);
+        const heights = () => bike.points.map((point) => point.pos.y);
+
+        const before = heights();
+        launcher.touch(bike.hitbox);
+        heights().forEach((y, i) => expect(y).toBeCloseTo(before[i] - LAUNCH_STRENGTH));
+
+        // Still the same pass on the next tick, or touched by another part
+        const kicked = heights();
+        track.time++;
+        launcher.touch(bike.hitbox);
+        launcher.touch(bike.backWheel);
+        expect(heights()).toEqual(kicked);
+
+        // A new pass after leaving it
+        track.time += 10;
+        launcher.touch(bike.hitbox);
+        heights().forEach((y, i) => expect(y).toBeCloseTo(kicked[i] - LAUNCH_STRENGTH));
+    });
+
+    test('a launcher kicks again after restarting', () => {
+        const launcher = place(new Launcher(new Vector(100, 0), 180, track));
+        launcher.touch(playerAt(100, 0).hitbox);
+
+        track.restart();
+        const bike = playerAt(100, 0);
+        const before = bike.hitbox.pos.y;
+        launcher.touch(bike.hitbox);
+
+        expect(bike.hitbox.pos.y).toBeCloseTo(before - LAUNCH_STRENGTH);
+    });
+
+    test('mud slows down the parts going through it', () => {
+        const mud = place(new Mud(new Vector(100, 0), track));
+        const bike = playerAt(100, 0);
+        const wheel = bike.backWheel;
+        wheel.pos.set(new Vector(100, 0));
+        wheel.velocity.set(new Vector(10, 0));
+        const before = wheel.pos.x;
+
+        mud.touch(wheel);
+
+        expect(wheel.pos.x).toBeCloseTo(before - 10 * (1 - MUD_GRIP));
+    });
+
+    test('are read from and written to track codes', () => {
+        expect(ITEM_MAP.get('X')).toBe(Launcher);
+        expect(ITEM_MAP.get('D')).toBe(Mud);
+        expect(['K', 'F', 'M', 'U'].map((code) => ITEM_MAP.get(code))).toEqual([
+            Heavy,
+            LowGravity,
+            Mirror,
+            Turbo,
+        ]);
+        // Written with its rotation as the boosts, and read back the same
+        const code = place(new Launcher(new Vector(32, 64), 90, track)).toString();
+        const parsed = Launcher.createInstance(code.split(' '), track) as Launcher;
+        expect(code.startsWith('X 10 20 ')).toBe(true);
+        expect(parsed.rotation).toBe(90);
+        expect(parsed.direction.x).toBeCloseTo(-LAUNCH_STRENGTH);
+        expect(place(new Mud(new Vector(32, 64), track)).toString()).toBe('D 10 20');
     });
 });
 

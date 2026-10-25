@@ -1,5 +1,5 @@
 import type { Collidable } from '../../entity/collidable';
-import { MODIFIERS } from '../modifiers';
+import { MODIFIER_GROUPS, MODIFIERS } from '../modifiers';
 import { StatusItem } from '../status-item';
 
 /**
@@ -17,6 +17,6 @@ export class ZeroGravity extends StatusItem {
     public override onReach(part: Collidable): void {
         part.bike.gravityValueScale = 0;
 
-        part.bike.runner.modifiersMask |= MODIFIERS.ZERO_GRAVITY;
+        StatusItem.setModifier(part.bike.runner, MODIFIERS.ZERO_GRAVITY, MODIFIER_GROUPS.GRAVITY);
     }
 }

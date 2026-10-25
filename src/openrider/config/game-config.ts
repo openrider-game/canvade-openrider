@@ -9,6 +9,10 @@
  *   (`media/`), the folder of the page by default.
  * - `data-track-url`: URL of the page racing a published track, opened after an upload, `{id}`
  *   being replaced by the track id; `?track={id}` by default.
+ * - `data-game-mode`: `endurance` to ride an infinite generated track instead, see
+ *   `TrackEnduranceState`; else the `?mode=endurance` parameter of the page URL.
+ * - `data-seed`: in endurance mode, seed of the generated track, to ride a given one again; else
+ *   the `?seed=<seed>` parameter of the page URL, and without both a new track on each load.
  *
  * For example, a page of a website racing the track 3:
  * `<div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>`.
@@ -20,10 +24,18 @@ export abstract class GameConfig {
     public static trackUrl = '?track={id}';
     /** Whether the downloaded track is edited rather than raced. */
     public static editTrack = false;
+    /** Game mode: the tracks to race or edit, or the endurance mode. */
+    public static mode: 'tracks' | 'endurance' = 'tracks';
+    /** Seed of the endurance track, null for a new one. */
+    public static seed: number | null = null;
 
-    /** Reads the settings of the host element, keeping the defaults of the missing ones. */
-    public static configure(host: HTMLElement): void {
+    /**
+     * Reads the settings of the host element, and else of the parameters of the page URL for
+     * the mode and the seed, keeping the defaults of the missing ones.
+     */
+    public static configure(host: HTMLElement, search = ''): void {
         const { baseUrl, trackUrl, trackMode } = host.dataset;
+        const params = new URLSearchParams(search);
         if (baseUrl) {
             GameConfig.baseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
         }
@@ -31,6 +43,11 @@ export abstract class GameConfig {
             GameConfig.trackUrl = trackUrl;
         }
         GameConfig.editTrack = trackMode === 'edit';
+        GameConfig.mode =
+            (host.dataset.gameMode ?? params.get('mode')) === 'endurance' ? 'endurance' : 'tracks';
+
+        const seed = Number(host.dataset.seed ?? params.get('seed') ?? NaN);
+        GameConfig.seed = Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32 ? seed : null;
     }
 
     /**

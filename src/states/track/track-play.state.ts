@@ -1,6 +1,7 @@
 import { GameUpdateEvent, Layer } from 'canvade';
 import { GhostService } from '../../openrider/request/ghost-service';
 import { CAMERA_FOLLOW_FACTOR } from '../../openrider/track/track.constants';
+import { Zoom } from '../../openrider/track/zoom';
 import { TrackHudLayer } from './layers/track-hud.layer';
 import { TrackInterfaceLayer } from './layers/track-interface.layer';
 import { TrackMainLayer } from './layers/track-main.layer';
@@ -78,10 +79,29 @@ export abstract class TrackPlayState extends TrackViewState {
             track.playerRunner.update(displayProgress, delta);
         }
 
-        if (track.focalPoint) {
-            track.camera.selfAdd(
-                track.focalPoint.displayPos.sub(track.camera).scale(delta * CAMERA_FOLLOW_FACTOR),
-            );
+        // A command block may show another point of the track for a while
+        const hold = track.cameraHold;
+        const focus = hold && track.time < hold.until ? hold.pos : track.focalPoint?.displayPos;
+        if (focus) {
+            track.camera.selfAdd(focus.sub(track.camera).scale(delta * CAMERA_FOLLOW_FACTOR));
+        }
+        this.easeZoom(delta);
+    }
+
+    /** Eases the zoom to the one a command block asked for, at the speed of the camera. */
+    private easeZoom(delta: number): void {
+        const track = this.track;
+        if (track.zoomTarget === null) {
+            return;
+        }
+
+        const target = Zoom.toPixel(track.zoomTarget, track.pixelRatio);
+        const gap = target - track.zoomFactor;
+        if (Math.abs(gap) < target * 0.001) {
+            track.zoomFactor = target;
+            track.zoomTarget = null;
+        } else {
+            track.zoomFactor += gap * Math.min(1, delta * CAMERA_FOLLOW_FACTOR);
         }
     }
 }

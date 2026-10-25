@@ -1,3 +1,4 @@
+import type { BikeRunner } from '../bike/runner/bike-runner';
 import { ReachableItem } from './reachable-item';
 
 /**
@@ -7,6 +8,17 @@ import { ReachableItem } from './reachable-item';
  * action queue.
  */
 export abstract class StatusItem extends ReachableItem {
+    /**
+     * Sets a status effect in the modifiers of a runner, removing the effects of its group: the
+     * effects changing the same factor of the bike replace each other.
+     *
+     * @param flag - Flag of the effect, see MODIFIERS.
+     * @param group - Flags of the effects changing the same factor, see MODIFIER_GROUPS.
+     */
+    protected static setModifier(runner: BikeRunner, flag: number, group = 0): void {
+        runner.modifiersMask = (runner.modifiersMask & ~group) | flag;
+    }
+
     public override render(ctx: CanvasRenderingContext2D): void {
         const pos = this.track.toPixel(this.pos);
         const zoom = this.track.zoomFactor;

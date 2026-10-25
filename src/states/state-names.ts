@@ -7,4 +7,6 @@ export const STATE_TRACK_FETCHER = 'trackFetcher',
     STATE_TRACK_EDITING = 'trackEditing',
     STATE_TRACK_RACING = 'trackRacing',
     STATE_TRACK_GENERATOR = 'trackGenerator',
-    STATE_TRACK_UPLOAD = 'trackUpload';
+    STATE_TRACK_UPLOAD = 'trackUpload',
+    STATE_ENDURANCE_SETUP = 'enduranceSetup',
+    STATE_TRACK_ENDURANCE = 'trackEndurance';

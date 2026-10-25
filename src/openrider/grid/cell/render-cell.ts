@@ -171,8 +171,15 @@ export class RenderCell extends Cell {
         this.images.set(zoom, { source, zoom, version });
     }
 
+    /** Frees the images of the cell, e.g. once the cell is discarded. */
+    public releaseImages(): void {
+        this.images.forEach((image) => RenderCell.release(image.source));
+        this.images.clear();
+    }
+
     private static release(source: CellImageSource): void {
-        if (source instanceof ImageBitmap) {
+        // Without bitmaps, e.g. in the tests, the images are canvases freed by the garbage collector
+        if (typeof ImageBitmap !== 'undefined' && source instanceof ImageBitmap) {
             source.close();
         }
     }

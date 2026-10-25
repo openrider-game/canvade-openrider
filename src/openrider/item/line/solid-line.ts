@@ -14,7 +14,28 @@ export class SolidLine extends Line {
         this.grid.totalSolidLines.delete(this.id);
     }
 
+    /**
+     * Collides a part with the line, where its command block puts it for the runner of the part
+     * (see `CommandBlock.offsetFor`): nowhere while it is hidden, or moved by an offset.
+     */
     public override touch(part: Collidable): void {
+        const command = this.command;
+        if (command === null) {
+            this.collide(part);
+            return;
+        }
+
+        const offset = command.offsetFor(part.bike.runner);
+        if (offset === null) {
+            return;
+        }
+        // Moving the part the other way is moving the line, without changing its cells
+        part.pos.selfSub(offset);
+        this.collide(part);
+        part.pos.selfAdd(offset);
+    }
+
+    private collide(part: Collidable): void {
         // A line can span several cells, it must only collide once each time a part is checked
         if (this.touched) {
             return;

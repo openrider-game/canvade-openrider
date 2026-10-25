@@ -6,6 +6,7 @@ import type { Collidable } from '../entity/collidable';
 import { Entity } from '../entity/entity';
 import type { EraserRestriction } from '../grid/cell/physics-cell';
 import { HistoryManager } from '../history/history-manager';
+import { CommandRegistry } from '../item/command/command-registry';
 import { Line } from '../item/line/line';
 import type { ReachableItem } from '../item/reachable-item';
 import type { Target } from '../item/reachable/target';
@@ -53,6 +54,17 @@ export class Track extends World {
     public readonly targets = new Map<number, Target>();
     /** Reachable items of the track by id, targets included. */
     public readonly reachables = new Map<number, ReachableItem>();
+    /** Command blocks of the track and the objects of their areas. */
+    public readonly commands = new CommandRegistry(this);
+    /**
+     * Whether the track is being edited: the command blocks then show what they act on, and the
+     * objects they hide are drawn faded.
+     */
+    public editing = false;
+    /** View zoom a command block eases the view to, null once reached. */
+    public zoomTarget: number | null = null;
+    /** Point a command block shows instead of the focal point, until a physics tick. */
+    public cameraHold: { pos: Vector; until: number } | null = null;
 
     public toolCollection = new ToolCollection();
     public readonly toolManager = new ToolManager(this);
@@ -143,6 +155,8 @@ export class Track extends World {
      * @param direction - Number of zoom steps, positive to zoom in, negative to zoom out.
      */
     public zoomAt(point: Vector, direction: number): void {
+        // The player takes the zoom back from the command blocks
+        this.zoomTarget = null;
         const pixel = this.toPixel(point);
         this.zoomFactor = Zoom.toPixel(Zoom.step(this.viewZoom, direction), this.pixelRatio);
         this.camera.x = point.x - (pixel.x - this.viewWidth / 2) / this.zoomFactor;
@@ -164,6 +178,9 @@ export class Track extends World {
     /**
      * Stores an object in the grids of its layer, called by {@link TrackObject.addToTrack}.
      *
+     * The objects bound to a command block stay out of the render cache, drawn by their block:
+     * an object is in the render cache while it is on the track and bound to no block.
+     *
      * @throws If the object is not placed on a layer.
      */
     public add(obj: TrackObject): void {
@@ -171,8 +188,11 @@ export class Track extends World {
         if (!(obj instanceof Line) || (obj.len >= MIN_LINE_LENGTH && obj.len < MAX_LINE_LENGTH)) {
             const layer = this.getLayer(obj);
             layer.grid.add(obj);
-            layer.cache.add(obj);
+            if (obj.command === null) {
+                layer.cache.add(obj);
+            }
         }
+        this.commands.objectChanged(obj);
     }
 
     /**
@@ -183,7 +203,10 @@ export class Track extends World {
     public remove(obj: TrackObject): void {
         const layer = this.getLayer(obj);
         layer.grid.remove(obj);
-        layer.cache.remove(obj);
+        if (obj.command === null) {
+            layer.cache.remove(obj);
+        }
+        this.commands.objectChanged(obj);
     }
 
     private getLayer(obj: TrackObject): TrackLayer {
@@ -266,6 +289,8 @@ export class Track extends World {
     public restart(): void {
         this.unreachEverything();
         this.pause(false);
+        // The view commands of the last run end with it
+        this.cameraHold = null;
 
         this.playerRunner.restart();
         this.ghostRunners.forEach((runner) => runner.restart());

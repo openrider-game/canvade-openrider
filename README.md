@@ -128,6 +128,7 @@ Run the tests with `npm test`, and the coverage with `npm run coverage`. The sui
 
 Opening `index.html` edits the default track. Opening `index.html?track=<id>` races the published
 track `<id>`, fetched from the backend (see `src/openrider/constants/request.constants.ts`).
+Opening `index.html?mode=endurance` starts the endurance mode (see below).
 
 The game runs in the `#game` element of any page loading `dist/main.js`, which configures it with
 data attributes (see `src/openrider/config/game-config.ts`):
@@ -138,6 +139,8 @@ data attributes (see `src/openrider/config/game-config.ts`):
 | `data-track-mode` | `edit` to edit the track of `data-track-id` instead of racing it           | Racing it              |
 | `data-base-url`   | URL of the folder holding the backend (`backend/db/`) and icons (`media/`) | The folder of the page |
 | `data-track-url`  | Page opened after uploading a track, `{id}` being its id                   | `?track={id}`          |
+| `data-game-mode`  | `endurance` for the endurance mode                                         | `?mode=`, or tracks    |
+| `data-seed`       | Seed of the endurance track, to ride a given one again                     | `?seed=`, or a new one |
 
 ```html
 <div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>
@@ -153,6 +156,30 @@ window.OpenRider.toggleGhost(ghostId);
 window.OpenRider.racingGhosts();
 ```
 
+### Endurance mode
+
+`index.html?mode=endurance` rides an infinite track generated as the bike goes, harder and
+harder: the goal is to go as far as possible, then as fast as possible for the same distance.
+
+- The track is generated from a seed, shown at the top right: `?mode=endurance&seed=<seed>` rides
+  the same track again, restarting (`Enter`) too, while `N` generates a new one.
+- It starts flat, then hills and dips, descents and valleys come, then kickers and gaps to jump,
+  climbs with boosts, stairs, mud, drops behind a slow motion, platforms, launchers over wide gaps,
+  tunnels whose ceiling the rider must not touch, and bombs over the ground. They grow over the
+  first 750 m or so, then keep growing slowly until staying alive takes luck as much as skill.
+- From about 150 m, zones put the bike under a status effect, written under the run: low gravity
+  over wider jumps, turbo, ice, heavy climbs, coasting down with the engine off, floating over a
+  gap without gravity, invincibility over brutal obstacles, then no steering and mirrored
+  controls. A column of reset items ends each zone.
+- There are no checkpoints: the run ends when the rider crashes, explodes on a bomb or falls into
+  a gap. The distance counts the furthest point reached, 1 m being about the length of a bike.
+- The best run of every track and of each track are kept in the browser (`localStorage`), a run
+  beating another by going further in whole meters, or as far and faster.
+
+The generation (`src/openrider/endurance/terrain-generator.ts`) only depends on the seed, and the
+sections of the track are added long before the bike reaches them: a run on a seed always plays
+the same for the same inputs, as the ghosts of the published tracks do.
+
 ### Controls
 
 | Action                                                                               | Keys                                         |
@@ -161,6 +188,7 @@ window.OpenRider.racingGhosts();
 | Turn around                                                                          | `Z`                                          |
 | Pause, restart, last checkpoint                                                      | `Space`, `Enter`, `Backspace`                |
 | Switch bike, focus a ghost                                                           | `Ctrl+B`, `Ctrl+G`                           |
+| New track, in endurance mode                                                         | `N`                                          |
 | Camera, fullscreen                                                                   | `R`, `F`                                     |
 | Undo, redo                                                                           | `M`, `N`                                     |
 | Solid / scenery brush                                                                | `A`, `S`                                     |
@@ -168,11 +196,32 @@ window.OpenRider.racingGhosts();
 | Eraser, grid snapping                                                                | `E`, `G`                                     |
 | Items, status effects                                                                | `I`, `J`                                     |
 | Target, checkpoint, linked checkpoint, boost, gravity, bomb, slow motion, teleporter | `Shift+T`, `C`, `L`, `B`, `G`, `O`, `S`, `W` |
+| Launcher, mud, command block                                                         | `Shift+X`, `D`, `Shift+A`                    |
 | Reset, invincibility, slippery, no steer, engine off, zero gravity                   | `Shift+R`, `I`, `H`, `N`, `E`, `Z`           |
+| Heavy, low gravity, mirror, turbo                                                    | `Shift+K`, `F`, `M`, `U`                     |
 | Start position                                                                       | `P`                                          |
 | Debug                                                                                | `Ctrl+D`                                     |
 
 Letter shortcuts follow the keyboard layout (the undo key is the M key of an AZERTY keyboard too).
+
+Besides the targets, checkpoints and teleporters, the items act on the bikes touching them:
+
+- **Boost** pushes the bike in its direction on every tick it touches it; **launcher** kicks it
+  once, harder, on each pass; **gravity** sets the direction of its gravity; **slow motion** slows
+  it until both wheels touch the ground; **mud** slows the wheels going through it; **bomb** makes
+  it explode.
+- The **status effects** last until a reset item: **invincibility** (no crash nor explosion),
+  **slippery** (no grip), **no steer**, **engine off**, **turbo** (a higher top speed), **mirror**
+  (left and right leans swapped), and the gravity factors **zero gravity**, **low gravity** (0.4)
+  and **heavy** (1.6). The effects on the same factor replace each other: the gravity ones, engine
+  off and turbo, no steer and mirror.
+- A **command block** runs a command, once per run, when a bike touches it: easing the view to a
+  zoom, showing a point of the track for a while, or opening (hiding), showing or moving the lines
+  and items fully inside an area of its layer, as doors, bridges or elevators. Placed in steps told
+  by its options: the block, then the area to drag, then where the area moves, or the point to show.
+  The area depends on the bikes: a door opens for the bikes that touched its block only, so ghosts
+  replay their runs whatever the player does, and the checkpoints keep the commands triggered. The
+  editor shows what each block acts on, and the hidden objects faded.
 
 - The mouse wheel zooms, the right mouse button drags the camera whatever the tool.
 - Holding a line tool key draws lines connected to the previous one on each click.
@@ -230,10 +279,12 @@ src/
 │   ├── track-parser/     builds the track from its code, then pushes the editing or racing state
 │   ├── track/            editing and racing states, track rendering, HUD and interface layers
 │   ├── track-generator/  generates the track code to export or upload
-│   └── track-upload/     frames the thumbnail and uploads the track
+│   ├── track-upload/     frames the thumbnail and uploads the track
+│   └── endurance/        endurance mode: creating its track, riding it, its HUD
 ├── openrider/        game logic, independent from the states
 │   ├── bike/             bikes, springs, renderers, player and ghost runners
 │   ├── config/           settings given by the page hosting the game
+│   ├── endurance/        endurance mode: track generation from a seed, course, runs and records
 │   ├── entity/           points with verlet physics, ragdoll, explosion
 │   ├── grid/             spatial grids: physics cells and cached render cells
 │   ├── item/             lines and items of the tracks

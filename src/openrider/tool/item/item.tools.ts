@@ -1,11 +1,26 @@
-import { Control, KEYB, KEYC, KEYG, KEYL, KEYO, KEYS, KEYT, KEYW, SHIFT } from 'canvade';
+import {
+    Control,
+    KEYB,
+    KEYC,
+    KEYD,
+    KEYG,
+    KEYL,
+    KEYO,
+    KEYS,
+    KEYT,
+    KEYW,
+    KEYX,
+    SHIFT,
+} from 'canvade';
 import { Boost } from '../../item/directional/boost';
 import { Gravity } from '../../item/directional/gravity';
+import { Launcher } from '../../item/directional/launcher';
 import { DirectionalItemClass } from '../../item/directional-item';
 import { LinkedItemClass } from '../../item/linked-item';
 import { LinkedCheckpoint } from '../../item/linked/linked-checkpoint';
 import { Teleporter } from '../../item/linked/teleporter';
 import { Bomb } from '../../item/misc/bomb';
+import { Mud } from '../../item/misc/mud';
 import { SlowMo } from '../../item/misc/slow-mo';
 import { Checkpoint } from '../../item/reachable/checkpoint';
 import { Target } from '../../item/reachable/target';
@@ -14,7 +29,9 @@ import {
     BOOST_IMAGE,
     CHECKPOINT_IMAGE,
     GRAVITY_IMAGE,
+    LAUNCHER_IMAGE,
     LINKED_CHECKPOINT_IMAGE,
+    MUD_IMAGE,
     SLOWMO_IMAGE,
     TARGET_IMAGE,
     TELEPORTER_IMAGE,
@@ -116,5 +133,29 @@ export class LinkedCheckpointTool extends LinkedItemTool {
 
     protected get itemClass(): LinkedItemClass {
         return LinkedCheckpoint;
+    }
+}
+
+/** Places a launcher, kicking the bike once in its direction. */
+export class LauncherTool extends DirectionalItemTool {
+    public static override readonly toolName: string = 'Launcher';
+    public static override readonly keyLabel: string = 'Shift+X';
+    public static override readonly key = new Control(KEYX, SHIFT);
+    public static override readonly icon = LAUNCHER_IMAGE;
+
+    protected get itemClass(): DirectionalItemClass {
+        return Launcher;
+    }
+}
+
+/** Places a patch of mud. */
+export class MudTool extends SimpleItemTool {
+    public static override readonly toolName: string = 'Mud';
+    public static override readonly keyLabel: string = 'Shift+D';
+    public static override readonly key = new Control(KEYD, SHIFT);
+    public static override readonly icon = MUD_IMAGE;
+
+    protected get itemClass(): PlaceableItemClass {
+        return Mud;
     }
 }

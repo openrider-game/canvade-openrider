@@ -6,7 +6,7 @@ import { debugStats } from '../../../openrider/track/debug-stats';
 import { DEBUG_PANEL_BOTTOM, DEBUG_PANEL_X } from '../ui/debug-panel';
 import type { TrackViewState } from '../track-view.state';
 
-const HUD_MARGIN = 30,
+export const HUD_MARGIN = 30,
     LINE_HEIGHT = 15,
     /** Weight of the last frame in the smoothed frame rate. */
     FPS_SMOOTHING = 0.1;
@@ -42,8 +42,8 @@ export class TrackHudLayer extends Layer {
 
     private renderHud(e: CustomEvent<GameRenderEvent>): void {
         const ctx = e.detail.ctx;
-        InterfaceScale.draw(ctx, (width) => {
-            this.drawHud(ctx, width);
+        InterfaceScale.draw(ctx, (width, height) => {
+            this.drawHud(ctx, width, height);
             this.drawStats(ctx);
         });
     }
@@ -70,8 +70,13 @@ export class TrackHudLayer extends Layer {
         });
     }
 
-    /** @param width - Width of the canvas, in UI pixels. */
-    private drawHud(ctx: CanvasRenderingContext2D, width: number): void {
+    /**
+     * Draws the race time and the targets of the player and the ghosts.
+     *
+     * @param width - Width of the canvas, in UI pixels.
+     * @param _height - Height of the canvas, in UI pixels.
+     */
+    protected drawHud(ctx: CanvasRenderingContext2D, width: number, _height: number): void {
         const track = this.state.track;
         const targets = track.targets.size;
 

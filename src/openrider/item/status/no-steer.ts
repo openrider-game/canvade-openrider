@@ -1,5 +1,5 @@
 import type { Collidable } from '../../entity/collidable';
-import { MODIFIERS } from '../modifiers';
+import { MODIFIER_GROUPS, MODIFIERS } from '../modifiers';
 import { StatusItem } from '../status-item';
 
 /** Prevents the rider from leaning the bike. */
@@ -12,6 +12,6 @@ export class NoSteer extends StatusItem {
     public override onReach(part: Collidable): void {
         part.bike.steerValueScale = 0;
 
-        part.bike.runner.modifiersMask |= MODIFIERS.NO_STEER;
+        StatusItem.setModifier(part.bike.runner, MODIFIERS.NO_STEER, MODIFIER_GROUPS.STEER);
     }
 }

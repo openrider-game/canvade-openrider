@@ -12,7 +12,7 @@ const FULL_TRACK =
     // Scenery lines
     '0 -a a -a#' +
     // Items: target, checkpoint, boost, teleporters, status effects, unknown item
-    'T 5 5,C 6 6,B 7 7 -2s,W 8 8 9 9,R 1 1,I 2 2,H 3 3,N 4 4,E 5 6,X 1 1#' +
+    'T 5 5,C 6 6,B 7 7 -2s,W 8 8 9 9,R 1 1,I 2 2,H 3 3,N 4 4,E 5 6,Q 1 1#' +
     // Foreground solid and scenery lines
     '0 1 a 1#0 2 a 2#' +
     'MTB#a -5';

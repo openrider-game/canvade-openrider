@@ -49,9 +49,11 @@ export abstract class TrackViewState extends OpenRiderState {
 
     /**
      * The track is the world of the state, so that the engine computes the mouse world position.
+     * The track is being edited in the states editing its layers: the editor.
      */
     private attachTrack(): void {
         this.setWorld(this.track);
+        this.track.editing = this.editsLayers();
     }
 
     private runToolShortcut(e: CustomEvent<GameKeyboardEvent>): void {

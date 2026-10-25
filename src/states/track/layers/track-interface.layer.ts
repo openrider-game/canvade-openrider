@@ -1,4 +1,11 @@
-import { Layer, Mouse, UIElement, UIStructureDefinition, UIStyleDefinition } from 'canvade';
+import {
+    Display,
+    Layer,
+    Mouse,
+    UIElement,
+    UIStructureDefinition,
+    UIStyleDefinition,
+} from 'canvade';
 import { ToolGroupTool } from '../../../openrider/tool/group/tool-group.tool';
 import { CameraTool } from '../../../openrider/tool/misc/camera.tool';
 import { Tool } from '../../../openrider/tool/tool';
@@ -37,11 +44,37 @@ const BASE_STYLES: UIStyleDefinition = {
     },
     '.group': {
         pointerEvents: 'none',
-        x: GROUP_OFFSET,
         width: TOOL_SIZE,
         flexDirection: 'column',
     },
 };
+
+/** Layout of the tools of an open group, see {@link layoutGroup}. */
+export interface GroupLayout {
+    /** Position of the first row from the top of the canvas, in UI pixels. */
+    top: number;
+    rows: number;
+    columns: number;
+}
+
+/**
+ * Lays out the tools of an open group in as few columns as the canvas height allows, the rows
+ * balanced between the columns: next to the group button when they fit under it, else moved up
+ * just enough to fit in the canvas.
+ *
+ * @param count - Number of tools of the group.
+ * @param buttonTop - Position of the group button from the top of the canvas, in UI pixels.
+ * @param height - Height of the canvas in UI pixels, `Infinity` while it is unknown.
+ */
+export function layoutGroup(count: number, buttonTop: number, height: number): GroupLayout {
+    // A single column while the height is unknown
+    const maxRows = Math.max(1, Math.min(count, Math.floor(height / TOOL_SIZE)));
+    const columns = Math.ceil(count / maxRows);
+    const rows = Math.ceil(count / columns);
+    const top = Math.max(0, Math.min(buttonTop, height - rows * TOOL_SIZE));
+
+    return { top, rows, columns };
+}
 
 /** Toolbar with the tools created when entering the state. */
 interface Toolbar {
@@ -65,6 +98,8 @@ interface Toolbar {
 export class TrackInterfaceLayer extends Layer {
     private toolbars: Toolbar[] = [];
     private root: UIElement | null = null;
+    /** Height of the canvas the interface was built for, in UI pixels. */
+    private builtHeight = Infinity;
     private readonly optionsDrawer = new OptionsDrawer();
     private readonly layersPanel = new LayersPanel();
 
@@ -125,13 +160,32 @@ export class TrackInterfaceLayer extends Layer {
         }
     }
 
-    /** Rebuilds the interface when the tools invalidated it (see `Track.invalidateUI`). */
+    /**
+     * Rebuilds the interface when the tools invalidated it (see `Track.invalidateUI`), or when
+     * the canvas height changed while a group is open, e.g. in fullscreen: the tools of the open
+     * groups are laid out after it. Rebuilding drops the state of the interface, e.g. the scroll
+     * of the layers panel: it is not rebuilt for nothing.
+     */
     private refreshInterface(): void {
         const track = this.state.track;
-        if (track.uiInvalidated) {
+        const resized = this.uiHeight() !== this.builtHeight && this.hasOpenGroup();
+        if (track.uiInvalidated || resized) {
             track.uiInvalidated = false;
             this.buildInterface();
         }
+    }
+
+    /** Whether the tools of a group are displayed, one of them being the current tool. */
+    private hasOpenGroup(): boolean {
+        return this.toolbars.some(({ tools }) =>
+            tools.some((tool) => tool instanceof ToolGroupTool && tool.isActive()),
+        );
+    }
+
+    /** Height of the canvas in UI pixels, `Infinity` before the first render. */
+    private uiHeight(): number {
+        const height = this.state.track.viewHeight;
+        return height > 0 ? Math.floor(height / Display.uiScale) : Infinity;
     }
 
     /**
@@ -143,6 +197,9 @@ export class TrackInterfaceLayer extends Layer {
     private buildInterface(): void {
         const structure: UIStructureDefinition = [];
         const styles: UIStyleDefinition = { ...BASE_STYLES };
+        // Added last, drawn over the panels while open
+        const openGroups: UIStructureDefinition = [];
+        this.builtHeight = this.uiHeight();
 
         // Toolbars, along with the tools of the open groups
         for (const { side, tools } of this.toolbars) {
@@ -157,20 +214,35 @@ export class TrackInterfaceLayer extends Layer {
                 });
                 styles[`.${className}`] = { y: index * TOOL_SIZE, horizontalAlign: side };
 
-                // The tools of a group are displayed while one of them is the current tool
+                // The tools of a group are displayed while one of them is the current tool, in
+                // columns going away from the toolbar when they do not fit in the canvas height
                 if (tool instanceof ToolGroupTool && tool.isActive()) {
-                    structure.push({
-                        [`container.overlay.group.${className}-group`]: tool.instances.map(
-                            (instance) => ({
-                                [TOOL_ELEMENT_TYPE]: this.toolElement(instance),
-                            }),
-                        ),
-                    });
-                    styles[`.${className}-group`] = {
-                        y: index * TOOL_SIZE,
-                        height: tool.instances.length * TOOL_SIZE,
-                        horizontalAlign: side,
-                    };
+                    const { instances } = tool;
+                    const layout = layoutGroup(
+                        instances.length,
+                        index * TOOL_SIZE,
+                        this.builtHeight,
+                    );
+                    for (let column = 0; column < layout.columns; column++) {
+                        const columnTools = instances.slice(
+                            column * layout.rows,
+                            (column + 1) * layout.rows,
+                        );
+                        const columnClass = `${className}-group-${column}`;
+                        openGroups.push({
+                            [`container.overlay.group.${columnClass}`]: columnTools.map(
+                                (instance) => ({
+                                    [TOOL_ELEMENT_TYPE]: this.toolElement(instance),
+                                }),
+                            ),
+                        });
+                        styles[`.${columnClass}`] = {
+                            x: GROUP_OFFSET + column * TOOL_SIZE,
+                            y: layout.top,
+                            height: columnTools.length * TOOL_SIZE,
+                            horizontalAlign: side,
+                        };
+                    }
                 }
             });
         }
@@ -182,6 +254,7 @@ export class TrackInterfaceLayer extends Layer {
         if (this.state.allowsDebug() && this.state.track.debug) {
             DebugPanel.build(this.state.track, structure, styles);
         }
+        structure.push(...openGroups);
 
         // State buttons
         this.state.getButtons().forEach((button, index) => {

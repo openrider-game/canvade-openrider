@@ -109,3 +109,45 @@ export const NOSTEER_IMAGE: ToolIcon = {
     type: 'b64',
     data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAVklEQVQoU2NkIBMwkqmPAVnjTCINSQepQ9GoqcmXZmsrglX/4cNvGK5f/zQLKImpMS1NKW3mTGOsGtPTzzLMmnVvVCO20MEbOGRHB7kJgEh9EGVkp1UAkmpCD0bsG/8AAAAASUVORK5CYII=',
 };
+
+/** Icon of the `LauncherTool`. */
+export const LAUNCHER_IMAGE: ToolIcon = {
+    type: 'b64',
+    data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAtklEQVR4nMWRPQ4BURRGT3gi46ewAaagoZHYwFQaEnqKqbTswOyAHcw0tLbDAkhoNBSmuTwZM43hqdzkdt85+XIv/GM8S7ECBj+DtRJSUIS5DBfAN5V48w4iE2TTRUZ1boAUFUdgAbS/gq89u4jvIL0qoZbks+wjif0RfCdpVuImW2BqBAYO0krAHTBLrarD/aTqAVimVtXHGTdi8ykKpx/HLj+D+h3XhzUAhibvcC3F2jT8v7kDH0l1KepEm+MAAAAASUVORK5CYII=',
+};
+
+/** Icon of the `MudTool`. */
+export const MUD_IMAGE: ToolIcon = {
+    type: 'b64',
+    data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAnklEQVR4nGNgGAxAgYGBoZ+Vhek4CIPYUDG8wIGJifGLggTPbxdjqf8gDGIzMTJ+BsnhtAmkKdRe4X9HmjEKBokxMTF+xWXzBEUJnj/ommAYZDNIDYYuVhamEyCn4dIIkmNiYjxClkaQGlxO/Y1LI8gbWJ0KDZyvOAOHkfELvmgBRcdXRaToUIRExxd80QG3GeQkkH+gfppATAKgPQAA1PR2HV8qFxQAAAAASUVORK5CYII=',
+};
+
+/** Icon of the `HeavyTool`. */
+export const HEAVY_IMAGE: ToolIcon = {
+    type: 'b64',
+    data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAM0lEQVR4nGNgGEgwk0iMqVFRgON/kKYIVgySw6kRpOBMmjFWDJIb1UiORrKjg9wEQB8AADlTlcWAA3jOAAAAAElFTkSuQmCC',
+};
+
+/** Icon of the `LowGravityTool`. */
+export const LOW_GRAVITY_IMAGE: ToolIcon = {
+    type: 'b64',
+    data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAM0lEQVR4nGNgGEgwk0iMqVFRUvN/kG0aVgySw6kRpODMzP9YMUhuVCM5GsmODnITAH0AAADdw9nfUO4oAAAAAElFTkSuQmCC',
+};
+
+/** Icon of the `MirrorTool`. */
+export const MIRROR_IMAGE: ToolIcon = {
+    type: 'b64',
+    data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAM0lEQVR4nGNgGEgwk0iMqVFTQPF/mmYQVgySw6kRpOB/2hmsGCQ3qpEcjWRHB7kJgD4AALvsuqlICJG7AAAAAElFTkSuQmCC',
+};
+
+/** Icon of the `TurboTool`. */
+export const TURBO_IMAGE: ToolIcon = {
+    type: 'b64',
+    data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAMUlEQVR4nGNgGEgwk0iMqVFTkuF/mi12DJLDqRGk4P9M7BgkN6qRHI1kRwe5CYA+AACi5Z71ZQq4ZgAAAABJRU5ErkJggg==',
+};
+
+/** Icon of the `CommandBlockTool`. */
+export const COMMAND_BLOCK_IMAGE: ToolIcon = {
+    type: 'b64',
+    data: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAAM0lEQVR4nGNgGEgwk0iMqZGPj++/kpISVgySw6kRpCA0NBQrBsmNaiRHI9nRQW4CoA8AAFxeg1k6DI0QAAAAAElFTkSuQmCC',
+};

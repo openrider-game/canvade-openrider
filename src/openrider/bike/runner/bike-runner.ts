@@ -13,6 +13,7 @@ interface Snapshot {
     time: number;
     targetsReached: Set<number>;
     reachablesReached: Set<number>;
+    commandTimes: Map<number, number>;
     controls: RunnerControls;
     bike: Bike;
     modifiersMask: number;
@@ -37,6 +38,11 @@ export abstract class BikeRunner {
     public targetsReached = new Set<number>();
     /** Ids of the other reachable items (checkpoints...) reached during the current run. */
     public reachablesReached = new Set<number>();
+    /**
+     * Physics tick each command block was triggered at during the current run, by block id: the
+     * objects the blocks act on depend on it for this runner (see `CommandBlock.offsetFor`).
+     */
+    public commandTimes = new Map<number, number>();
 
     /** Bike currently running, `null` once it has exploded. */
     public instance: Bike | null = null;
@@ -93,6 +99,7 @@ export abstract class BikeRunner {
         let bike = this.initialBike;
         this.targetsReached = new Set();
         this.reachablesReached = new Set();
+        this.commandTimes = new Map();
         this.controls = createControls();
         this.modifiersMask = 0;
 
@@ -102,6 +109,7 @@ export abstract class BikeRunner {
             bike = snapshot.bike;
             this.targetsReached = new Set(snapshot.targetsReached);
             this.reachablesReached = new Set(snapshot.reachablesReached);
+            this.commandTimes = new Map(snapshot.commandTimes);
             this.controls = { ...snapshot.controls };
             this.modifiersMask = snapshot.modifiersMask;
 
@@ -208,6 +216,7 @@ export abstract class BikeRunner {
             time: this.track.time,
             targetsReached: new Set(this.targetsReached),
             reachablesReached: new Set(this.reachablesReached),
+            commandTimes: new Map(this.commandTimes),
             controls: { ...this.controls },
             bike: this.instance.clone(),
             modifiersMask: this.modifiersMask,
@@ -237,6 +246,9 @@ export abstract class BikeRunner {
      * this exact order of computations.
      */
     public fixedUpdate(): void {
+        // The objects the command blocks act on, after the objects added or removed since
+        this.track.commands.refresh();
+
         // All the parts must run their fixedUpdate before saving, otherwise the bike clone gets
         // inconsistent values, some of them being 1 tick behind or ahead. Thus, checkpoints and
         // targets are added to the action queue instead of being processed directly.

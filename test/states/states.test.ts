@@ -19,7 +19,11 @@ import {
     STATE_TRACK_GENERATOR,
     STATE_TRACK_PARSER,
     STATE_TRACK_RACING,
+    STATE_ENDURANCE_SETUP,
+    STATE_TRACK_ENDURANCE,
 } from '../../src/states/state-names';
+import { TrackEnduranceState } from '../../src/states/endurance/track-endurance.state';
+import { EnduranceCourse } from '../../src/openrider/endurance/endurance-course';
 import States from '../../src/states/states';
 import { EraserTool } from '../../src/openrider/tool/misc/eraser.tool';
 import { TrackEditingState } from '../../src/states/track/track-editing.state';
@@ -260,6 +264,46 @@ describe('Editing a track', () => {
         manager.getCurrent()?.dispatch('visibilityChange');
 
         expect(session.track.paused).toBe(true);
+    });
+});
+
+describe('Endurance mode', () => {
+    test('generates a track from the seed of the host element, then rides it', async () => {
+        GameConfig.seed = 1234;
+        manager.push(STATE_ENDURANCE_SETUP);
+        await runUntil(STATE_TRACK_ENDURANCE);
+        GameConfig.seed = null;
+
+        const track = session.track;
+        expect(EnduranceCourse.of(track)?.seed).toBe(1234);
+        expect(track.layers.main[0].grid.totalSolidLines.size).toBeGreaterThan(10);
+        // No checkpoints nor ghosts, but new tracks
+        expect(track.toolCollection.getByToolName('New Track')).toBeDefined();
+        expect(track.toolCollection.getByToolName('Cancel Checkpoint')).toBeUndefined();
+        expect(track.toolCollection.getByToolName('Eraser')).toBeUndefined();
+    });
+
+    test('shows the run, then its result once the rider fell', async () => {
+        manager.push(STATE_ENDURANCE_SETUP);
+        await runUntil(STATE_TRACK_ENDURANCE);
+        const state = manager.getCurrent() as TrackEnduranceState;
+        for (let frame = 0; frame < 20; frame++) {
+            manager.fixedUpdate();
+        }
+        const { context } = createCanvasMock();
+        const texts = () => vi.mocked(context.fillText).mock.calls.map((call) => String(call[0]));
+
+        manager.render(context);
+        expect(texts()).toContain('0 m');
+        expect(texts().some((text) => text.startsWith('Track '))).toBe(true);
+
+        session.track.playerRunner.crash();
+        manager.fixedUpdate();
+        manager.render(context);
+
+        expect(state.run?.over).toBe(true);
+        expect(texts()).toContain('Enter: try again    N: new track');
+        expect(texts()).toContain('New record!');
     });
 });
 

@@ -12,7 +12,7 @@ if (!hostElement) {
 }
 
 // The host element configures the game for its page, see GameConfig
-GameConfig.configure(hostElement);
+GameConfig.configure(hostElement, location.search);
 
 const game = new Game(hostElement, { updatesPerSecond: GAME_UPS });
 const session = new Session(game.shared);
@@ -25,7 +25,10 @@ game.addStates(
         Object.values(States).map(({ name, state }) => [name, state]),
     ),
 );
-game.pushState(States.TrackFetcher.name);
+// The endurance mode generates its own track, the other modes fetch or edit one
+game.pushState(
+    GameConfig.mode === 'endurance' ? States.EnduranceSetup.name : States.TrackFetcher.name,
+);
 
 game.run();
 

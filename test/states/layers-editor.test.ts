@@ -10,6 +10,8 @@ import {
 } from '../../src/states/state-names';
 import States from '../../src/states/states';
 import { TrackEditingState } from '../../src/states/track/track-editing.state';
+import { layoutGroup } from '../../src/states/track/layers/track-interface.layer';
+import { ToolGroupTool } from '../../src/openrider/tool/group/tool-group.tool';
 import { TrackUploadState } from '../../src/states/track-upload/track-upload.state';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 
@@ -229,6 +231,41 @@ describe('Layers panel', () => {
 
         expect(frame().some((text) => text.startsWith('Layers'))).toBe(false);
         expect(session.track.layers.all).toHaveLength(3);
+    });
+});
+
+describe('Tool groups', () => {
+    test('lay their tools out in columns fitting the canvas height', () => {
+        // Fits under its button
+        expect(layoutGroup(4, 100, 400)).toEqual({ top: 100, rows: 4, columns: 1 });
+        // Moved up to fit
+        expect(layoutGroup(10, 182, 400)).toEqual({ top: 140, rows: 10, columns: 1 });
+        // In balanced columns when taller than the canvas
+        expect(layoutGroup(10, 182, 200)).toEqual({ top: 70, rows: 5, columns: 2 });
+        expect(layoutGroup(10, 0, 100)).toEqual({ top: 0, rows: 3, columns: 4 });
+        // Under its button while the canvas size is unknown
+        expect(layoutGroup(10, 182, Infinity)).toEqual({ top: 182, rows: 10, columns: 1 });
+    });
+
+    test('show all the tools of an open group in the canvas', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        const track = session.track;
+        track.toolCollection.getByToolName('Launcher')?.run();
+        // The first frame renders the canvas, the next one lays the group out after its height
+        frame();
+        frame();
+
+        // The item tools, the group being the 8th button of the right toolbar, laid out up to the
+        // bottom of the 400 pixels high canvas, 30 pixels from the right edge: the last of them
+        // was under the bottom edge before
+        const group = track.toolCollection.getByToolName('Item Group') as ToolGroupTool;
+        const count = group.instances.length;
+        const { top } = layoutGroup(count, 7 * 26, 400);
+        expect(top + count * 26).toBe(400);
+        click(700 - 30 - 13, top + (count - 1) * 26 + 13);
+
+        expect(track.toolManager.tool).toBe(group.instances[count - 1]);
     });
 });
 

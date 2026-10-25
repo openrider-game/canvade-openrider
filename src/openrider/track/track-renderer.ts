@@ -50,6 +50,8 @@ export abstract class TrackRenderer {
         };
         const cacheBounds = TrackRenderer.getVisibleCells(track, CACHE_CELL_SIZE);
         const shown = (layer: TrackLayer) => layer.visible || !options.hideHiddenLayers;
+        // The objects the command blocks act on, after the objects added or removed since
+        track.commands.refresh();
 
         for (const layer of track.layers.main.filter(shown)) {
             TrackRenderer.renderLayer(ctx, track, layer, cacheBounds, options);
@@ -100,6 +102,8 @@ export abstract class TrackRenderer {
                 }
             }
         }
+        // Out of the cached images, as they change with the runners
+        track.commands.render(ctx, layer, options.fastRender);
     }
 
     /**

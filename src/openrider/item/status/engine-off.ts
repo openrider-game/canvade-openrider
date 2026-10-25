@@ -1,5 +1,5 @@
 import type { Collidable } from '../../entity/collidable';
-import { MODIFIERS } from '../modifiers';
+import { MODIFIER_GROUPS, MODIFIERS } from '../modifiers';
 import { StatusItem } from '../status-item';
 
 /** Cuts the engine of the bike, which can no longer accelerate. */
@@ -12,6 +12,6 @@ export class EngineOff extends StatusItem {
     public override onReach(part: Collidable): void {
         part.bike.engineValueScale = 0;
 
-        part.bike.runner.modifiersMask |= MODIFIERS.ENGINE_OFF;
+        StatusItem.setModifier(part.bike.runner, MODIFIERS.ENGINE_OFF, MODIFIER_GROUPS.ENGINE);
     }
 }

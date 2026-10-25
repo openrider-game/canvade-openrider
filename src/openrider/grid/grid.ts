@@ -75,7 +75,15 @@ export class Grid<T extends Cell> {
     }
 
     private getCellsForObject(obj: TrackObject): T[] {
-        return Grid.spread(obj.pos, obj.endPos, this.cellSize).map((vec) => {
+        return this.cellsCrossed(obj.pos, obj.endPos);
+    }
+
+    /**
+     * Cells crossed by a segment, created when needed, e.g. to store a line where a command block
+     * moves it as well (see `CommandRegistry`).
+     */
+    public cellsCrossed(from: Vector, to: Vector): T[] {
+        return Grid.spread(from, to, this.cellSize).map((vec) => {
             const gridCoords = Grid.gridCoords(vec, this.cellSize);
             return this.cell(gridCoords.x, gridCoords.y);
         });

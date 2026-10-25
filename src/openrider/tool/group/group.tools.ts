@@ -5,17 +5,24 @@ import {
     BoostTool,
     CheckpointTool,
     GravityTool,
+    LauncherTool,
     LinkedCheckpointTool,
+    MudTool,
     SlowMoTool,
     TargetTool,
     TeleporterTool,
 } from '../item/item.tools';
+import { CommandBlockTool } from '../item/command-block.tool';
 import {
     EngineOffTool,
+    HeavyTool,
     InvincibilityTool,
+    LowGravityTool,
+    MirrorTool,
     NoSteerTool,
     ResetTool,
     SlipperyTool,
+    TurboTool,
     ZeroGravityTool,
 } from '../item/status.tools';
 import { TARGET_IMAGE } from '../tool.constants';
@@ -38,6 +45,9 @@ export class ItemGroupTool extends ToolGroupTool {
             BombTool,
             SlowMoTool,
             TeleporterTool,
+            LauncherTool,
+            MudTool,
+            CommandBlockTool,
         ]);
     }
 }
@@ -57,6 +67,10 @@ export class StatusGroupTool extends ToolGroupTool {
             NoSteerTool,
             EngineOffTool,
             ZeroGravityTool,
+            HeavyTool,
+            LowGravityTool,
+            MirrorTool,
+            TurboTool,
         ]);
     }
 }

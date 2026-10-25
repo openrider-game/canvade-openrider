@@ -1,5 +1,5 @@
 import { CONTROL_NAMES, ControlName } from '../bike/runner/runner-controls';
-import { MODIFIERS } from '../item/modifiers';
+import { modifierNames } from '../item/modifiers';
 import { WorkerPool } from '../thread/worker-pool';
 import type { Track } from './track';
 
@@ -10,15 +10,6 @@ const CONTROL_SYMBOLS: Record<ControlName, string> = {
     leftPressed: '←',
     rightPressed: '→',
     turnPressed: 'turn',
-};
-
-/** Names of the status effects in the stats, by flag of {@link MODIFIERS}. */
-const MODIFIER_NAMES: Record<keyof typeof MODIFIERS, string> = {
-    INVINCIBILITY: 'invincible',
-    NO_STEER: 'no steer',
-    SLIPPERY: 'slippery',
-    ENGINE_OFF: 'engine off',
-    ZERO_GRAVITY: 'zero gravity',
 };
 
 /**
@@ -35,9 +26,7 @@ export function debugStats(track: Track, fps: number): string[] {
     const inputs = CONTROL_NAMES.filter((name) => runner.controls[name]).map(
         (name) => CONTROL_SYMBOLS[name],
     );
-    const status = (Object.keys(MODIFIERS) as Array<keyof typeof MODIFIERS>)
-        .filter((name) => runner.modifiersMask & MODIFIERS[name])
-        .map((name) => MODIFIER_NAMES[name]);
+    const status = modifierNames(runner.modifiersMask);
     const round = (value: number) => Math.round(value);
 
     return [

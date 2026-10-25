@@ -73,9 +73,21 @@ export abstract class Item extends TrackObject {
         ctx.restore();
     }
 
-    /** Triggers {@link Item.onTouch} when the part is close enough to the item center. */
+    /**
+     * Triggers {@link Item.onTouch} when the part is close enough to the item center, where its
+     * command block puts it for the runner of the part: nowhere while hidden, or moved.
+     */
     public touch(part: Collidable): void {
-        if (part.pos.distanceToSquared(this.pos) < 500) {
+        const command = this.command;
+        if (command === null) {
+            if (part.pos.distanceToSquared(this.pos) < 500) {
+                this.onTouch(part);
+            }
+            return;
+        }
+
+        const offset = command.offsetFor(part.bike.runner);
+        if (offset !== null && part.pos.distanceToSquared(this.pos.add(offset)) < 500) {
             this.onTouch(part);
         }
     }
