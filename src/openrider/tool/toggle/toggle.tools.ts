@@ -14,7 +14,6 @@ export abstract class ToggleTool extends Tool {
 /** Snaps the mouse position to a grid, to draw aligned lines and items. */
 export class GridSnapTool extends ToggleTool {
     public static override readonly toolName: string = 'Toggle Grid Snapping';
-    public static override readonly keyLabel: string = 'G';
     public static override readonly key = new Control(KEYG);
     public static override readonly icon = 'grid';
 
@@ -33,7 +32,6 @@ export class GridSnapTool extends ToggleTool {
 /** Enables or disables the debug mode, whose overlays are chosen in the debug panel. */
 export class ToggleDebugTool extends ToggleTool {
     public static override readonly toolName: string = 'Toggle Debug';
-    public static override readonly keyLabel: string = 'Control+D';
     public static override readonly key = new Control(KEYD, CTRL);
     public static override readonly icon = 'debug';
 

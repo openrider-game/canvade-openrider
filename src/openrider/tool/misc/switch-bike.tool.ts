@@ -6,7 +6,6 @@ import { StartPositionTool } from './start-position.tool';
 /** Switches the player to the next bike and restarts the race from the start. */
 export class SwitchBikeTool extends Tool {
     public static override readonly toolName: string = 'Switch Bike';
-    public static override readonly keyLabel: string = 'Control+B';
     public static override readonly key = new Control(KEYB, CTRL);
     public static override readonly icon = 'bike';
 

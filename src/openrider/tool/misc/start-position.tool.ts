@@ -5,7 +5,6 @@ import { Tool, ToolOption } from '../tool';
 /** Moves the start position of the track, previewed with a dummy bike. */
 export class StartPositionTool extends Tool {
     public static override readonly toolName: string = 'Start Position';
-    public static override readonly keyLabel: string = 'P';
     public static override readonly key = new Control(KEYP);
     public static override readonly icon = 'start';
 

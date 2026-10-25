@@ -1,4 +1,5 @@
 import { Control, Keyboard } from 'canvade';
+import { ControlBindings } from '../controls/control-bindings';
 import type { Track } from '../track/track';
 import type { ToolGroupTool } from './group/tool-group.tool';
 
@@ -11,11 +12,15 @@ export type ToolIcon = string | { type: 'b64'; data: string };
  */
 export interface ToolClass {
     new (track: Track): Tool;
-    /** Unique name of the tool, used as its default label and to look it up in a collection. */
+    /**
+     * Unique name of the tool, used as its default label, to look it up in a collection, and as
+     * the name of its keyboard control.
+     */
     readonly toolName: string;
-    /** Name of the keyboard control, also displayed in the tooltip (e.g. `Shift+T`). */
-    readonly keyLabel: string | null;
-    /** Keyboard shortcut running the tool, `null` if it has none. */
+    /**
+     * Default keyboard shortcut running the tool, `null` if it has none; the player can bind it
+     * to another key (see `ControlBindings`).
+     */
     readonly key: Control | null;
     /** Icon of the toolbar button, `null` if the tool has no button. */
     readonly icon: ToolIcon | null;
@@ -37,8 +42,6 @@ export interface ToolOption {
 export abstract class Tool {
     /** See {@link ToolClass.toolName}. */
     public static readonly toolName: string = 'Tool';
-    /** See {@link ToolClass.keyLabel}. */
-    public static readonly keyLabel: string | null = null;
     /** See {@link ToolClass.key}. */
     public static readonly key: Control | null = null;
     /** See {@link ToolClass.icon}. */
@@ -58,18 +61,27 @@ export abstract class Tool {
         return this.constructor as ToolClass;
     }
 
-    /** Registers the keyboard shortcut of the tool, if it has one. */
+    /**
+     * Registers the keyboard shortcut of the tool, if it has one, named after the tool, with the
+     * key the player bound it to.
+     */
     public registerControls(): void {
-        const { keyLabel, key } = this.toolClass;
-        if (keyLabel !== null && key !== null) {
-            Keyboard.registerControl(keyLabel, key);
+        const { toolName, key } = this.toolClass;
+        if (key !== null) {
+            ControlBindings.register(toolName, key);
         }
     }
 
     /** Whether the keyboard shortcut of the tool is currently held down. */
     public isHolding(): boolean {
-        const keyLabel = this.toolClass.keyLabel;
-        return keyLabel !== null && Keyboard.isDown(keyLabel);
+        const { toolName, key } = this.toolClass;
+        return key !== null && Keyboard.isDown(toolName);
+    }
+
+    /** Readable key of the shortcut of the tool, e.g. `Shift+T`, null without one. */
+    public getKeyLabel(): string | null {
+        const { toolName, key } = this.toolClass;
+        return key === null ? null : (ControlBindings.label(toolName) ?? key.label);
     }
 
     public getIcon(): ToolIcon | null {

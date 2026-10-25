@@ -40,7 +40,6 @@ import { StatusTool } from './status.tool';
 /** Places a reset status item. */
 export class ResetTool extends StatusTool {
     public static override readonly toolName: string = 'Reset';
-    public static override readonly keyLabel: string = 'Shift+R';
     public static override readonly key = new Control(KEYR, SHIFT);
     public static override readonly icon = RESET_IMAGE;
 
@@ -52,7 +51,6 @@ export class ResetTool extends StatusTool {
 /** Places an invincibility status item. */
 export class InvincibilityTool extends StatusTool {
     public static override readonly toolName: string = 'Invincibility';
-    public static override readonly keyLabel: string = 'Shift+I';
     public static override readonly key = new Control(KEYI, SHIFT);
     public static override readonly icon = INVINCIBILITY_IMAGE;
 
@@ -64,7 +62,6 @@ export class InvincibilityTool extends StatusTool {
 /** Places a slippery status item. */
 export class SlipperyTool extends StatusTool {
     public static override readonly toolName: string = 'Slippery';
-    public static override readonly keyLabel: string = 'Shift+H';
     public static override readonly key = new Control(KEYH, SHIFT);
     public static override readonly icon = SLIPPERY_IMAGE;
 
@@ -76,7 +73,6 @@ export class SlipperyTool extends StatusTool {
 /** Places a no steer status item. */
 export class NoSteerTool extends StatusTool {
     public static override readonly toolName: string = 'No Steer';
-    public static override readonly keyLabel: string = 'Shift+N';
     public static override readonly key = new Control(KEYN, SHIFT);
     public static override readonly icon = NOSTEER_IMAGE;
 
@@ -88,7 +84,6 @@ export class NoSteerTool extends StatusTool {
 /** Places an engine off status item. */
 export class EngineOffTool extends StatusTool {
     public static override readonly toolName: string = 'Engine Off';
-    public static override readonly keyLabel: string = 'Shift+E';
     public static override readonly key = new Control(KEYE, SHIFT);
     public static override readonly icon = ENGINE_OFF_IMAGE;
 
@@ -100,7 +95,6 @@ export class EngineOffTool extends StatusTool {
 /** Places a zero gravity status item. */
 export class ZeroGravityTool extends StatusTool {
     public static override readonly toolName: string = 'Zero Gravity';
-    public static override readonly keyLabel: string = 'Shift+Z';
     public static override readonly key = new Control(KEYZ, SHIFT);
     public static override readonly icon = ZERO_GRAVITY_IMAGE;
 
@@ -112,7 +106,6 @@ export class ZeroGravityTool extends StatusTool {
 /** Places a heavy status item. */
 export class HeavyTool extends StatusTool {
     public static override readonly toolName: string = 'Heavy';
-    public static override readonly keyLabel: string = 'Shift+K';
     public static override readonly key = new Control(KEYK, SHIFT);
     public static override readonly icon = HEAVY_IMAGE;
 
@@ -124,7 +117,6 @@ export class HeavyTool extends StatusTool {
 /** Places a low gravity status item. */
 export class LowGravityTool extends StatusTool {
     public static override readonly toolName: string = 'Low Gravity';
-    public static override readonly keyLabel: string = 'Shift+F';
     public static override readonly key = new Control(KEYF, SHIFT);
     public static override readonly icon = LOW_GRAVITY_IMAGE;
 
@@ -136,7 +128,6 @@ export class LowGravityTool extends StatusTool {
 /** Places a mirror status item, swapping the lean controls. */
 export class MirrorTool extends StatusTool {
     public static override readonly toolName: string = 'Mirror';
-    public static override readonly keyLabel: string = 'Shift+M';
     public static override readonly key = new Control(KEYM, SHIFT);
     public static override readonly icon = MIRROR_IMAGE;
 
@@ -148,7 +139,6 @@ export class MirrorTool extends StatusTool {
 /** Places a turbo status item. */
 export class TurboTool extends StatusTool {
     public static override readonly toolName: string = 'Turbo';
-    public static override readonly keyLabel: string = 'Shift+U';
     public static override readonly key = new Control(KEYU, SHIFT);
     public static override readonly icon = TURBO_IMAGE;
 

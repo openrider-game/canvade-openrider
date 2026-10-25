@@ -7,6 +7,7 @@ import {
 } from './line/line.tools';
 import { CameraTool } from './misc/camera.tool';
 import { CancelCheckpointTool } from './misc/cancel-checkpoint.tool';
+import { ControlsTool } from './misc/controls.tool';
 import { EraserTool } from './misc/eraser.tool';
 import { FocusGhostTool } from './misc/focus-ghost.tool';
 import { FullscreenTool } from './misc/fullscreen.tool';
@@ -33,6 +34,7 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
         null,
         CameraTool,
         FullscreenTool,
+        ControlsTool,
     ],
     /** Left toolbar in the editor, adding the history buttons. */
     LEFT_TOOLBAR_EDITING: ToolbarEntries = [...LEFT_TOOLBAR_VIEWING, null, UndoTool, RedoTool],
@@ -65,4 +67,5 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
         null,
         CameraTool,
         FullscreenTool,
+        ControlsTool,
     ];

@@ -40,7 +40,6 @@ type Step = 'block' | 'area' | 'target';
  */
 export class CommandBlockTool extends ItemTool {
     public static override readonly toolName: string = 'Command Block';
-    public static override readonly keyLabel: string = 'Shift+A';
     public static override readonly key = new Control(KEYA, SHIFT);
     public static override readonly icon = COMMAND_BLOCK_IMAGE;
 

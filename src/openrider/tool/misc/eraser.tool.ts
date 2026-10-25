@@ -20,7 +20,6 @@ const KIND_LABELS: Record<TrackObjectKind, string> = {
  */
 export class EraserTool extends Tool {
     public static override readonly toolName: string = 'Eraser';
-    public static override readonly keyLabel: string = 'E';
     public static override readonly key = new Control(KEYE);
     public static override readonly icon = 'eraser';
 

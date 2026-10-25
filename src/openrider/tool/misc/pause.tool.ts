@@ -4,7 +4,6 @@ import { Tool, ToolIcon } from '../tool';
 /** Pauses or resumes the game, its button showing the action it will do. */
 export class PauseTool extends Tool {
     public static override readonly toolName: string = 'Pause';
-    public static override readonly keyLabel: string = 'Space';
     public static override readonly key = new Control(SPACE);
     public static override readonly icon = 'pause';
 

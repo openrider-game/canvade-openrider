@@ -1,24 +1,24 @@
 import type { Tool } from './tool';
 
-/** Tools available in the current state, indexed by name and by keyboard control label. */
+/**
+ * Tools available in the current state, indexed by name, which also names their keyboard
+ * control (see `Tool.registerControls`).
+ */
 export class ToolCollection {
     private readonly toolsByToolName = new Map<string, Tool>();
-    private readonly toolsByKeyLabel = new Map<string, Tool>();
 
     public add(tool: Tool): void {
         this.toolsByToolName.set(tool.toolClass.toolName, tool);
-
-        const keyLabel = tool.toolClass.keyLabel;
-        if (keyLabel !== null) {
-            this.toolsByKeyLabel.set(keyLabel, tool);
-        }
     }
 
     public getByToolName(toolName: string): Tool | undefined {
         return this.toolsByToolName.get(toolName);
     }
 
-    public getByKeyLabel(keyLabel: string): Tool | undefined {
-        return this.toolsByKeyLabel.get(keyLabel);
+    /** Tool run by a keyboard control, by its name, if the tool has a shortcut. */
+    public getByShortcut(controlName: string): Tool | undefined {
+        const tool = this.toolsByToolName.get(controlName);
+        return tool?.toolClass.key ? tool : undefined;
     }
+
 }

@@ -517,7 +517,7 @@ describe('Toolbars', () => {
         for (const tool of allTools()) {
             expect(tool.toolClass.toolName).not.toBe('Tool');
             expect(tool.getIcon()).not.toBeNull();
-            expect(tool.toolClass.keyLabel).not.toBeNull();
+            expect(tool.getKeyLabel()).not.toBeNull();
             expect(tool.toolClass.key).not.toBeNull();
         }
     });

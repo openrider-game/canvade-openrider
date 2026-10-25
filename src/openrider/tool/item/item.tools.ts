@@ -43,7 +43,6 @@ import { LinkedItemTool } from './linked-item.tool';
 /** Places a target. */
 export class TargetTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Target';
-    public static override readonly keyLabel: string = 'Shift+T';
     public static override readonly key = new Control(KEYT, SHIFT);
     public static override readonly icon = TARGET_IMAGE;
 
@@ -55,7 +54,6 @@ export class TargetTool extends SimpleItemTool {
 /** Places a checkpoint. */
 export class CheckpointTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Checkpoint';
-    public static override readonly keyLabel: string = 'Shift+C';
     public static override readonly key = new Control(KEYC, SHIFT);
     public static override readonly icon = CHECKPOINT_IMAGE;
 
@@ -67,7 +65,6 @@ export class CheckpointTool extends SimpleItemTool {
 /** Places a bomb. */
 export class BombTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Bomb';
-    public static override readonly keyLabel: string = 'Shift+O';
     public static override readonly key = new Control(KEYO, SHIFT);
     public static override readonly icon = BOMB_IMAGE;
 
@@ -79,7 +76,6 @@ export class BombTool extends SimpleItemTool {
 /** Places a slow-motion item. */
 export class SlowMoTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Slow-Motion';
-    public static override readonly keyLabel: string = 'Shift+S';
     public static override readonly key = new Control(KEYS, SHIFT);
     public static override readonly icon = SLOWMO_IMAGE;
 
@@ -91,7 +87,6 @@ export class SlowMoTool extends SimpleItemTool {
 /** Places a boost. */
 export class BoostTool extends DirectionalItemTool {
     public static override readonly toolName: string = 'Boost';
-    public static override readonly keyLabel: string = 'Shift+B';
     public static override readonly key = new Control(KEYB, SHIFT);
     public static override readonly icon = BOOST_IMAGE;
 
@@ -103,7 +98,6 @@ export class BoostTool extends DirectionalItemTool {
 /** Places a gravity item. */
 export class GravityTool extends DirectionalItemTool {
     public static override readonly toolName: string = 'Gravity';
-    public static override readonly keyLabel: string = 'Shift+G';
     public static override readonly key = new Control(KEYG, SHIFT);
     public static override readonly icon = GRAVITY_IMAGE;
 
@@ -115,7 +109,6 @@ export class GravityTool extends DirectionalItemTool {
 /** Places a pair of teleporters. */
 export class TeleporterTool extends LinkedItemTool {
     public static override readonly toolName: string = 'Teleporter';
-    public static override readonly keyLabel: string = 'Shift+W';
     public static override readonly key = new Control(KEYW, SHIFT);
     public static override readonly icon = TELEPORTER_IMAGE;
 
@@ -127,7 +120,6 @@ export class TeleporterTool extends LinkedItemTool {
 /** Places a pair of linked checkpoints, of which only one can be taken in a run. */
 export class LinkedCheckpointTool extends LinkedItemTool {
     public static override readonly toolName: string = 'Linked Checkpoint';
-    public static override readonly keyLabel: string = 'Shift+L';
     public static override readonly key = new Control(KEYL, SHIFT);
     public static override readonly icon = LINKED_CHECKPOINT_IMAGE;
 
@@ -139,7 +131,6 @@ export class LinkedCheckpointTool extends LinkedItemTool {
 /** Places a launcher, kicking the bike once in its direction. */
 export class LauncherTool extends DirectionalItemTool {
     public static override readonly toolName: string = 'Launcher';
-    public static override readonly keyLabel: string = 'Shift+X';
     public static override readonly key = new Control(KEYX, SHIFT);
     public static override readonly icon = LAUNCHER_IMAGE;
 
@@ -151,7 +142,6 @@ export class LauncherTool extends DirectionalItemTool {
 /** Places a patch of mud. */
 export class MudTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Mud';
-    public static override readonly keyLabel: string = 'Shift+D';
     public static override readonly key = new Control(KEYD, SHIFT);
     public static override readonly icon = MUD_IMAGE;
 

@@ -89,6 +89,8 @@ export class Track extends World {
     /** Whether the debug mode is enabled, its overlays chosen in {@link Track.debugOptions}. */
     public debug = false;
     public readonly debugOptions: DebugOptions = defaultDebugOptions();
+    /** Whether the controls panel is open, to bind the controls to other keys. */
+    public controlsOpen = false;
     /** Physics ticks to run while paused, requested by {@link Track.step}. */
     public pendingSteps = 0;
 

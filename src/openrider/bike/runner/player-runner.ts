@@ -1,4 +1,5 @@
 import { ARROWDOWN, ARROWLEFT, ARROWRIGHT, ARROWUP, Control, Keyboard, KEYZ, NONE } from 'canvade';
+import { ControlBindings } from '../../controls/control-bindings';
 import type { Track } from '../../track/track';
 import { Bike, BikeClass } from '../bike';
 import { BikeRunner } from './bike-runner';
@@ -16,13 +17,46 @@ export const PLAYER_CONTROL_NAMES = {
     turn: 'Z',
 } as const;
 
-/** Runner control, keyboard control name and default key of each player control. */
-const PLAYER_CONTROLS: Array<[ControlName, string, Control]> = [
-    ['upPressed', PLAYER_CONTROL_NAMES.up, new Control(ARROWUP)],
-    ['downPressed', PLAYER_CONTROL_NAMES.down, new Control(ARROWDOWN)],
-    ['leftPressed', PLAYER_CONTROL_NAMES.left, new Control(ARROWLEFT)],
-    ['rightPressed', PLAYER_CONTROL_NAMES.right, new Control(ARROWRIGHT)],
-    ['turnPressed', PLAYER_CONTROL_NAMES.turn, new Control(KEYZ, NONE, true)],
+/**
+ * Player controls: the runner control, the keyboard control name, the label shown in the controls
+ * panel and the default key of each one.
+ */
+export const PLAYER_CONTROLS: Array<{
+    runnerControl: ControlName;
+    name: string;
+    label: string;
+    key: Control;
+}> = [
+    {
+        runnerControl: 'upPressed',
+        name: PLAYER_CONTROL_NAMES.up,
+        label: 'Accelerate',
+        key: new Control(ARROWUP),
+    },
+    {
+        runnerControl: 'downPressed',
+        name: PLAYER_CONTROL_NAMES.down,
+        label: 'Brake',
+        key: new Control(ARROWDOWN),
+    },
+    {
+        runnerControl: 'leftPressed',
+        name: PLAYER_CONTROL_NAMES.left,
+        label: 'Lean back',
+        key: new Control(ARROWLEFT),
+    },
+    {
+        runnerControl: 'rightPressed',
+        name: PLAYER_CONTROL_NAMES.right,
+        label: 'Lean forward',
+        key: new Control(ARROWRIGHT),
+    },
+    {
+        runnerControl: 'turnPressed',
+        name: PLAYER_CONTROL_NAMES.turn,
+        label: 'Turn around',
+        key: new Control(KEYZ, NONE, true),
+    },
 ];
 
 /**
@@ -35,8 +69,8 @@ export class PlayerRunner extends BikeRunner {
     public constructor(track: Track, bikeClass: BikeClass) {
         super(track, bikeClass);
 
-        for (const [, controlName, control] of PLAYER_CONTROLS) {
-            Keyboard.registerControl(controlName, control);
+        for (const { name, key } of PLAYER_CONTROLS) {
+            ControlBindings.register(name, key);
         }
     }
 
@@ -79,13 +113,13 @@ export class PlayerRunner extends BikeRunner {
     protected updateControls(bike: Bike): void {
         let anyPressed = false;
 
-        for (const [name, controlName] of PLAYER_CONTROLS) {
-            const pressed = Keyboard.isDown(controlName);
+        for (const { runnerControl, name } of PLAYER_CONTROLS) {
+            const pressed = Keyboard.isDown(name);
             anyPressed ||= pressed;
 
-            if (pressed !== this.controls[name]) {
-                bike.keyLog.get(name)?.push(this.track.time);
-                this.controls[name] = pressed;
+            if (pressed !== this.controls[runnerControl]) {
+                bike.keyLog.get(runnerControl)?.push(this.track.time);
+                this.controls[runnerControl] = pressed;
             }
         }
 

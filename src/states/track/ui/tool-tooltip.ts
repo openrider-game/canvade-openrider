@@ -22,7 +22,7 @@ export abstract class ToolTooltip {
         }
 
         const { x, y, width, height } = hovered.getBounds();
-        const keyLabel = tool.toolClass.keyLabel;
+        const keyLabel = tool.getKeyLabel();
         const label = keyLabel ? `${tool.getLabel()} (${keyLabel})` : tool.getLabel();
 
         ctx.save();

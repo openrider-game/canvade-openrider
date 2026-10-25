@@ -1,5 +1,6 @@
 import {
     Display,
+    GameKeyboardEvent,
     Layer,
     Mouse,
     UIElement,
@@ -14,6 +15,7 @@ import { TouchControls, TouchInsets } from '../../../openrider/touch/touch-contr
 import type { TrackViewState } from '../track-view.state';
 import { ToolbarSide } from '../track-view.definitions';
 import { DebugPanel } from '../ui/debug-panel';
+import { ControlsPanel } from '../ui/controls-panel';
 import { LayersPanel } from '../ui/layers-panel';
 import { OptionsDrawer } from '../ui/options-drawer';
 import { ToolTooltip } from '../ui/tool-tooltip';
@@ -103,6 +105,7 @@ export class TrackInterfaceLayer extends Layer {
     private builtHeight = Infinity;
     private readonly optionsDrawer = new OptionsDrawer();
     private readonly layersPanel = new LayersPanel();
+    private readonly controlsPanel = new ControlsPanel();
     /** Layout of the touch controls the interface was built with, null without them. */
     private builtTouchControls: string | null = null;
 
@@ -136,6 +139,17 @@ export class TrackInterfaceLayer extends Layer {
         this.subscribe('mouseUp', this.syncMouse);
         this.subscribe('mouseOut', this.clearHover);
         this.subscribe('touchStart', this.revealTouchControls);
+        this.subscribe('keyDown', this.handlePanelKey);
+    }
+
+    /**
+     * Gives the keys to the controls panel while it is open, e.g. the key bound to a control: the
+     * keys it takes are consumed, so that they do not trigger the controls.
+     */
+    private handlePanelKey(e: CustomEvent<GameKeyboardEvent>): void {
+        if (this.controlsPanel.handleKey(this.state.track, e.detail.keyboardEvent)) {
+            e.detail.consumed = true;
+        }
     }
 
     /** Shows the touch controls from the first touch of the screen, see `TouchControls`. */
@@ -333,6 +347,8 @@ export class TrackInterfaceLayer extends Layer {
             Object.assign(styles, touch.styles);
         }
         structure.push(...openGroups);
+        // Over everything else while open
+        const controlsOpen = this.state.track.controlsOpen;
 
         // State buttons
         this.state.getButtons().forEach((button, index) => {
@@ -349,6 +365,10 @@ export class TrackInterfaceLayer extends Layer {
                 text: button.label,
             };
         });
+
+        if (controlsOpen) {
+            this.controlsPanel.build(this.state.track, structure, styles, this.builtHeight);
+        }
 
         const root = this.uiRenderer.setUI(structure, styles);
         this.root = root;

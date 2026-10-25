@@ -29,7 +29,6 @@ const PAGE_FILLING_STYLES: Record<string, string> = {
  */
 export class FullscreenTool extends Tool {
     public static override readonly toolName: string = 'Toggle Fullscreen';
-    public static override readonly keyLabel: string = 'F';
     public static override readonly key = new Control(KEYF);
     public static override readonly icon = 'expand';
 

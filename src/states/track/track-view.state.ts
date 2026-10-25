@@ -67,7 +67,7 @@ export abstract class TrackViewState extends OpenRiderState {
     private runToolShortcut(e: CustomEvent<GameControlEvent>): void {
         const key = e.detail.key;
         if (key) {
-            this.track.toolCollection.getByKeyLabel(key)?.run();
+            this.track.toolCollection.getByShortcut(key)?.run();
         }
     }
 

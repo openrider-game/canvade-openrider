@@ -9,7 +9,6 @@ import { Tool } from '../tool';
  */
 export class CameraTool extends Tool {
     public static override readonly toolName: string = 'Camera';
-    public static override readonly keyLabel: string = 'R';
     public static override readonly key = new Control(KEYR);
     public static override readonly icon = 'arrows';
 

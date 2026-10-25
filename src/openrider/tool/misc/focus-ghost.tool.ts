@@ -4,7 +4,6 @@ import { Tool } from '../tool';
 /** Cycles the camera through the ghosts, starting again from the first one after the player. */
 export class FocusGhostTool extends Tool {
     public static override readonly toolName: string = 'Focus ghost';
-    public static override readonly keyLabel: string = 'Control+G';
     public static override readonly key = new Control(KEYG, CTRL);
     public static override readonly icon = 'focus';
 

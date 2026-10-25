@@ -204,6 +204,7 @@ from the `ghostdata` endpoint. The sample website does it for the track of the d
 | Switch bike, focus a ghost                                                           | `Ctrl+B`, `Ctrl+G`                           |
 | New track, in endurance mode                                                         | `N`                                          |
 | Camera, fullscreen                                                                   | `R`, `F`                                     |
+| Controls panel                                                                       | `Ctrl+K`                                     |
 | Undo, redo                                                                           | `M`, `N`                                     |
 | Solid / scenery brush                                                                | `A`, `S`                                     |
 | Solid / scenery line                                                                 | `Q`, `W`                                     |
@@ -217,6 +218,14 @@ from the `ghostdata` endpoint. The sample website does it for the track of the d
 | Debug                                                                                | `Ctrl+D`                                     |
 
 Letter shortcuts follow the keyboard layout (the undo key is the M key of an AZERTY keyboard too).
+
+These are the default keys: the controls panel (the keyboard button, or `Ctrl+K`) binds every
+control to another key, riding included, the game being paused while it is open. Clicking the key
+of a control waits for the next key pressed, with its modifiers, `Escape` cancelling; a key also
+running another control of the same screen is shown in red, as `N` may run Redo in the editor
+and New Track in endurance mode but not two tools of the editor. Each control, or all of them, get
+their default keys back. The keys are kept in the browser (`localStorage`), the tooltips showing
+the current ones (see `src/openrider/controls/`).
 
 On touch screens (phones and tablets), the game shows riding buttons from the first touch, at the
 bottom corners: lean back and forward at the left, brake and accelerate at the right, and turn
@@ -310,6 +319,7 @@ src/
 ├── openrider/        game logic, independent from the states
 │   ├── bike/             bikes, springs, renderers, player and ghost runners
 │   ├── config/           settings given by the page hosting the game
+│   ├── controls/         keys of the controls: default and bound ones, listed by screen
 │   ├── endurance/        endurance mode: track generation from a seed, course, runs and records
 │   ├── entity/           points with verlet physics, ragdoll, explosion
 │   ├── grid/             spatial grids: physics cells and cached render cells
