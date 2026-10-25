@@ -1,86 +1,87 @@
-import type { Bike } from '../bike/bike';
+import { GhostParser } from '../parser/ghost-parser';
 import type { EnduranceCourse } from './endurance-course';
 import { BeatenRecords, EnduranceRecords, EnduranceResult } from './endurance-records';
+import type { EnduranceRider } from './endurance-rider';
+
+/** State of the upload of a run to the leaderboard of its track, see `EnduranceService`. */
+export type RunUpload =
+    | { state: 'none' }
+    | { state: 'saving' }
+    // Rank 0 while the run waits for an admin
+    | { state: 'saved'; rank: number }
+    | { state: 'refused'; reason: string };
 
 /**
- * Run of the player in endurance mode: follows the bike along the course, ends the run when the
- * rider crashes or falls into a gap, and keeps its result in the records.
+ * Run of the player in endurance mode: follows the course and the run of the player on it (see
+ * {@link EnduranceCourse.step}), and keeps its result in the records once the rider fell.
  *
- * A new run starts whenever the player gets a new bike: restarting, switching bikes, or changing
- * the track all put a new bike at the start.
+ * A new run starts whenever the runners restart: restarting, switching bikes, changing the track
+ * or adding a ghost all put new bikes at the start.
  */
 export class EnduranceRun {
-    /** Distance of the run, in meters, the furthest the bike went. */
-    public distance = 0;
-    /** Time of the run, in physics ticks, until the rider fell. */
-    public time = 0;
     /** Result of the run once it is over, null while riding. */
     public result: EnduranceResult | null = null;
     /** Records the result beat. */
     public beaten: BeatenRecords = { overall: false, track: false };
+    /** Ghost string of the run once it is over, to upload it. */
+    public ghostString: string | null = null;
+    /** Upload of the result to the leaderboard of the track. */
+    public upload: RunUpload = { state: 'none' };
 
-    /** Bike of the run, to tell when a new one starts. */
-    private bike: Bike | null = null;
-    /** Last position of the bike, the course following it after an explosion too. */
-    private lastX: number;
+    /** Run of the player on the course, null before the first physics tick of the run. */
+    private rider: EnduranceRider | null = null;
 
     public constructor(
         public readonly course: EnduranceCourse,
         public readonly records: EnduranceRecords,
-    ) {
-        this.lastX = course.track.origin.x;
+    ) {}
+
+    /** Distance of the run, in meters, the furthest the bike went. */
+    public get distance(): number {
+        return this.rider?.distance ?? 0;
+    }
+
+    /** Time of the run, in physics ticks, until the rider fell. */
+    public get time(): number {
+        return this.rider?.time ?? 0;
     }
 
     public get over(): boolean {
         return this.result !== null;
     }
 
-    /** Follows the run, called on every physics tick after the runners. */
-    public update(): void {
-        const track = this.course.track;
-        const runner = track.playerRunner;
-        const bike = runner.instance;
+    /**
+     * Follows the course and the run, called on every physics tick after the runners.
+     *
+     * @returns Whether the run just ended.
+     */
+    public update(): boolean {
+        this.course.step();
 
-        if (bike !== null && bike !== this.bike && !runner.dead) {
-            this.start(bike);
+        const rider = this.course.riderOf(this.course.track.playerRunner);
+        if (rider !== this.rider) {
+            this.start(rider);
         }
-        if (bike !== null) {
-            this.lastX = bike.hitbox.pos.x;
-        }
-        this.course.update(this.lastX);
-
-        // Over, or no bike yet
-        if (this.over || (bike === null && !runner.dead)) {
-            return;
+        if (rider === null || !rider.over || this.over) {
+            return false;
         }
 
-        // Falling into a gap ends the run as a crash would
-        if (
-            bike !== null &&
-            !runner.dead &&
-            bike.hitbox.pos.y > this.course.fallLimitAt(this.lastX)
-        ) {
-            runner.crash();
-        }
-
-        if (!runner.dead && bike !== null) {
-            this.distance = Math.max(this.distance, this.course.distanceAt(this.lastX));
-            this.time = track.time;
-        } else {
-            this.end();
-        }
+        this.end(rider);
+        return true;
     }
 
-    private start(bike: Bike): void {
-        this.bike = bike;
-        this.distance = 0;
-        this.time = 0;
+    private start(rider: EnduranceRider | null): void {
+        this.rider = rider;
         this.result = null;
         this.beaten = { overall: false, track: false };
+        this.ghostString = null;
+        this.upload = { state: 'none' };
     }
 
-    private end(): void {
-        this.result = { distance: this.distance, time: this.time, seed: this.course.seed };
+    private end(rider: EnduranceRider): void {
+        this.result = { distance: rider.distance, time: rider.time, seed: this.course.seed };
         this.beaten = this.records.submit(this.result);
+        // The inputs until the last tick alive, as the backend replays them
+        this.ghostString = GhostParser.generate(rider.runner, rider.time);
     }
 }

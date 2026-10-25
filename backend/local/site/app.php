@@ -63,8 +63,20 @@ const SITE_GAME_REQUEST_PATTERN =
 /** Largest seed of an endurance track: the game takes 32 bits unsigned integers. */
 const SITE_MAX_ENDURANCE_SEED = 4294967295;
 
-/** Actions of the admins on a ghost or a verifying run: its kind, id and the action. */
-const SITE_REVIEW_ACTION_PATTERN = '#^/reviews/(ghosts|tracks)/([0-9]+)/(approve|reject)/$#';
+/** Riders listed in the leaderboard of an endurance track, each with their best run. */
+const SITE_ENDURANCE_LEADERBOARD = 10;
+
+/**
+ * Time after midnight (UTC) during which the runs on the track of the day before are still
+ * saved, in seconds: for the runs started before midnight.
+ */
+const SITE_ENDURANCE_GRACE = 600;
+
+/**
+ * Actions of the admins on a ghost, a verifying run or an endurance run: its kind, id and the
+ * action.
+ */
+const SITE_REVIEW_ACTION_PATTERN = '#^/reviews/(ghosts|tracks|runs)/([0-9]+)/(approve|reject)/$#';
 
 /** Riders listed in the top of a track, each with their best ghost. */
 const SITE_LEADERBOARD_RIDERS = 10;
@@ -161,6 +173,10 @@ function site_handle(string $path): bool
  * Endurance page: the game riding an infinite generated track, the one of the `seed` parameter
  * (the track number shown by the game), else a new one on each load. The track of the day is the
  * same for everyone, from the date in UTC.
+ *
+ * The track of the day has a leaderboard: the best run of each account, saved by the game once
+ * replayed (see site_endurance_upload_endpoint()), racing as a ghost when clicked. The tracks of
+ * the days before keep theirs, closed.
  */
 function site_endurance_page(): void
 {
@@ -168,20 +184,165 @@ function site_endurance_page(): void
     $seed = is_string($seed) && preg_match('/^[0-9]{1,10}$/', $seed)
         && (int) $seed <= SITE_MAX_ENDURANCE_SEED ? (int) $seed : null;
 
+    $db = site_db();
+    $user = site_user();
+    $open = $seed !== null && site_endurance_seed_open($seed);
+    $riderCount = $seed === null ? 0 : site_count_endurance_runs($db, $seed);
+    $mine = $seed === null || $user === null
+        ? null
+        : site_find_endurance_run_of($db, $seed, $user['ID']);
+
+    $attributes = ['base-url' => '/endurance/', 'game-mode' => 'endurance'];
+    if ($seed !== null) {
+        $attributes['seed'] = $seed;
+    }
+    // The game uploads the runs beating the best one of the account
+    if ($open && $user !== null) {
+        $attributes['endurance-save'] = 1;
+        if ($mine !== null) {
+            $attributes['endurance-best'] = $mine['DISTANCE'] . ',' . $mine['TIME'];
+        }
+    }
+
     site_render_page(
         'endurance',
         'Endurance',
-        ['seed' => $seed, 'dailySeed' => site_daily_endurance_seed()],
+        [
+            'seed' => $seed,
+            'dailySeed' => site_daily_endurance_seed(),
+            'attributes' => $attributes,
+            // Only the tracks of the day have a leaderboard, closed after their day
+            'leaderboard' => $open || $riderCount > 0,
+            'open' => $open,
+            'top' => $seed === null
+                ? []
+                : site_find_endurance_runs($db, $seed, SITE_ENDURANCE_LEADERBOARD),
+            'riderCount' => $riderCount,
+            'mine' => $mine,
+            // The admins watch the runs waiting for them before approving them
+            'reviews' => $seed !== null && site_is_admin($user)
+                ? site_find_endurance_reviews($db, $seed)
+                : [],
+        ],
         ['game.css'],
-        ['/dist/main.js'],
+        // The leaderboard adds the ghosts to the race, and shows the runs saved by the game
+        ['/dist/main.js', '/assets/js/leaderboard.js', '/assets/js/endurance-leaderboard.js'],
     );
 }
 
-/** Seed of the endurance track of the day, from the date in UTC. */
-function site_daily_endurance_seed(): int
+/**
+ * Seed of the endurance track of a day, from its date in UTC.
+ *
+ * @param int|null $time Unix timestamp of the day, now by default.
+ */
+function site_daily_endurance_seed(?int $time = null): int
 {
     // Unsigned 32 bits, as PHP runs on 64 bits
-    return crc32('openrider-endurance-' . gmdate('Y-m-d')) & SITE_MAX_ENDURANCE_SEED;
+    $date = gmdate('Y-m-d', $time ?? time());
+    return crc32('openrider-endurance-' . $date) & SITE_MAX_ENDURANCE_SEED;
+}
+
+/**
+ * Whether the runs on an endurance track are saved: the track of the day, or the one of the day
+ * before shortly after midnight.
+ */
+function site_endurance_seed_open(int $seed): bool
+{
+    $now = time();
+    return $seed === site_daily_endurance_seed($now)
+        || $seed === site_daily_endurance_seed($now - SITE_ENDURANCE_GRACE);
+}
+
+/**
+ * Upload endpoint of the endurance page, called by the game once a run on the track of the day
+ * is over (see EnduranceService of the game): `seed`, `ghostString` and `time` (the last tick
+ * alive), and `distance`, as claimed by the game in whole meters.
+ *
+ * The run is replayed on the track of its seed, measuring its distance, then kept as the run of
+ * the account on the track if it beats the one before. A run whose inputs look suspicious waits
+ * for an admin, out of the leaderboard (see site_analyse_ghost()). Answers the id of the run and
+ * its rank, 0 while it waits for an admin.
+ */
+function site_endurance_upload_endpoint(): void
+{
+    openrider_handle(function (PDO $db) {
+        site_create_tables($db);
+        $user = site_require_api_user('Log in to save your run');
+        site_check_post_size();
+
+        $seed = openrider_int_param('seed', 0);
+        $ghostString = openrider_string_param('ghostString');
+        if (!site_check_ghost_string($ghostString)) {
+            openrider_reject('Invalid parameter: ghostString');
+        }
+        $time = openrider_int_param('time', 1);
+        // The time of the ghost string, its next to last field
+        if ((int) explode(',', $ghostString)[5] !== $time) {
+            openrider_reject('Invalid parameter: time');
+        }
+        $claimed = openrider_int_param('distance', 0);
+        if ($seed > SITE_MAX_ENDURANCE_SEED || !site_endurance_seed_open($seed)) {
+            openrider_respond(409, ['error' => 'This is not the track of the day anymore']);
+        }
+
+        if (!site_take_rate_limit($db, 'ghost', (string) $user['ID'])) {
+            openrider_respond(429, ['error' => 'Too many runs saved, try again later']);
+        }
+        [$refusal, $distance] = site_verify_endurance_run($seed, $ghostString, $time, $claimed);
+        if ($refusal !== null) {
+            openrider_respond(422, ['error' => "The run does not match its track: $refusal"]);
+        }
+
+        // Further, or as far and faster, than the run of the account before
+        $before = site_find_endurance_run_of($db, $seed, $user['ID']);
+        if (
+            $before !== null
+            && ((int) $before['DISTANCE'] > $distance
+                || ((int) $before['DISTANCE'] === $distance && (int) $before['TIME'] <= $time))
+        ) {
+            openrider_respond(409, ['error' => 'Your run of the day is already better']);
+        }
+
+        $reasons = site_analyse_ghost($ghostString, $time, null);
+        $runId = site_save_endurance_run(
+            $db,
+            $user['ID'],
+            $seed,
+            site_name_ghost($ghostString, $user['NAME']),
+            $distance,
+            $time,
+            $reasons ? implode('; ', $reasons) : null
+        );
+
+        return [
+            'ID' => $runId,
+            'RANK' => $reasons ? 0 : site_endurance_rank($db, $seed, $distance, $time),
+        ];
+    });
+}
+
+/**
+ * Ghost endpoint of the endurance page, in place of the ghostdata endpoint of the backend: the
+ * ghost string of a ranked run (`id`), of a run of the account, or of any run for the admins,
+ * watching the runs waiting for them.
+ */
+function site_endurance_ghost_endpoint(): void
+{
+    openrider_handle(function (PDO $db) {
+        site_create_tables($db);
+        $user = site_user();
+        $ghostString = site_find_endurance_ghost(
+            $db,
+            openrider_int_param('id'),
+            $user['ID'] ?? null,
+            site_is_admin($user)
+        );
+        if ($ghostString === null) {
+            openrider_respond(404, ['error' => 'Run does not exist']);
+        }
+
+        return ['GHOSTSTRING' => $ghostString];
+    });
 }
 
 /** The published tracks, newest first. */
@@ -529,14 +690,20 @@ function site_game_request(string $page, string $file): void
         return;
     }
 
-    // The endurance mode generates its tracks and saves its records in the browser
-    if ($kind === 'endurance') {
-        openrider_respond(404, ['error' => 'Not found']);
-        return;
-    }
-
     // Only reads the account: the game sends its requests in parallel
     site_start_session(true);
+
+    // The endurance mode generates its tracks: it only saves and downloads runs
+    if ($kind === 'endurance') {
+        if ($file === 'backend/db/enduranceupload/') {
+            site_endurance_upload_endpoint();
+        } elseif ($file === 'backend/db/ghostdata/') {
+            site_endurance_ghost_endpoint();
+        } else {
+            openrider_respond(404, ['error' => 'Not found']);
+        }
+        return;
+    }
 
     // A track waiting for verification exists only in the uploads of the site
     if ($kind === 'verify') {
@@ -1034,14 +1201,17 @@ function site_reviews_page(): void
     site_render_page('reviews', 'Reviews', [
         'ghosts' => site_find_ghost_reviews($db),
         'verifications' => site_find_verification_reviews($db),
+        'runs' => site_find_endurance_reviews($db),
     ]);
 }
 
 /**
- * Approves or rejects a ghost or a verifying run waiting for an admin. A rejected ghost is
- * deleted, a rejected verifying run dropped, the verifier being able to save another one.
+ * Approves or rejects a ghost, a verifying run or an endurance run waiting for an admin. A
+ * rejected ghost or endurance run is deleted, a rejected verifying run dropped, the verifier
+ * being able to save another one.
  *
- * @param string $kind   `ghosts`, or `tracks` for the verifying runs.
+ * @param string $kind   `ghosts`, `tracks` for the verifying runs, or `runs` for the
+ *                       endurance runs.
  * @param string $action `approve` or `reject`.
  */
 function site_review_action(string $kind, int $id, string $action): void
@@ -1063,6 +1233,10 @@ function site_review_action(string $kind, int $id, string $action): void
         site_approve_ghost($db, $id);
     } elseif ($kind === 'ghosts') {
         site_delete_ghost($db, $id);
+    } elseif ($kind === 'runs' && $action === 'approve') {
+        site_approve_endurance_run($db, $id);
+    } elseif ($kind === 'runs') {
+        site_delete_endurance_run($db, $id);
     } elseif ($action === 'approve') {
         site_approve_verification($db, $id);
     } else {

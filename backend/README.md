@@ -62,7 +62,12 @@ an account.
 - `/endurance/` runs the game in endurance mode (`data-game-mode="endurance"`): a new track on
   each load, or the track of its `seed` parameter, the number the game shows (`data-seed`, from 0
   to 4294967295). The track of the day is the same for everyone, its seed derived from the date
-  in UTC. The records stay in the browser, saved by the game; the header links to the page;
+  in UTC, and has a leaderboard under the game: the 10 best accounts, by their best run of the
+  day (further, then faster), and the rank of the account logged in. The game saves the runs of
+  the account beating its best one (`data-endurance-save`, see "Endurance runs"), the
+  leaderboard showing them right away (`public/js/endurance-leaderboard.js`). Clicking a rider
+  adds their ghost to the race, and clicking it again removes it. The leaderboards of the days
+  before stay, closed; the header links to the page;
 - `/tracks/<id>/` runs the game racing the track, under its title, author, description and
   verifier, with its leaderboard under it, in two tabs: the 10 best riders, ranked by their best
   ghost (a rider holding several of the best times counts once), their other ghosts folded under
@@ -73,8 +78,8 @@ an account.
 - `/users/` lists the accounts by name, 50 a page, with the number of their tracks and ghosts,
   and searches them by name (`?q=`), whatever its case; the header links to it;
 - `/users/<name>/` lists the tracks published by an account, and its ghosts with their rank;
-- `/reviews/` lists the ghosts and the verifying runs waiting for an admin, for the admins only
-  (see "Reviews");
+- `/reviews/` lists the ghosts, the verifying runs and the endurance runs waiting for an admin,
+  for the admins only (see "Reviews");
 - `/register/` and `/login/` create an account (a user name of 3 to 20 letters, digits, `_` or
   `-`, and a password of 8 characters at least) and log in; the account menu of the header
   links to the profile, the drafts and the reviews (admins only) of the account, and logs out
@@ -101,22 +106,23 @@ README), and the leaderboard drives the game through its page API (`window.OpenR
 alone stays at `/index.html`.
 
 The game gets the URL of its page as base URL, `/tracks/<id>/`, `/create/`, `/drafts/<id>/`,
-`/verify/<id>/` or `/endurance/` (which only serves the icons of the game), so that its uploads of tracks and ghosts reach the site instead of the backend
-endpoints, to know their account and check them. The site keeps the uploaded tracks in its own
-`LOCAL_UPLOADS` table, and adds a track code to the tracks of the backend only once verified and
-published. On a draft or verification page, it also answers the `trackdata` endpoint with the
-draft or the track, and on a verification page the `ghostdata` endpoint with the verifying run,
-whose id is the one of the track.
+`/verify/<id>/` or `/endurance/`, so that its uploads of tracks, ghosts and endurance runs reach
+the site instead of the backend endpoints, to know their account and check them. The site keeps
+the uploaded tracks in its own `LOCAL_UPLOADS` table, and adds a track code to the tracks of the
+backend only once verified and published. On a draft or verification page, it also answers the
+`trackdata` endpoint with the draft or the track, and on a verification page the `ghostdata`
+endpoint with the verifying run, whose id is the one of the track. The endurance page only
+answers its `enduranceupload` and `ghostdata` endpoints, with the runs of its leaderboard.
 The other requests reach the backend endpoints and the icons under the page. The `trackupload`
 and `ghostupload` endpoints of `backend/db/` are refused, which would bypass the accounts.
 
 The backend stores no account, title nor description: the site keeps them in its own tables
-(`LOCAL_USERS`, `LOCAL_TRACK_DETAILS`, `LOCAL_GHOST_OWNERS` and `LOCAL_GHOST_REVIEWS`), adding
-the missing ones and their missing columns to an existing database. The tracks and ghosts uploaded without the site or before the accounts have
-no author: the tracks are named after their id when they have no title, and the ghosts after the
-name of their ghost string. The first account created takes over the drafts made before the
-accounts. A database created before the titles holds none: delete `openrider.db` to start over
-with the sample.
+(`LOCAL_USERS`, `LOCAL_TRACK_DETAILS`, `LOCAL_GHOST_OWNERS`, `LOCAL_GHOST_REVIEWS` and
+`LOCAL_ENDURANCE_RUNS`), adding the missing ones and their missing columns to an existing database.
+The tracks and ghosts uploaded without the site or before the accounts have no author: the tracks
+are named after their id when they have no title, and the ghosts after the name of their ghost
+string. The first account created takes over the drafts made before the accounts. A database created
+before the titles holds none: delete `openrider.db` to start over with the sample.
 
 #### Security
 
@@ -129,9 +135,12 @@ with the sample.
   game, see `src/verify/` of the game), and refuses it unless it reaches every target exactly at
   its time: a forged time or ghost string does not. A ghost of a large track takes a few seconds,
   and the verification gives up after 60 seconds or for runs over two hours.
+- Endurance runs: checked as the ghosts, and replayed on the track of their seed, which measures
+  their distance: the distance claimed by the game is not trusted.
 - Uploads: a track code or editor file holds 16 MB at most (with `post_max_size` large enough in
   the PHP configuration), and its thumbnail must be a 500x300 PNG.
-- Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads and 60 ghosts an hour per account, 5 new accounts
+- Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads and 60 ghosts or endurance runs an hour per
+  account, 5 new accounts
   an hour per address, and 20 failed logins per address and 10 per user name over 15 minutes,
   after which even the right password is refused for a while.
 
@@ -155,24 +164,44 @@ A track is published once someone finished it, proving it can be finished:
 
 The tracks published before the verification are marked unverified.
 
+#### Endurance runs
+
+The track of the day ranks the best run of each account, in `LOCAL_ENDURANCE_RUNS`:
+
+1. The endurance page gives the game `data-endurance-save="1"` for the account logged in, with
+   its best run of the day (`data-endurance-best`). Each run beating it is uploaded once the
+   rider falls: its ghost string, the last tick alive as its time, and the seed.
+2. The site refuses the runs on another track than the one of the day (the one of the day before
+   being accepted for 10 minutes after midnight UTC, for the runs started before), then replays
+   the run (`dist/verify-ghost.cjs` with the seed), which must fall at its time, and keeps the
+   distance it measures, in whole meters.
+3. The run replaces the one of the account if it goes further, or as far and faster, named after
+   the account, and analysed as the ghosts (see "Reviews"). The game shows its rank, and the page
+   its new leaderboard.
+
+The ghosts of the runs race on the page as the ghosts of a track: the game follows the same rules
+for them as for the player, so they ride as they were ridden, whatever the other runners do.
+
 #### Reviews
 
 Replaying a ghost proves the run is possible, not that a human played it: a program pressing the
-keys (tool-assisted runs) gives valid ghosts too. The site analyses the inputs of every ghost and
-verifying run (`site_analyse_ghost()` in `security.php`), and sends to the admins the runs with:
+keys (tool-assisted runs) gives valid ghosts too. The site analyses the inputs of every ghost,
+verifying run and endurance run (`site_analyse_ghost()` in `security.php`), and sends to the
+admins the runs with:
 
 - more than 5 key presses of a single tick, left and right leans, accelerating and braking only
   (the game records each turn as a press of a single tick);
 - more than 25 key toggles within a second;
-- a time more than 20% better than the record of the track.
+- a time more than 20% better than the record of the track, for the ghosts.
 
-Runs played by hand, spacebarring included, hold at most 2 presses of a single tick and 15 toggles
-a second on tracks of several minutes. A ghost waiting for an admin is saved but out of the
+Runs played by hand, spacebarring included, hold at most 2 presses of a single tick and 15 toggles a
+second on tracks of several minutes. A ghost waiting for an admin is saved but out of the
 leaderboard and the best times, shown to its account only; a verifying run waiting for an admin
-keeps its track from being published. On `/reviews/`, the admins watch them and approve or reject
-them: a rejected ghost is deleted, and a rejected verifying run dropped, its verifier saving
-another one. These signs catch the programs playing fast or precisely, not the ones imitating a
-human: the reviews are the safeguard.
+keeps its track from being published, and an endurance run waiting for an admin is out of the
+leaderboard, listed for the admins on the page of its track to race it. On `/reviews/`, the admins
+watch them and approve or reject them: a rejected ghost or endurance run is deleted, and a rejected
+verifying run dropped, its verifier saving another one. These signs catch the programs playing fast
+or precisely, not the ones imitating a human: the reviews are the safeguard.
 
 #### Moderation
 

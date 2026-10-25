@@ -61,6 +61,7 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
         NewTrackTool,
         null,
         SwitchBikeTool,
+        FocusGhostTool,
         null,
         CameraTool,
         FullscreenTool,

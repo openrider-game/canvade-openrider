@@ -19,6 +19,12 @@ export const UNITS_PER_METER = 40,
     /** Sections kept on the track around the bike: behind it, and ahead of it. */
     LOADED_BEHIND = 2000,
     LOADED_AHEAD = 5000,
+    /**
+     * How far a bike may ride back from the furthest point it reached before its run ends: the
+     * sections further behind may be off the track, kept on it for slower ghosts only. Shorter
+     * than {@link LOADED_BEHIND}, so that a bike never touches the edge of the loaded sections.
+     */
+    BACK_LIMIT = 1600,
     /** Depth under the lowest ground around the bike past which a falling bike crashes. */
     FALL_DEPTH = 400,
     /** Spacing of the distance posts drawn along the track, every 100 m. */

@@ -121,8 +121,9 @@ export abstract class BikeRunner {
         this.track.toolManager.active = false;
     }
 
-    private die(): boolean {
-        if (this.modifiersMask & MODIFIERS.INVINCIBILITY || !this.instance) {
+    /** @param force - Whether the rider dies even when invincible. */
+    private die(force = false): boolean {
+        if ((!force && this.modifiersMask & MODIFIERS.INVINCIBILITY) || !this.instance) {
             return false;
         }
 
@@ -136,9 +137,14 @@ export abstract class BikeRunner {
         return true;
     }
 
-    /** Kills the rider when its hitbox touches a line, unless invincible, leaving a ragdoll. */
-    public crash(): void {
-        if (this.instance && this.die()) {
+    /**
+     * Kills the rider when its hitbox touches a line, unless invincible, leaving a ragdoll.
+     *
+     * @param force - Whether the rider dies even when invincible, e.g. fallen into a gap of the
+     *   endurance mode.
+     */
+    public crash(force = false): void {
+        if (this.instance && this.die(force)) {
             const ragdoll = new Ragdoll(this.instance.getRider(), this.instance);
             ragdoll.setVelocity(
                 this.instance.hitbox.velocity.clone(),

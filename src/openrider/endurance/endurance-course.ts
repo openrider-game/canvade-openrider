@@ -16,15 +16,18 @@ import { Reset } from '../item/status/reset';
 import { Slippery } from '../item/status/slippery';
 import { Turbo } from '../item/status/turbo';
 import { ZeroGravity } from '../item/status/zero-gravity';
+import type { BikeRunner } from '../bike/runner/bike-runner';
 import type { TrackObject } from '../item/track-object';
 import type { Track } from '../track/track';
 import {
+    BACK_LIMIT,
     FALL_DEPTH,
     GROUND_OFFSET,
     LOADED_AHEAD,
     LOADED_BEHIND,
     UNITS_PER_METER,
 } from './endurance.constants';
+import { EnduranceRider } from './endurance-rider';
 import { Point, SectionItemKind, TerrainGenerator, TrackSection } from './terrain-generator';
 
 /** Course of each track in endurance mode, for the tools only knowing the track. */
@@ -51,25 +54,40 @@ const ITEMS: Record<SectionItemKind, (pos: Vector, rotation: number, track: Trac
     };
 
 /**
- * Infinite track of the endurance mode, generated from a seed (see {@link TerrainGenerator}).
+ * Infinite track of the endurance mode, generated from a seed (see {@link TerrainGenerator}),
+ * and the runs of its runners (see {@link EnduranceRider}).
  *
- * Only the sections around the bike are on the track, as lines and items of its main layer:
- * {@link EnduranceCourse.update} adds the sections coming ahead of the bike and removes the ones
- * left far behind, every physics tick. The sections are added long before the bike reaches them,
- * so the physics never depends on when they were added: a run on a seed always plays the same.
+ * Only the sections around the bikes are on the track, as lines and items of its main layer:
+ * {@link EnduranceCourse.step} adds the sections coming ahead of the furthest bike and removes the
+ * ones left behind the slowest running one, every physics tick. A run on a seed always plays the
+ * same, as the ghosts and the backend replay it, whatever the other runners do:
+ *
+ * - the sections are added long before a bike reaches them, and a bike never rides back to the
+ *   sections taken off (see {@link BACK_LIMIT});
+ * - the sections are only added in order, after the ones on the track, and every restart starts
+ *   over from an empty track: the objects of each grid cell are always in the same order, which
+ *   the collisions depend on.
  */
 export class EnduranceCourse {
     private generator: TerrainGenerator;
     /** Objects of the sections on the track, by section index. */
     private readonly loaded = new Map<number, TrackObject[]>();
+    /** Runs of the runners since the last restart. */
+    private readonly riders = new Map<BikeRunner, EnduranceRider>();
+    /** Positions the sections are loaded behind and ahead of, only growing until a restart. */
+    private behindX: number;
+    private aheadX: number;
 
     public constructor(
         public readonly track: Track,
         seed: number,
     ) {
         this.generator = new TerrainGenerator(seed, track.origin.x, track.origin.y + GROUND_OFFSET);
+        this.behindX = this.aheadX = track.origin.x;
         COURSES.set(track, this);
-        this.update(track.origin.x);
+        // The runners start over: the track too, before the first physics tick of their runs
+        track.onRestart = () => this.restart();
+        this.load();
     }
 
     /** Course of a track in endurance mode, null for the other tracks. */
@@ -103,13 +121,70 @@ export class EnduranceCourse {
         return Math.max(...sections.map((section) => section.lowestY)) + FALL_DEPTH;
     }
 
-    /** Puts on the track the sections around a position, and takes off the other ones. */
-    public update(x: number): void {
-        const first = this.generator.sectionIndexAt(x - LOADED_BEHIND);
-        const last = this.generator.sectionIndexAt(x + LOADED_AHEAD);
+    /** Run of a runner since the last restart, null before its first physics tick. */
+    public riderOf(runner: BikeRunner): EnduranceRider | null {
+        return this.riders.get(runner) ?? null;
+    }
+
+    /**
+     * Follows the runs after a physics tick, the player then the ghosts, then puts on the track
+     * the sections coming ahead of the furthest bike, and takes off the ones behind every
+     * running bike.
+     */
+    public step(): void {
+        const runners = [this.track.playerRunner, ...this.track.ghostRunners.values()];
+        const riders: EnduranceRider[] = [];
+        for (const runner of runners) {
+            // A run starts with a bike, and goes on once the bike exploded, to end
+            let rider = this.riders.get(runner);
+            if (!rider && runner.instance) {
+                rider = new EnduranceRider(runner, this);
+                this.riders.set(runner, rider);
+            }
+            if (rider) {
+                rider.update();
+                riders.push(rider);
+            }
+        }
+
+        const running = riders.filter((rider) => !rider.over);
+        if (running.length > 0) {
+            const slowest = Math.min(...running.map((rider) => rider.furthestX));
+            this.behindX = Math.max(this.behindX, slowest);
+        }
+        this.aheadX = Math.max(this.aheadX, ...riders.map((rider) => rider.furthestX));
+        this.load();
+    }
+
+    /** Replaces the track with the one of another seed, the bikes going back to the start. */
+    public reset(seed: number): void {
+        this.generator = new TerrainGenerator(
+            seed,
+            this.track.origin.x,
+            this.track.origin.y + GROUND_OFFSET,
+        );
+        this.restart();
+    }
+
+    /** Starts over from an empty track, the runs starting over with the runners. */
+    public restart(): void {
+        this.loaded.forEach((objects) => objects.forEach((object) => object.removeFromTrack()));
+        this.loaded.clear();
+        this.riders.clear();
+        this.behindX = this.aheadX = this.track.origin.x;
+        this.load();
+    }
+
+    /**
+     * Puts on the track the sections from {@link LOADED_BEHIND} behind the slowest running bike
+     * to {@link LOADED_AHEAD} ahead of the furthest one, in order, and takes off the ones behind.
+     */
+    private load(): void {
+        const first = this.generator.sectionIndexAt(this.behindX - LOADED_BEHIND);
+        const last = this.generator.sectionIndexAt(this.aheadX + LOADED_AHEAD);
 
         for (const [index, objects] of this.loaded) {
-            if (index < first || index > last) {
+            if (index < first) {
                 objects.forEach((object) => object.removeFromTrack());
                 this.loaded.delete(index);
             }
@@ -119,18 +194,6 @@ export class EnduranceCourse {
                 this.loaded.set(index, this.addSection(this.generator.section(index)));
             }
         }
-    }
-
-    /** Replaces the track with the one of another seed, the bike going back to the start. */
-    public reset(seed: number): void {
-        this.loaded.forEach((objects) => objects.forEach((object) => object.removeFromTrack()));
-        this.loaded.clear();
-        this.generator = new TerrainGenerator(
-            seed,
-            this.track.origin.x,
-            this.track.origin.y + GROUND_OFFSET,
-        );
-        this.update(this.track.origin.x);
     }
 
     private addSection(section: TrackSection): TrackObject[] {

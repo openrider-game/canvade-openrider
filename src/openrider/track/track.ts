@@ -65,6 +65,13 @@ export class Track extends World {
     public zoomTarget: number | null = null;
     /** Point a command block shows instead of the focal point, until a physics tick. */
     public cameraHold: { pos: Vector; until: number } | null = null;
+    /** Called first by {@link Track.restart}, e.g. for the endurance course to start over. */
+    public onRestart: (() => void) | null = null;
+    /**
+     * Whether the camera follows the first ghost until the player reaches a checkpoint, to watch
+     * the best run; the endurance mode, without checkpoints, always follows the player.
+     */
+    public followsGhosts = true;
 
     public toolCollection = new ToolCollection();
     public readonly toolManager = new ToolManager(this);
@@ -287,6 +294,7 @@ export class Track extends World {
 
     /** Restarts the runners from their last checkpoint or from the start, resetting the items. */
     public restart(): void {
+        this.onRestart?.();
         this.unreachEverything();
         this.pause(false);
         // The view commands of the last run end with it
@@ -304,7 +312,7 @@ export class Track extends World {
      */
     public updateFocalPoint(): void {
         let focalPoint = this.playerRunner.instance?.hitbox ?? null;
-        if (!this.playerRunner.snapshots.length && this.ghostRunners.size) {
+        if (this.followsGhosts && !this.playerRunner.snapshots.length && this.ghostRunners.size) {
             const firstGhost = this.ghostRunners.values().next().value;
             focalPoint = firstGhost?.instance?.hitbox ?? focalPoint;
         }

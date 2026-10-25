@@ -2,6 +2,7 @@ import { Layer } from 'canvade';
 import { EnduranceCourse } from '../../openrider/endurance/endurance-course';
 import { EnduranceRecords } from '../../openrider/endurance/endurance-records';
 import { EnduranceRun } from '../../openrider/endurance/endurance-run';
+import { EnduranceService } from '../../openrider/request/endurance-service';
 import { LEFT_TOOLBAR_ENDURANCE } from '../../openrider/tool/toolbar.constants';
 import { TrackInterfaceLayer } from '../track/layers/track-interface.layer';
 import { TrackMainLayer } from '../track/layers/track-main.layer';
@@ -47,9 +48,16 @@ export class TrackEnduranceState extends TrackPlayState {
             throw new Error('The endurance track has no course');
         }
         this.run = new EnduranceRun(course, this.records);
+        // Racing the ghosts of the leaderboard, the camera stays on the player
+        this.track.followsGhosts = false;
+        this.track.updateFocalPoint();
     }
 
+    /** Follows the run, uploading it to the leaderboard of its track once over if asked to. */
     private followRun(): void {
-        this.run?.update();
+        const run = this.run;
+        if (run?.update() && EnduranceService.shouldSave(run.result)) {
+            void EnduranceService.saveRun(run);
+        }
     }
 }

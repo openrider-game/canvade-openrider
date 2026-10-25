@@ -1,7 +1,11 @@
+import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import type { BikeRunner } from '../../src/openrider/bike/runner/bike-runner';
+import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
 import { GameConfig } from '../../src/openrider/config/game-config';
 import { EnduranceCourse } from '../../src/openrider/endurance/endurance-course';
 import {
+    BACK_LIMIT,
     DIFFICULTY_DISTANCE,
     LOADED_AHEAD,
     LOADED_BEHIND,
@@ -13,8 +17,11 @@ import { EnduranceRecords } from '../../src/openrider/endurance/endurance-record
 import { EnduranceRun } from '../../src/openrider/endurance/endurance-run';
 import { SeededRandom } from '../../src/openrider/endurance/seeded-random';
 import { Point, TerrainGenerator } from '../../src/openrider/endurance/terrain-generator';
+import { EnduranceService } from '../../src/openrider/request/endurance-service';
 import { NewTrackTool } from '../../src/openrider/tool/misc/new-track.tool';
+import { MODIFIERS } from '../../src/openrider/item/modifiers';
 import { Track } from '../../src/openrider/track/track';
+import { GhostVerifier } from '../../src/verify/ghost-verifier';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 import { pressKey, releaseKey } from '../helpers/track';
 
@@ -36,6 +43,36 @@ function createCourse(seed: number): EnduranceCourse {
     return course;
 }
 
+/**
+ * Moves the bike of a runner to a position along the course, above the fall limit there: only
+ * for the loading of the sections, the bike being anywhere in the terrain.
+ */
+function moveBike(course: EnduranceCourse, runner: BikeRunner, x: number): void {
+    const bike = runner.instance;
+    if (!bike) throw new Error('No bike');
+    const shift = new Vector(x, course.fallLimitAt(x) - 500).sub(bike.hitbox.pos);
+    bike.points.forEach((point) => point.pos.selfAdd(shift));
+}
+
+/** Runs a physics tick of the runners, as the play states do. */
+function tickRace(track: Track): void {
+    track.playerRunner.fixedUpdate();
+    track.ghostRunners.forEach((ghost) => ghost.fixedUpdate());
+    track.time++;
+}
+
+/** Rides holding the up key until the rider falls, returning the run of the player. */
+function rideUntilFall(course: EnduranceCourse, maxTicks = 6000): EnduranceRun {
+    const run = new EnduranceRun(course, new EnduranceRecords(memoryStorage()));
+    pressKey('up');
+    for (let tick = 0; tick < maxTicks && !run.over; tick++) {
+        tickRace(course.track);
+        run.update();
+    }
+    releaseKey('up');
+    return run;
+}
+
 /** Gaps of the ground of the sections: from the end of a polyline to the start of the next. */
 function gaps(generator: TerrainGenerator, sections: number[]): number[] {
     const polylines = sections.flatMap((index) => generator.section(index).solid);
@@ -53,6 +90,8 @@ afterEach(() => {
     vi.unstubAllGlobals();
     GameConfig.mode = 'tracks';
     GameConfig.seed = null;
+    GameConfig.enduranceSave = false;
+    GameConfig.enduranceBest = null;
 });
 
 describe('Seeded random numbers', () => {
@@ -206,15 +245,46 @@ describe('Endurance course', () => {
 
         expect(Math.max(...xs())).toBeGreaterThanOrEqual(LOADED_AHEAD);
 
-        course.update(20000);
+        const runner = course.track.playerRunner;
+        moveBike(course, runner, 20000);
+        course.step();
         expect(Math.min(...xs())).toBeGreaterThan(20000 - LOADED_BEHIND - 2 * SECTION_LENGTH);
         expect(Math.min(...xs())).toBeLessThanOrEqual(20000 - LOADED_BEHIND);
         expect(Math.max(...xs())).toBeGreaterThanOrEqual(20000 + LOADED_AHEAD);
         expect(Math.max(...xs())).toBeLessThan(20000 + LOADED_AHEAD + 2 * SECTION_LENGTH);
 
-        // Back at the start, the same lines again
-        course.update(0);
+        // Riding back too far ends the run, the sections behind staying off the track
+        const lines = xs();
+        moveBike(course, runner, 20000 - BACK_LIMIT - 10);
+        course.step();
+        expect(runner.dead).toBe(true);
+        expect(xs()).toEqual(lines);
+
+        // Restarting starts over at the start, before the next physics tick
+        course.track.restart();
         expect(Math.min(...xs())).toBeLessThan(0);
+        expect(Math.max(...xs())).toBeLessThan(LOADED_AHEAD + 2 * SECTION_LENGTH);
+    });
+
+    test('keeps the sections of the slowest running bike, and loads ahead of the furthest', () => {
+        const course = createCourse(4);
+        const track = course.track;
+        const ghost = new GhostRunner(track, ',,,,,100,BMX', false);
+        ghost.createBike();
+        track.ghostRunners.set(1, ghost);
+        const xs = () =>
+            [...track.layers.main[0].grid.totalSolidLines.values()].map((line) => line.pos.x);
+
+        moveBike(course, track.playerRunner, 20000);
+        course.step();
+        // The ghost is still at the start
+        expect(Math.min(...xs())).toBeLessThan(0);
+        expect(Math.max(...xs())).toBeGreaterThanOrEqual(20000 + LOADED_AHEAD);
+
+        // Once the run of the ghost is over, only the player counts
+        ghost.crash(true);
+        course.step();
+        expect(Math.min(...xs())).toBeGreaterThan(20000 - LOADED_BEHIND - 2 * SECTION_LENGTH);
     });
 
     test('tells the distance in meters, and where a bike falls into a gap', () => {
@@ -230,7 +300,8 @@ describe('Endurance course', () => {
         // Far enough for every kind of item, see the generator tests
         const kinds = new Set<string>();
         for (let x = 0; x < 80 * SECTION_LENGTH; x += LOADED_AHEAD) {
-            course.update(x);
+            moveBike(course, course.track.playerRunner, x);
+            course.step();
             course.track.layers.main[0].grid.totalObjects.forEach((item) =>
                 kinds.add(item.itemClass.itemName),
             );
@@ -270,8 +341,7 @@ describe('Endurance run', () => {
 
         pressKey('up');
         for (let tick = 0; tick < 100; tick++) {
-            runner.fixedUpdate();
-            track.time++;
+            tickRace(track);
             run.update();
         }
         releaseKey('up');
@@ -287,6 +357,7 @@ describe('Endurance run', () => {
 
         expect(runner.dead).toBe(true);
         expect(run.result).toEqual({ distance: run.distance, time: 100, seed: 4 });
+        expect(run.ghostString).toMatch(/,100,BMX$/);
         expect(run.beaten).toEqual({ overall: true, track: true });
         expect(records.best).toEqual(run.result);
 
@@ -295,6 +366,19 @@ describe('Endurance run', () => {
         run.update();
         expect(run.over).toBe(false);
         expect(run.distance).toBe(0);
+    });
+
+    test('ends when an invincible rider falls into a gap', () => {
+        const course = createCourse(4);
+        const run = new EnduranceRun(course, new EnduranceRecords(memoryStorage()));
+        const runner = course.track.playerRunner;
+        run.update();
+
+        runner.modifiersMask |= MODIFIERS.INVINCIBILITY;
+        runner.instance?.points.forEach((point) => point.pos.selfAdd({ x: 0, y: 2000 } as never));
+        run.update();
+
+        expect(run.over).toBe(true);
     });
 
     test('ends when the bike explodes on a bomb', () => {
@@ -312,6 +396,46 @@ describe('Endurance run', () => {
         expect(run.over).toBe(true);
     });
 
+    test('plays the same with ghosts racing, whatever they do', () => {
+        const ride = (ghostString: string | null) => {
+            const course = createCourse(9);
+            const track = course.track;
+            if (ghostString !== null) {
+                const ghost = new GhostRunner(track, ghostString, false);
+                ghost.createBike();
+                track.ghostRunners.set(1, ghost);
+                track.restart();
+            }
+            const run = rideUntilFall(course);
+            return [run.distance, run.time, track.playerRunner.instance?.hitbox.pos.x];
+        };
+
+        const alone = ride(null);
+        expect(alone[1]).toBeGreaterThan(100);
+        // A ghost braking at the start, and one on another bike riding further
+        expect(ride('0,0,,,,4000,BMX')).toEqual(alone);
+        expect(ride('0,,,,,4000,MTB')).toEqual(alone);
+    });
+
+    test('is replayed by the verifier of the backend from its seed', () => {
+        const run = rideUntilFall(createCourse(9));
+        const ghostString = run.ghostString ?? '';
+        const limits = { maxTicks: 10000, deadline: Number.MAX_SAFE_INTEGER };
+
+        expect(GhostVerifier.verifyEndurance(9, ghostString, run.time, limits)).toEqual({
+            valid: true,
+            reason: '',
+            distance: run.distance,
+        });
+        // Another track, or a time claimed apart from the run
+        expect(GhostVerifier.verifyEndurance(10, ghostString, run.time, limits).valid).toBe(false);
+        const forged = ghostString.replace(/,[0-9]+,BMX$/, `,${run.time + 50},BMX`);
+        expect(GhostVerifier.verifyEndurance(9, forged, run.time + 50, limits)).toMatchObject({
+            valid: false,
+            reason: `The rider falls at another time: tick ${run.time}`,
+        });
+    });
+
     test('plays the same for the same seed and inputs', () => {
         const ride = () => {
             const course = createCourse(9);
@@ -319,8 +443,7 @@ describe('Endurance run', () => {
             const runner = course.track.playerRunner;
             pressKey('up');
             for (let tick = 0; tick < 400 && !run.over; tick++) {
-                runner.fixedUpdate();
-                course.track.time++;
+                tickRace(course.track);
                 run.update();
             }
             releaseKey('up');
@@ -381,5 +504,70 @@ describe('Endurance configuration', () => {
 
         GameConfig.configure(host(), '?mode=endurance&seed=-3');
         expect(GameConfig.seed).toBeNull();
+    });
+});
+
+describe('Endurance leaderboard', () => {
+    /** Response double of the backend. */
+    function response(status: number, body: unknown): Response {
+        return {
+            ok: status < 400,
+            status,
+            statusText: '',
+            json: () => Promise.resolve(body),
+        } as Response;
+    }
+
+    test('is configured by the host element, on the track of its seed', () => {
+        const host = (dataset: Record<string, string>) => ({ dataset }) as unknown as HTMLElement;
+
+        GameConfig.configure(host({ seed: '42', enduranceSave: '1', enduranceBest: '120.5,900' }));
+        expect(GameConfig.enduranceSave).toBe(true);
+        expect(GameConfig.enduranceBest).toEqual({ distance: 120.5, time: 900 });
+
+        GameConfig.configure(host({ enduranceSave: '1' }));
+        expect(GameConfig.enduranceSave).toBe(false);
+        expect(GameConfig.enduranceBest).toBeNull();
+    });
+
+    test('gets the runs of its track beating the best one uploaded', () => {
+        GameConfig.enduranceSave = true;
+        GameConfig.seed = 9;
+        GameConfig.enduranceBest = { distance: 50.2, time: 800 };
+
+        expect(EnduranceService.shouldSave({ distance: 51, time: 2000, seed: 9 })).toBe(true);
+        expect(EnduranceService.shouldSave({ distance: 50.9, time: 700, seed: 9 })).toBe(true);
+        expect(EnduranceService.shouldSave({ distance: 50.9, time: 900, seed: 9 })).toBe(false);
+        expect(EnduranceService.shouldSave({ distance: 80, time: 900, seed: 10 })).toBe(false);
+        GameConfig.enduranceSave = false;
+        expect(EnduranceService.shouldSave({ distance: 80, time: 900, seed: 9 })).toBe(false);
+    });
+
+    test('uploads a run once over, telling its rank, or why it was refused', async () => {
+        GameConfig.enduranceSave = true;
+        GameConfig.seed = 9;
+        const fetch = vi.fn(() => Promise.resolve(response(200, { ID: 7, RANK: 2 })));
+        vi.stubGlobal('fetch', fetch);
+        const run = rideUntilFall(createCourse(9));
+
+        await EnduranceService.saveRun(run);
+        const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+        const body = init.body as URLSearchParams;
+        expect(url).toBe('./backend/db/enduranceupload/');
+        expect(body.get('seed')).toBe('9');
+        expect(body.get('ghostString')).toBe(run.ghostString);
+        expect(body.get('time')).toBe(String(run.time));
+        expect(run.upload).toEqual({ state: 'saved', rank: 2 });
+        expect(GameConfig.enduranceBest).toEqual({ distance: run.distance, time: run.time });
+        expect(document.dispatchEvent).toHaveBeenCalled();
+
+        fetch.mockImplementation(() =>
+            Promise.resolve(response(422, { error: 'The run does not match its track' })),
+        );
+        await EnduranceService.saveRun(run);
+        expect(run.upload).toEqual({
+            state: 'refused',
+            reason: 'The run does not match its track',
+        });
     });
 });

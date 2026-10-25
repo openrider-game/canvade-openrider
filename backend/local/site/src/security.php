@@ -216,6 +216,45 @@ function site_verify_ghost(string $trackCode, string $ghostString, int $time): ?
     if (getenv('OPENRIDER_VERIFY_GHOSTS') === '0') {
         return null;
     }
+
+    $verdict = site_run_verifier([
+        'trackCode' => $trackCode,
+        'ghostString' => $ghostString,
+        'time' => $time,
+    ]);
+    return $verdict['valid'] ? null : (string) $verdict['reason'];
+}
+
+/**
+ * Verifies an endurance run by replaying it on the track of its seed, as site_verify_ghost()
+ * does: a forged run does not fall at its time. The replay also measures its distance.
+ *
+ * @param int $claimed Distance claimed by the game, in whole meters, kept without verification.
+ * @return array Why the run is refused, null when it is valid, then its distance in whole
+ *   meters.
+ * @throws RuntimeException When the verifier cannot run.
+ */
+function site_verify_endurance_run(int $seed, string $ghostString, int $time, int $claimed): array
+{
+    if (getenv('OPENRIDER_VERIFY_GHOSTS') === '0') {
+        return [null, $claimed];
+    }
+
+    $verdict = site_run_verifier(['seed' => $seed, 'ghostString' => $ghostString, 'time' => $time]);
+    return $verdict['valid']
+        ? [null, (int) floor((float) ($verdict['distance'] ?? 0))]
+        : [(string) $verdict['reason'], 0];
+}
+
+/**
+ * Runs the verifier of the game with Node (see src/verify of the game), giving it its input as
+ * JSON.
+ *
+ * @return array The verdict, `valid` and `reason`, and `distance` for an endurance run.
+ * @throws RuntimeException When the verifier cannot run.
+ */
+function site_run_verifier(array $input): array
+{
     if (!is_file(SITE_GHOST_VERIFIER)) {
         throw new RuntimeException('Ghost verifier not built: ' . SITE_GHOST_VERIFIER);
     }
@@ -234,14 +273,10 @@ function site_verify_ghost(string $trackCode, string $ghostString, int $time): ?
 
     // The verifier gives up by itself after its timeout, PHP waits a bit longer
     set_time_limit(SITE_VERIFY_TIMEOUT + 30);
-    $input = json_encode([
-        'trackCode' => $trackCode,
-        'ghostString' => $ghostString,
-        'time' => $time,
-    ]);
+    $json = json_encode($input);
     // A pipe may take a large input in several writes
-    for ($written = 0; $written < strlen($input); $written += $count) {
-        $count = fwrite($pipes[0], substr($input, $written, 1 << 16));
+    for ($written = 0; $written < strlen($json); $written += $count) {
+        $count = fwrite($pipes[0], substr($json, $written, 1 << 16));
         if (!$count) {
             break;
         }
@@ -259,5 +294,5 @@ function site_verify_ghost(string $trackCode, string $ghostString, int $time): ?
         throw new RuntimeException("Ghost verifier failed ($status): " . trim((string) $errors));
     }
 
-    return $verdict['valid'] ? null : (string) $verdict['reason'];
+    return $verdict;
 }

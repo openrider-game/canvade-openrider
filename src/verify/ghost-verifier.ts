@@ -1,4 +1,5 @@
 import { GhostRunner } from '../openrider/bike/runner/ghost-runner';
+import { EnduranceCourse } from '../openrider/endurance/endurance-course';
 import { GhostParser } from '../openrider/parser/ghost-parser';
 import { TrackParser } from '../openrider/parser/track-parser';
 import { Track } from '../openrider/track/track';
@@ -8,6 +9,12 @@ export interface GhostVerdict {
     valid: boolean;
     /** Why the ghost is refused, empty when it is valid. */
     reason: string;
+}
+
+/** Verdict on a run of the endurance mode, see {@link GhostVerifier.verifyEndurance}. */
+export interface EnduranceVerdict extends GhostVerdict {
+    /** Distance of the run in meters, 0 when refused. */
+    distance: number;
 }
 
 /** Limits of a verification, against tracks and ghosts made to keep the server busy. */
@@ -74,6 +81,68 @@ export abstract class GhostVerifier {
         }
 
         return { valid: true, reason: '' };
+    }
+
+    /**
+     * Replays a run of the endurance mode on the track of its seed, as the endurance state runs
+     * it, until the rider falls (see `EnduranceRider`).
+     *
+     * @param seed - Seed of the generated track.
+     * @param ghostString - Ghost string of the run, its time being the last tick alive.
+     * @param time - Time claimed for the run, in physics ticks.
+     * @returns The verdict, with the distance of the run in meters when it is valid.
+     */
+    public static verifyEndurance(
+        seed: number,
+        ghostString: string,
+        time: number,
+        limits: VerifyLimits,
+    ): EnduranceVerdict {
+        if (GhostParser.parse(ghostString).time !== time) {
+            return {
+                ...GhostVerifier.refuse('The time differs from the one of the ghost string'),
+                distance: 0,
+            };
+        }
+        if (time > limits.maxTicks) {
+            return { ...GhostVerifier.refuse('The run is too long to be verified'), distance: 0 };
+        }
+
+        const track = new Track(null);
+        const course = new EnduranceCourse(track, seed);
+        const ghost = new GhostRunner(track, ghostString, false);
+        ghost.createBike();
+        ghost.startFrom();
+        track.ghostRunners.set(0, ghost);
+        track.time = 0;
+
+        // Runs the ticks as the endurance state does: the physics, then the course
+        let rider = null;
+        while (!rider?.over && track.time <= time) {
+            ghost.fixedUpdate();
+            track.time++;
+            course.step();
+            rider = course.riderOf(ghost);
+
+            if (track.time % 1000 === 0 && Date.now() > limits.deadline) {
+                return { ...GhostVerifier.refuse('The verification took too long'), distance: 0 };
+            }
+        }
+
+        if (!rider?.over) {
+            return {
+                ...GhostVerifier.refuse('The rider does not fall at the time of the run'),
+                distance: 0,
+            };
+        }
+        if (rider.time !== time) {
+            return {
+                ...GhostVerifier.refuse(`The rider falls at another time: tick ${rider.time}`),
+                distance: 0,
+            };
+        }
+
+        return { valid: true, reason: '', distance: rider.distance };
     }
 
     /**

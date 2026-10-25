@@ -1,5 +1,6 @@
 import { FRAME_DURATION } from '../../../openrider/constants/game.constants';
 import type { EnduranceResult } from '../../../openrider/endurance/endurance-records';
+import type { RunUpload } from '../../../openrider/endurance/endurance-run';
 import { modifierNames } from '../../../openrider/item/modifiers';
 import { Time } from '../../../openrider/numeric/time';
 import { HUD_MARGIN, LINE_HEIGHT, TrackHudLayer } from '../../track/layers/track-hud.layer';
@@ -7,7 +8,7 @@ import type { TrackEnduranceState } from '../track-endurance.state';
 
 /** Size of the panel shown once a run is over, in UI pixels. */
 const PANEL_WIDTH = 300,
-    PANEL_HEIGHT = 96;
+    PANEL_HEIGHT = 120;
 
 /**
  * Heads-up display of the endurance mode: time, distance, difficulty and status effects of the
@@ -86,8 +87,29 @@ export class EnduranceHudLayer extends TrackHudLayer {
         ctx.font = '14px Arial, Helvetica, sans-serif';
         ctx.fillText(EnduranceHudLayer.result(result), width / 2, y + 54);
         ctx.fillStyle = '#666';
-        ctx.fillText('Enter: try again    N: new track', width / 2, y + 80);
+        const upload = this.endurance.run
+            ? EnduranceHudLayer.upload(this.endurance.run.upload)
+            : '';
+        ctx.fillText(upload, width / 2, y + 78, PANEL_WIDTH - 16);
+        ctx.fillText('Enter: try again    N: new track', width / 2, y + 102);
         ctx.restore();
+    }
+
+    /** How the upload of the run to the leaderboard went, empty when not uploaded. */
+    private static upload(upload: RunUpload): string {
+        switch (upload.state) {
+            case 'saving':
+                return 'Saving to the leaderboard...';
+            case 'saved':
+                // Rank 0: kept for an admin, before it ranks
+                return upload.rank > 0
+                    ? `Saved to the leaderboard: rank ${upload.rank}`
+                    : 'Saved, checked by an admin before it ranks';
+            case 'refused':
+                return `Not saved: ${upload.reason}`;
+            default:
+                return '';
+        }
     }
 
     /** A time in physics ticks, as `mm:ss.d`. */

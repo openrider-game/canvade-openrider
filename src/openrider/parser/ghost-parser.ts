@@ -39,15 +39,19 @@ export abstract class GhostParser {
         };
     }
 
-    /** Generates the ghost string of the current run, from the key log of the bike. */
-    public static generate(bikeRunner: BikeRunner): string {
+    /**
+     * Generates the ghost string of the current run, from the key log of the bike.
+     *
+     * @param time - Time of the run, in physics ticks: the current track time by default.
+     */
+    public static generate(bikeRunner: BikeRunner, time = bikeRunner.track.time): string {
         const ghostKeys: Array<string | number> = [];
 
         bikeRunner.instance?.keyLog.forEach((times) => {
             ghostKeys.push(times.join(' '));
         });
 
-        ghostKeys.push(bikeRunner.track.time, bikeRunner.bikeClass.bikeName);
+        ghostKeys.push(time, bikeRunner.bikeClass.bikeName);
 
         return ghostKeys.join(',');
     }

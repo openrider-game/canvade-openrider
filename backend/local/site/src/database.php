@@ -13,7 +13,9 @@
  *   backend until they are published. An upload is either a track code, published to `TRACKS`
  *   with its title and description, or an editor file, which cannot be raced and is saved as a
  *   draft once named;
- * - `LOCAL_RATE_EVENTS`: the recent actions counted by the rate limits, see security.php.
+ * - `LOCAL_RATE_EVENTS`: the recent actions counted by the rate limits, see security.php;
+ * - `LOCAL_ENDURANCE_RUNS`: the best endurance run of each account on each track of the day,
+ *   ranked on the endurance page.
  *
  * The tracks and ghosts uploaded without the site, or before the accounts, have no account.
  */
@@ -75,6 +77,21 @@ function site_create_tables(PDO $db): void
     $db->exec(
         'CREATE TABLE IF NOT EXISTS "LOCAL_GHOST_REVIEWS" ('
         . '"GHOSTID" INTEGER PRIMARY KEY REFERENCES "GHOSTS" ("ID"), "REASONS" TEXT NOT NULL)'
+    );
+
+    // The best endurance run of each account on each track of the day, by seed (up to 2^32 - 1,
+    // past the 32 bits integers of PostgreSQL), its distance in whole meters and its time in
+    // ticks. Why it waits for an admin, null when it ranks
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_ENDURANCE_RUNS" ('
+        . "\"ID\" $id, \"SEED\" BIGINT NOT NULL,"
+        . ' "USERID" INTEGER NOT NULL REFERENCES "LOCAL_USERS" ("ID"),'
+        . ' "GHOSTSTRING" TEXT NOT NULL, "DISTANCE" INTEGER NOT NULL, "TIME" INTEGER NOT NULL,'
+        . ' "REVIEW" TEXT)'
+    );
+    $db->exec(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_local_endurance_runs_user'
+        . ' ON "LOCAL_ENDURANCE_RUNS" ("SEED", "USERID")'
     );
 
     // Added with the accounts: null for the tracks and uploads made before them
@@ -762,6 +779,8 @@ function site_delete_user(PDO $db, int $userId): void
 
         site_delete_tracks_by_id($db, $trackIds);
         site_delete_ghosts_by_id($db, $ghostIds);
+        $db->prepare('DELETE FROM "LOCAL_ENDURANCE_RUNS" WHERE "USERID" = :userId')
+            ->execute($params);
         // The tracks it was to verify go back to their authors, without its runs
         $db->prepare(
             'UPDATE "LOCAL_UPLOADS" SET "VERIFIERID" = "USERID", "VERIFICATIONGHOST" = NULL,'
@@ -820,4 +839,175 @@ function site_delete_tracks_by_id(PDO $db, array $trackIds): void
         $details->execute($params);
         $tracks->execute($params);
     }
+}
+
+/**
+ * Condition on `LOCAL_ENDURANCE_RUNS e` keeping the runs ranked before a distance and a time:
+ * further, or as far and faster.
+ */
+const SITE_ENDURANCE_BEFORE = '(e."DISTANCE" > :distance'
+    . ' OR (e."DISTANCE" = :sameDistance AND e."TIME" < :time))';
+
+/**
+ * The best ranked endurance runs on a track, best first: further, then faster, then saved
+ * first. Each one with its account (`NAME`).
+ *
+ * @return array[]
+ */
+function site_find_endurance_runs(PDO $db, int $seed, int $limit): array
+{
+    $statement = $db->prepare(
+        'SELECT e."ID", e."USERID", e."DISTANCE", e."TIME", u."NAME"'
+        . ' FROM "LOCAL_ENDURANCE_RUNS" e JOIN "LOCAL_USERS" u ON u."ID" = e."USERID"'
+        . ' WHERE e."SEED" = :seed AND e."REVIEW" IS NULL'
+        . ' ORDER BY e."DISTANCE" DESC, e."TIME", e."ID" LIMIT ' . $limit
+    );
+    $statement->execute(['seed' => $seed]);
+
+    return $statement->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/** Number of ranked endurance runs on a track. */
+function site_count_endurance_runs(PDO $db, int $seed): int
+{
+    $statement = $db->prepare(
+        'SELECT COUNT(*) FROM "LOCAL_ENDURANCE_RUNS" WHERE "SEED" = :seed AND "REVIEW" IS NULL'
+    );
+    $statement->execute(['seed' => $seed]);
+
+    return (int) $statement->fetchColumn();
+}
+
+/**
+ * The endurance run of an account on a track, with its rank among the ranked runs (`RANK`, null
+ * while it waits for an admin), or null without any.
+ */
+function site_find_endurance_run_of(PDO $db, int $seed, int $userId): ?array
+{
+    $statement = $db->prepare(
+        'SELECT e."ID", e."USERID", e."DISTANCE", e."TIME", e."REVIEW", u."NAME"'
+        . ' FROM "LOCAL_ENDURANCE_RUNS" e JOIN "LOCAL_USERS" u ON u."ID" = e."USERID"'
+        . ' WHERE e."SEED" = :seed AND e."USERID" = :userId'
+    );
+    $statement->execute(['seed' => $seed, 'userId' => $userId]);
+    $run = $statement->fetch(PDO::FETCH_ASSOC);
+    if (!$run) {
+        return null;
+    }
+
+    $run['RANK'] = $run['REVIEW'] === null
+        ? site_endurance_rank($db, $seed, (int) $run['DISTANCE'], (int) $run['TIME'])
+        : null;
+    return $run;
+}
+
+/** Rank a distance and a time would have among the ranked runs of a track, from 1. */
+function site_endurance_rank(PDO $db, int $seed, int $distance, int $time): int
+{
+    $statement = $db->prepare(
+        'SELECT COUNT(*) FROM "LOCAL_ENDURANCE_RUNS" e'
+        . ' WHERE e."SEED" = :seed AND e."REVIEW" IS NULL AND ' . SITE_ENDURANCE_BEFORE
+    );
+    $statement->execute([
+        'seed' => $seed,
+        'distance' => $distance,
+        'sameDistance' => $distance,
+        'time' => $time,
+    ]);
+
+    return (int) $statement->fetchColumn() + 1;
+}
+
+/**
+ * Keeps an endurance run as the run of its account on its track, in place of the one before.
+ *
+ * @param string|null $review Why the run waits for an admin, null when it ranks.
+ * @return int Id of the run.
+ */
+function site_save_endurance_run(
+    PDO $db,
+    int $userId,
+    int $seed,
+    string $ghostString,
+    int $distance,
+    int $time,
+    ?string $review
+): int {
+    return site_transaction($db, function () use (
+        $db,
+        $userId,
+        $seed,
+        $ghostString,
+        $distance,
+        $time,
+        $review
+    ) {
+        $params = ['seed' => $seed, 'userId' => $userId];
+        $db->prepare(
+            'DELETE FROM "LOCAL_ENDURANCE_RUNS" WHERE "SEED" = :seed AND "USERID" = :userId'
+        )->execute($params);
+        $statement = $db->prepare(
+            'INSERT INTO "LOCAL_ENDURANCE_RUNS"'
+            . ' ("SEED", "USERID", "GHOSTSTRING", "DISTANCE", "TIME", "REVIEW")'
+            . ' VALUES (:seed, :userId, :ghostString, :distance, :time, :review) RETURNING "ID"'
+        );
+        $statement->execute($params + [
+            'ghostString' => $ghostString,
+            'distance' => $distance,
+            'time' => $time,
+            'review' => $review,
+        ]);
+        $runId = (int) $statement->fetchColumn();
+        $statement->closeCursor();
+
+        return $runId;
+    });
+}
+
+/**
+ * The ghost string of an endurance run: a ranked run, a run of the account, or any run for the
+ * admins; null for the others.
+ */
+function site_find_endurance_ghost(PDO $db, int $runId, ?int $userId, bool $admin): ?string
+{
+    $statement = $db->prepare(
+        'SELECT "GHOSTSTRING" FROM "LOCAL_ENDURANCE_RUNS" WHERE "ID" = :id'
+        . ($admin ? '' : ' AND ("REVIEW" IS NULL OR "USERID" = :userId)')
+    );
+    $statement->execute(['id' => $runId] + ($admin ? [] : ['userId' => $userId ?? 0]));
+    $ghostString = $statement->fetchColumn();
+
+    return $ghostString === false ? null : (string) $ghostString;
+}
+
+/**
+ * The endurance runs waiting for an admin, oldest first, with their account (`RIDER`).
+ *
+ * @param int|null $seed Track of the runs, null for every track.
+ * @return array[]
+ */
+function site_find_endurance_reviews(PDO $db, ?int $seed = null): array
+{
+    $statement = $db->prepare(
+        'SELECT e."ID", e."SEED", e."DISTANCE", e."TIME", e."REVIEW", u."NAME" AS "RIDER"'
+        . ' FROM "LOCAL_ENDURANCE_RUNS" e JOIN "LOCAL_USERS" u ON u."ID" = e."USERID"'
+        . ' WHERE e."REVIEW" IS NOT NULL' . ($seed === null ? '' : ' AND e."SEED" = :seed')
+        . ' ORDER BY e."ID"'
+    );
+    $statement->execute($seed === null ? [] : ['seed' => $seed]);
+
+    return $statement->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/** Approves an endurance run waiting for an admin, ranking it. */
+function site_approve_endurance_run(PDO $db, int $runId): void
+{
+    $db->prepare('UPDATE "LOCAL_ENDURANCE_RUNS" SET "REVIEW" = NULL WHERE "ID" = :id')
+        ->execute(['id' => $runId]);
+}
+
+/** Deletes an endurance run, e.g. rejected by an admin. */
+function site_delete_endurance_run(PDO $db, int $runId): void
+{
+    $db->prepare('DELETE FROM "LOCAL_ENDURANCE_RUNS" WHERE "ID" = :id')->execute(['id' => $runId]);
 }

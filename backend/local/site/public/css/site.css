@@ -601,3 +601,15 @@ textarea.field__input {
     flex: 1 1 300px;
     margin: 0;
 }
+
+/* Endurance page: the run of the account in the leaderboard, under the top when further */
+
+.leaderboard__mine td {
+    background: #f6f6f6;
+    font-weight: bold;
+}
+
+.leaderboard__gap td {
+    color: var(--color-muted);
+    text-align: center;
+}

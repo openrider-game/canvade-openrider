@@ -133,14 +133,16 @@ Opening `index.html?mode=endurance` starts the endurance mode (see below).
 The game runs in the `#game` element of any page loading `dist/main.js`, which configures it with
 data attributes (see `src/openrider/config/game-config.ts`):
 
-| Attribute         | Setting                                                                    | Default                |
-| ----------------- | -------------------------------------------------------------------------- | ---------------------- |
-| `data-track-id`   | Published track to race                                                    | `?track=<id>`, or none |
-| `data-track-mode` | `edit` to edit the track of `data-track-id` instead of racing it           | Racing it              |
-| `data-base-url`   | URL of the folder holding the backend (`backend/db/`) and icons (`media/`) | The folder of the page |
-| `data-track-url`  | Page opened after uploading a track, `{id}` being its id                   | `?track={id}`          |
-| `data-game-mode`  | `endurance` for the endurance mode                                         | `?mode=`, or tracks    |
-| `data-seed`       | Seed of the endurance track, to ride a given one again                     | `?seed=`, or a new one |
+| Attribute             | Setting                                                                    | Default                |
+| --------------------- | -------------------------------------------------------------------------- | ---------------------- |
+| `data-track-id`       | Published track to race                                                    | `?track=<id>`, or none |
+| `data-track-mode`     | `edit` to edit the track of `data-track-id` instead of racing it           | Racing it              |
+| `data-base-url`       | URL of the folder holding the backend (`backend/db/`) and icons (`media/`) | The folder of the page |
+| `data-track-url`      | Page opened after uploading a track, `{id}` being its id                   | `?track={id}`          |
+| `data-game-mode`      | `endurance` for the endurance mode                                         | `?mode=`, or tracks    |
+| `data-seed`           | Seed of the endurance track, to ride a given one again                     | `?seed=`, or a new one |
+| `data-endurance-save` | `1` to upload the endurance runs on the track of `data-seed` (see below)   | Not uploaded           |
+| `data-endurance-best` | Best run uploaded on that track, `<meters>,<ticks>`                        | None                   |
 
 ```html
 <div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>
@@ -172,13 +174,25 @@ harder: the goal is to go as far as possible, then as fast as possible for the s
   gap without gravity, invincibility over brutal obstacles, then no steering and mirrored
   controls. A column of reset items ends each zone.
 - There are no checkpoints: the run ends when the rider crashes, explodes on a bomb or falls into
-  a gap. The distance counts the furthest point reached, 1 m being about the length of a bike.
+  a gap, even invincible, or rides back more than 40 m from the furthest point reached. The
+  distance counts the furthest point reached, 1 m being about the length of a bike.
 - The best run of every track and of each track are kept in the browser (`localStorage`), a run
   beating another by going further in whole meters, or as far and faster.
 
-The generation (`src/openrider/endurance/terrain-generator.ts`) only depends on the seed, and the
-sections of the track are added long before the bike reaches them: a run on a seed always plays
-the same for the same inputs, as the ghosts of the published tracks do.
+The generation (`src/openrider/endurance/terrain-generator.ts`) only depends on the seed, and a
+run on a seed always plays the same for the same inputs, whatever the ghosts racing it do: the
+sections are added in order, long before a bike reaches them, and taken off only behind every
+bike riding; a restart starts over from an empty track (see
+`src/openrider/endurance/endurance-course.ts`). The ghosts follow the same rules as the player,
+so they ride and end their runs as they were ridden, and the backend replays a run from its seed
+(`dist/verify-ghost.cjs`).
+
+A page can rank the runs on a track: with `data-endurance-save="1"`, the game uploads each run on
+the track of `data-seed` beating `data-endurance-best` to the `enduranceupload` endpoint of its
+base URL (`seed`, `ghostString`, `time` and `distance`), which answers its `ID` and `RANK`,
+shown by the game. It then dispatches the `openrider:endurance-saved` event on the document, for
+the page to show its leaderboard again. The ghosts of the runs race with `toggleGhost`, downloaded
+from the `ghostdata` endpoint. The sample website does it for the track of the day.
 
 ### Controls
 
@@ -292,7 +306,7 @@ src/
 │   ├── thread/           workers of the fast renderer
 │   ├── tool/             editor and race tools
 │   └── track/            track, layers and renderer
-└── verify/           ghost verifier of the backend, replaying the ghosts in Node (dist/verify-ghost.cjs)
+└── verify/           ghost verifier of the backend, replaying the ghosts and endurance runs in Node (dist/verify-ghost.cjs)
 ```
 
 The states share data (track id and code, parsed track) through the canvade `manager.shared` map,
