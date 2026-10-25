@@ -274,6 +274,26 @@ describe('Editing a track', () => {
 });
 
 describe('Endurance mode', () => {
+    test('races the ghost of a shared link from the start, once', async () => {
+        const fetch = vi.fn(
+            async () => new Response(JSON.stringify({ GHOSTSTRING: '0,,,,,200,BMX,Bob' })),
+        );
+        vi.stubGlobal('fetch', fetch);
+        GameConfig.ghostIds = [7];
+
+        manager.push(STATE_ENDURANCE_SETUP);
+        await runUntil(STATE_TRACK_ENDURANCE);
+        // The ghost is downloaded first
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect([...session.track.ghostRunners.keys()]).toEqual([7]);
+        expect(session.track.ghostRunners.get(7)?.ghostName).toBe('Bob');
+        expect(String((fetch.mock.calls[0] as unknown[])[0])).toContain('backend/db/ghostdata/');
+        expect(GameConfig.ghostIds).toEqual([]);
+        // The camera stays on the player
+        expect(session.track.focalPoint).toBe(session.track.playerRunner.instance?.hitbox);
+    });
+
     test('generates a track from the seed of the host element, then rides it', async () => {
         GameConfig.seed = 1234;
         manager.push(STATE_ENDURANCE_SETUP);
@@ -604,6 +624,20 @@ describe('Racing a track', () => {
         // Only the racing tools are available
         expect(session.track.toolCollection.getByToolName('Eraser')).toBeUndefined();
         expect(session.track.toolCollection.getByToolName('Pause')).toBeDefined();
+    });
+
+    test('races the ghosts of a shared link from the start, several of them', async () => {
+        GameConfig.ghostIds = [3, 4];
+        session.trackId = 5;
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_RACING);
+        // The ghosts are downloaded first
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        expect([...session.track.ghostRunners.keys()].sort()).toEqual([3, 4]);
+        expect(GameConfig.ghostIds).toEqual([]);
+        const requests = vi.mocked(fetch).mock.calls.map(([url]) => String(url));
+        expect(requests.filter((url) => url.includes('ghostdata'))).toHaveLength(2);
     });
 
     test('edits the downloaded track instead when the host element asks for it', async () => {

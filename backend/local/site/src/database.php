@@ -314,6 +314,34 @@ function site_find_ghosts(PDO $db, int $trackId): array
     return $statement->fetchAll(PDO::FETCH_ASSOC);
 }
 
+/**
+ * The ghost string of a ghost of a track: a ghost not waiting for an admin, a ghost of the
+ * account, or any ghost for the admins; null for the others.
+ */
+function site_find_visible_ghost(
+    PDO $db,
+    int $trackId,
+    int $ghostId,
+    ?int $userId,
+    bool $admin
+): ?string {
+    $statement = $db->prepare(
+        'SELECT g."GHOSTSTRING", o."USERID", r."REASONS" FROM "GHOSTS" g'
+        . ' LEFT JOIN "LOCAL_GHOST_OWNERS" o ON o."GHOSTID" = g."ID"'
+        . ' LEFT JOIN "LOCAL_GHOST_REVIEWS" r ON r."GHOSTID" = g."ID"'
+        . ' WHERE g."TRACKID" = :trackId AND g."ID" = :id'
+    );
+    $statement->execute(['trackId' => $trackId, 'id' => $ghostId]);
+    $ghost = $statement->fetch(PDO::FETCH_ASSOC);
+    if (!$ghost) {
+        return null;
+    }
+
+    $visible = $ghost['REASONS'] === null || $admin
+        || ($userId !== null && (int) $ghost['USERID'] === $userId);
+    return $visible ? (string) $ghost['GHOSTSTRING'] : null;
+}
+
 /** Best time of a track among the ghosts not waiting for an admin, null without any. */
 function site_find_best_time(PDO $db, int $trackId): ?int
 {
@@ -1010,4 +1038,31 @@ function site_approve_endurance_run(PDO $db, int $runId): void
 function site_delete_endurance_run(PDO $db, int $runId): void
 {
     $db->prepare('DELETE FROM "LOCAL_ENDURANCE_RUNS" WHERE "ID" = :id')->execute(['id' => $runId]);
+}
+
+/**
+ * The endurance run of an account on a track, by the name of the account whatever its case, to
+ * race it from a shared link: a ranked run, or any run for its account and the admins; null
+ * without one.
+ */
+function site_find_endurance_run_by_name(
+    PDO $db,
+    int $seed,
+    string $name,
+    ?int $viewerId,
+    bool $admin
+): ?array {
+    $statement = $db->prepare(
+        'SELECT e."ID", e."USERID", e."DISTANCE", e."TIME", e."REVIEW", u."NAME"'
+        . ' FROM "LOCAL_ENDURANCE_RUNS" e JOIN "LOCAL_USERS" u ON u."ID" = e."USERID"'
+        . ' WHERE e."SEED" = :seed AND LOWER(u."NAME") = LOWER(:name)'
+    );
+    $statement->execute(['seed' => $seed, 'name' => $name]);
+    $run = $statement->fetch(PDO::FETCH_ASSOC);
+    if (!$run) {
+        return null;
+    }
+
+    $visible = $run['REVIEW'] === null || $admin || (int) $run['USERID'] === $viewerId;
+    return $visible ? $run : null;
 }

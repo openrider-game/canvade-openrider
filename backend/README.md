@@ -67,14 +67,23 @@ an account.
   the account beating its best one (`data-endurance-save`, see "Endurance runs"), the
   leaderboard showing them right away (`public/js/endurance-leaderboard.js`). Clicking a rider
   adds their ghost to the race, and clicking it again removes it. The leaderboards of the days
-  before stay, closed; the header links to the page;
+  before stay, closed; the header links to the page. An account with a ranked run challenges its
+  friends from the bar above the game, sharing a message with a link racing it ("I rode 105 m in
+  6.76 s in the daily endurance of OpenRider! Can you do better?",
+  `/endurance/?seed=<seed>&rider=<name>`; the share sheet on touch screens, else copied): the page
+  names the rider and gives the game its run (`data-ghosts`), its best one on the track whenever
+  the link is opened;
 - `/tracks/<id>/` runs the game racing the track, under its title, author, description and
   verifier, with its leaderboard under it, in two tabs: the 10 best riders, ranked by their best
   ghost (a rider holding several of the best times counts once), their other ghosts folded under
   it; and the ghosts of the account logged in, with its rank and its ghosts waiting for an admin.
   The run verifying the track is marked. Clicking a rider adds their ghost to the race, and
   clicking it again removes it. A finished race is saved for the account logged in, named after
-  it;
+  it. The bar above the game challenges friends, sharing a message with a link racing the ghosts
+  racing now ("Can you beat these ghosts on “First ride”?", `/tracks/<id>/?ghosts=12,15`; the
+  share sheet on touch screens, else copied): the page names them and gives the game the ones it
+  can race (`data-ghosts`), 10 at most, those waiting for an admin for their account and the
+  admins only;
 - `/users/` lists the accounts by name, 50 a page, with the number of their tracks and ghosts,
   and searches them by name (`?q=`), whatever its case; the header links to it;
 - `/users/<name>/` lists the tracks published by an account, and its ghosts with their rank;
@@ -111,8 +120,10 @@ the site instead of the backend endpoints, to know their account and check them.
 the uploaded tracks in its own `LOCAL_UPLOADS` table, and adds a track code to the tracks of the
 backend only once verified and published. On a draft or verification page, it also answers the
 `trackdata` endpoint with the draft or the track, and on a verification page the `ghostdata`
-endpoint with the verifying run, whose id is the one of the track. The endurance page only
-answers its `enduranceupload` and `ghostdata` endpoints, with the runs of its leaderboard.
+endpoint with the verifying run, whose id is the one of the track. On a track page, it answers
+the `ghostdata` endpoint itself, leaving out the ghosts waiting for an admin but for their account
+and the admins. The endurance page only answers its `enduranceupload` and `ghostdata` endpoints,
+with the runs of its leaderboard.
 The other requests reach the backend endpoints and the icons under the page. The `trackupload`
 and `ghostupload` endpoints of `backend/db/` are refused, which would bypass the accounts.
 

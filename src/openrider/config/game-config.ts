@@ -17,10 +17,15 @@
  *   with the enduranceupload endpoint, each one beating the best of the player so far.
  * - `data-endurance-best`: best run of the player on that track, `<meters>,<ticks>`, uploaded
  *   before: only the runs beating it are uploaded.
+ * - `data-ghosts`: ids of the ghosts racing from the start, separated with commas, e.g. from a
+ *   link shared to race someone; else the `?ghosts=<ids>` parameter of the page URL.
  *
  * For example, a page of a website racing the track 3:
  * `<div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>`.
  */
+/** Most ghosts racing from the start, see `GameConfig.ghostIds`. */
+const MAX_INITIAL_GHOSTS = 10;
+
 export abstract class GameConfig {
     /** URL of the folder holding `backend/db/` and `media/`, ending with a `/`. */
     public static baseUrl = './';
@@ -36,6 +41,8 @@ export abstract class GameConfig {
     public static enduranceSave = false;
     /** Best run uploaded on that track, the next uploads beating it, null without any. */
     public static enduranceBest: { distance: number; time: number } | null = null;
+    /** Ghosts racing from the start, by id, cleared once added to the race. */
+    public static ghostIds: number[] = [];
 
     /**
      * Reads the settings of the host element, and else of the parameters of the page URL for
@@ -61,6 +68,12 @@ export abstract class GameConfig {
         const [distance, time] = (host.dataset.enduranceBest ?? '').split(',').map(Number);
         GameConfig.enduranceBest =
             Number.isFinite(distance) && Number.isInteger(time) ? { distance, time } : null;
+
+        GameConfig.ghostIds = (host.dataset.ghosts ?? params.get('ghosts') ?? '')
+            .split(',')
+            .map(Number)
+            .filter((id) => Number.isInteger(id) && id > 0)
+            .slice(0, MAX_INITIAL_GHOSTS);
     }
 
     /**

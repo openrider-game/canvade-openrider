@@ -9,6 +9,9 @@
  * and shown again once the game saves a run (see `public/js/endurance-leaderboard.js`). The tracks
  * of the days before keep their leaderboard, closed.
  *
+ * An account with a ranked run shares a link racing it (`rider` parameter), its ghost racing from
+ * the start for whoever opens it, the page telling whose ghost it is.
+ *
  * @var int|null   $seed        Number of the track to ride, null for a new track on each load.
  * @var int        $dailySeed   Number of the track of the day, see site_daily_endurance_seed().
  * @var array      $attributes  Data attributes of the game, see partials/game.php.
@@ -19,6 +22,9 @@
  * @var array|null $mine        Run of the account, see site_find_endurance_run_of().
  * @var array[]    $reviews     Runs waiting for an admin, for the admins, see
  *                              site_find_endurance_reviews().
+ * @var string|null $rider      Name of the rider of a shared link, null without one.
+ * @var array|null  $rival      Run of that rider on the track, racing from the start, see
+ *                              site_find_endurance_run_by_name(); null without one.
  */
 
 $user = site_user();
@@ -70,6 +76,38 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
             value="<?= $seed ?? '' ?>" required />
         <button class="button" type="submit">Ride</button>
     </form>
+</div>
+
+<?php if ($rival !== null): ?>
+    <p class="endurance-rival">
+        Racing against the ghost of
+        <a href="/users/<?= rawurlencode($rival['NAME']) ?>/"><?= h($rival['NAME']) ?></a>:
+        <?= (int) $rival['DISTANCE'] ?> m in <?= site_duration((int) $rival['TIME']) ?>.
+    </p>
+<?php elseif ($rider !== null): ?>
+    <p class="endurance-rival muted"><?= h($rider) ?> has no run to race on this track.</p>
+<?php endif; ?>
+
+<?php // Shown again with the leaderboard once the game saved a run, see endurance-leaderboard.js ?>
+<div class="share-slot">
+    <?php if ($mine !== null && $mine['RANK'] !== null): ?>
+        <?php
+        $shareLink = '/endurance/?seed=' . $seed . '&rider=' . rawurlencode($mine['NAME']);
+        $result = (int) $mine['DISTANCE'] . ' m in ' . site_duration((int) $mine['TIME']);
+        $shareText = $seed === $dailySeed
+            ? "I rode $result in the daily endurance of OpenRider! Can you do better?"
+            : "I rode $result on the OpenRider endurance track $seed! Can you do better?";
+        ?>
+        <p class="share share-bar">
+            <a class="button button--accent" href="<?= h($shareLink) ?>" data-share
+                data-share-text="<?= h($shareText) ?>">Challenge your friends</a>
+            <span>
+                Your best: <?= $result ?>, rank <?= (int) $mine['RANK'] ?>. The link races your
+                ghost.
+            </span>
+            <span class="share__status muted" role="status"></span>
+        </p>
+    <?php endif; ?>
 </div>
 
 <?php site_render('partials/game', ['attributes' => $attributes]); ?>

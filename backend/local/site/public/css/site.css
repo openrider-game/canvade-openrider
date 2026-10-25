@@ -11,6 +11,8 @@
     --color-active: #ccc;
     --color-toggled: #077;
     --color-toggled-text: #fff;
+    --color-accent-hover: #055;
+    --color-accent-active: #044;
     --color-error: #b00;
     --border: 2px solid #000;
     --page-width: 960px;
@@ -411,6 +413,21 @@ textarea.field__input {
     margin: 0;
 }
 
+/* Main action of a page, e.g. challenging friends to race */
+.button--accent {
+    background: var(--color-toggled);
+    color: var(--color-toggled-text);
+    font-weight: bold;
+}
+
+.button--accent:hover {
+    background: var(--color-accent-hover);
+}
+
+.button--accent:active {
+    background: var(--color-accent-active);
+}
+
 .button--danger {
     border-color: var(--color-error);
     color: var(--color-error);
@@ -612,4 +629,25 @@ textarea.field__input {
 .leaderboard__gap td {
     color: var(--color-muted);
     text-align: center;
+}
+
+/* Ghosts of a shared link above the game, and the buttons sharing a link under it */
+
+.endurance-rival,
+.race-notice {
+    max-width: var(--content-width);
+    margin: 0 auto 12px;
+}
+
+.share {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Above the game, seen without scrolling */
+.share-bar {
+    max-width: var(--content-width);
+    margin: 0 auto 12px;
 }

@@ -13,6 +13,9 @@
  * @var int      $riderCount Number of riders ranked.
  * @var array[]  $mine       Ghosts of the account, fastest first, see site_find_ghosts().
  * @var int|null $myRank     Rank of the account among the riders, null when it has none.
+ * @var array[]  $linked     Ghosts of a shared link, racing from the start, see
+ *                           site_linked_ghosts().
+ * @var int      $missing    Number of ghosts of the link that are not on the track.
  */
 
 $user = site_user();
@@ -51,9 +54,43 @@ $user = site_user();
     ]); ?>
 <?php endif; ?>
 
+<?php if ($linked): ?>
+    <?php $names = array_map(
+        fn (array $ghost) => h($ghost['NAME']) . ' (' . site_duration((int) $ghost['TIME']) . ')',
+        $linked
+    ); ?>
+    <p class="race-notice">
+        Racing against <?= implode(', ', $names) ?>.
+        <?php if ($missing > 0): ?>
+            <span class="muted">
+                <?= $missing ?> <?= $missing === 1 ? 'ghost' : 'ghosts' ?> of the link cannot be
+                raced on this track.
+            </span>
+        <?php endif; ?>
+    </p>
+<?php elseif ($missing > 0): ?>
+    <p class="race-notice muted">The ghosts of the link cannot be raced on this track.</p>
+<?php endif; ?>
+
+<?php
+$title = site_track_title($track);
+// Shared with the ghosts racing, or without any
+$challenge = "Can you beat these ghosts on “{$title}”? Race them on OpenRider!";
+$challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRider?";
+?>
+<p class="share share-bar">
+    <a class="button button--accent" href="/tracks/<?= (int) $track['ID'] ?>/" data-share-race
+        data-share-text="<?= h($challenge) ?>" data-share-text-alone="<?= h($challengeAlone) ?>"
+        >Challenge your friends</a>
+    <span>The link races the ghosts racing now: pick them in the leaderboard.</span>
+    <span class="share__status muted" role="status"></span>
+</p>
+
+<?php // Always given, so that the game never races the ghosts of the link left out ?>
 <?php site_render('partials/game', ['attributes' => [
     'base-url' => '/tracks/' . (int) $track['ID'] . '/',
     'track-id' => (int) $track['ID'],
+    'ghosts' => implode(',', array_column($linked, 'ID')),
 ]]); ?>
 
 <section class="leaderboard" aria-labelledby="leaderboard-title">

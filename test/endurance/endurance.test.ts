@@ -530,6 +530,17 @@ describe('Endurance leaderboard', () => {
         expect(GameConfig.enduranceBest).toBeNull();
     });
 
+    test('races the ghosts of the host element from the start, else the ones of the page URL', () => {
+        const host = (dataset: Record<string, string>) => ({ dataset }) as unknown as HTMLElement;
+
+        GameConfig.configure(host({ ghosts: '3,abc,-1,5' }), '?ghosts=8');
+        expect(GameConfig.ghostIds).toEqual([3, 5]);
+        GameConfig.configure(host({}), '?ghosts=8');
+        expect(GameConfig.ghostIds).toEqual([8]);
+        GameConfig.configure(host({}));
+        expect(GameConfig.ghostIds).toEqual([]);
+    });
+
     test('gets the runs of its track beating the best one uploaded', () => {
         GameConfig.enduranceSave = true;
         GameConfig.seed = 9;

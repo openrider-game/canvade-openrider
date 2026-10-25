@@ -3,6 +3,7 @@ import { EnduranceCourse } from '../../openrider/endurance/endurance-course';
 import { EnduranceRecords } from '../../openrider/endurance/endurance-records';
 import { EnduranceRun } from '../../openrider/endurance/endurance-run';
 import { EnduranceService } from '../../openrider/request/endurance-service';
+import { GhostService } from '../../openrider/request/ghost-service';
 import { LEFT_TOOLBAR_ENDURANCE } from '../../openrider/tool/toolbar.constants';
 import { TrackInterfaceLayer } from '../track/layers/track-interface.layer';
 import { TrackMainLayer } from '../track/layers/track-main.layer';
@@ -51,6 +52,8 @@ export class TrackEnduranceState extends TrackPlayState {
         // Racing the ghosts of the leaderboard, the camera stays on the player
         this.track.followsGhosts = false;
         this.track.updateFocalPoint();
+        // E.g. the ghost of a link shared to race someone
+        GhostService.raceInitialGhosts(this.track);
     }
 
     /** Follows the run, uploading it to the leaderboard of its track once over if asked to. */

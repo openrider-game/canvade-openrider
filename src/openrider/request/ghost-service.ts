@@ -47,6 +47,20 @@ export abstract class GhostService {
         track.restart();
     }
 
+    /**
+     * Adds the ghosts given by the page to the race, once per page (see `GameConfig.ghostIds`),
+     * e.g. the ghost of a link shared to race someone.
+     */
+    public static raceInitialGhosts(track: Track): void {
+        const ghostIds = GameConfig.ghostIds;
+        GameConfig.ghostIds = [];
+        for (const ghostId of ghostIds) {
+            GhostService.toggleGhost(track, ghostId).catch((e) =>
+                console.error(`Cannot load ghost ${ghostId}`, e),
+            );
+        }
+    }
+
     /** Offers the player to upload their run once a race is finished. */
     public static async saveGhost(track: Track): Promise<void> {
         if (!confirm('Do you want to save this time?')) {

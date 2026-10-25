@@ -143,6 +143,7 @@ data attributes (see `src/openrider/config/game-config.ts`):
 | `data-seed`           | Seed of the endurance track, to ride a given one again                     | `?seed=`, or a new one |
 | `data-endurance-save` | `1` to upload the endurance runs on the track of `data-seed` (see below)   | Not uploaded           |
 | `data-endurance-best` | Best run uploaded on that track, `<meters>,<ticks>`                        | None                   |
+| `data-ghosts`         | Ghosts racing from the start, their ids separated with commas              | `?ghosts=`, or none    |
 
 ```html
 <div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>

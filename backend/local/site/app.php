@@ -78,6 +78,9 @@ const SITE_ENDURANCE_GRACE = 600;
  */
 const SITE_REVIEW_ACTION_PATTERN = '#^/reviews/(ghosts|tracks|runs)/([0-9]+)/(approve|reject)/$#';
 
+/** Most ghosts of a shared link racing from the start, as the game takes them. */
+const SITE_LINKED_GHOSTS = 10;
+
 /** Riders listed in the top of a track, each with their best ghost. */
 const SITE_LEADERBOARD_RIDERS = 10;
 
@@ -177,6 +180,9 @@ function site_handle(string $path): bool
  * The track of the day has a leaderboard: the best run of each account, saved by the game once
  * replayed (see site_endurance_upload_endpoint()), racing as a ghost when clicked. The tracks of
  * the days before keep theirs, closed.
+ *
+ * A link with the `rider` parameter, shared by an account, races its run on the track from the
+ * start: its best run on the track, the same link racing its better runs once saved.
  */
 function site_endurance_page(): void
 {
@@ -192,9 +198,27 @@ function site_endurance_page(): void
         ? null
         : site_find_endurance_run_of($db, $seed, $user['ID']);
 
+    // The rider of a shared link, raced from the start
+    $rider = $_GET['rider'] ?? null;
+    $rider = $seed !== null && is_string($rider) && preg_match(SITE_USER_NAME_PATTERN, $rider)
+        ? $rider
+        : null;
+    $rival = $rider === null
+        ? null
+        : site_find_endurance_run_by_name(
+            $db,
+            $seed,
+            $rider,
+            $user['ID'] ?? null,
+            site_is_admin($user)
+        );
+
     $attributes = ['base-url' => '/endurance/', 'game-mode' => 'endurance'];
     if ($seed !== null) {
         $attributes['seed'] = $seed;
+    }
+    if ($rival !== null) {
+        $attributes['ghosts'] = $rival['ID'];
     }
     // The game uploads the runs beating the best one of the account
     if ($open && $user !== null) {
@@ -219,6 +243,8 @@ function site_endurance_page(): void
                 : site_find_endurance_runs($db, $seed, SITE_ENDURANCE_LEADERBOARD),
             'riderCount' => $riderCount,
             'mine' => $mine,
+            'rider' => $rider,
+            'rival' => $rival,
             // The admins watch the runs waiting for them before approving them
             'reviews' => $seed !== null && site_is_admin($user)
                 ? site_find_endurance_reviews($db, $seed)
@@ -226,7 +252,12 @@ function site_endurance_page(): void
         ],
         ['game.css'],
         // The leaderboard adds the ghosts to the race, and shows the runs saved by the game
-        ['/dist/main.js', '/assets/js/leaderboard.js', '/assets/js/endurance-leaderboard.js'],
+        [
+            '/dist/main.js',
+            '/assets/js/leaderboard.js',
+            '/assets/js/endurance-leaderboard.js',
+            '/assets/js/share.js',
+        ],
     );
 }
 
@@ -371,6 +402,7 @@ function site_track_page(int $trackId): void
         fn (array $ghost) => (int) $ghost['USERID'] === $viewer['ID']
     ));
     $myRank = array_search('user:' . ($viewer['ID'] ?? ''), array_keys($riders), true);
+    [$linked, $missing] = site_linked_ghosts($ghosts, $viewer);
 
     site_render_page(
         'track',
@@ -382,12 +414,86 @@ function site_track_page(int $trackId): void
             'riderCount' => count($riders),
             'mine' => $mine,
             'myRank' => $myRank === false ? null : $myRank + 1,
+            'linked' => $linked,
+            'missing' => $missing,
         ],
         ['game.css'],
         // The leaderboard drives the game through its page API, set up by the game script, and
-        // shows its tabs and the other ghosts of its riders with its own script
-        ['/dist/main.js', '/assets/js/leaderboard.js', '/assets/js/leaderboard-tabs.js'],
+        // shows its tabs and the other ghosts of its riders with its own script; the race is
+        // shared with its ghosts
+        [
+            '/dist/main.js',
+            '/assets/js/leaderboard.js',
+            '/assets/js/leaderboard-tabs.js',
+            '/assets/js/share.js',
+        ],
     );
+}
+
+/**
+ * The ghosts of a shared link, racing from the start: the `ghosts` parameter, ids separated with
+ * commas. Only the ghosts of the track count, those waiting for an admin for their account and
+ * the admins only.
+ *
+ * @param array[] $ghosts Ghosts of the track, see site_find_ghosts().
+ * @return array The linked ghosts, in the order of the link, each with its rider (`NAME`), then
+ *   the number of ids of the link that are not ghosts of the track.
+ */
+function site_linked_ghosts(array $ghosts, ?array $viewer): array
+{
+    $param = $_GET['ghosts'] ?? '';
+    if (!is_string($param) || $param === '') {
+        return [[], 0];
+    }
+
+    $ids = array_slice(
+        array_unique(array_filter(array_map('intval', explode(',', $param)))),
+        0,
+        SITE_LINKED_GHOSTS
+    );
+    $byId = [];
+    foreach ($ghosts as $ghost) {
+        $visible = $ghost['REVIEW'] === null
+            || site_is_admin($viewer)
+            || ($viewer !== null && (int) $ghost['USERID'] === $viewer['ID']);
+        if ($visible) {
+            $byId[(int) $ghost['ID']] = $ghost + [
+                'NAME' => $ghost['RIDER'] ?? site_ghost_name($ghost['GHOSTSTRING']),
+            ];
+        }
+    }
+
+    $linked = array_values(array_filter(array_map(fn (int $id) => $byId[$id] ?? null, $ids)));
+    return [$linked, count($ids) - count($linked)];
+}
+
+/**
+ * Ghost endpoint of the track pages, in place of the ghostdata endpoint of the backend: the ghost
+ * string of a ghost of the track, those waiting for an admin for their account and the admins
+ * only, e.g. raced from a shared link.
+ */
+function site_track_ghost_endpoint(int $trackId): void
+{
+    openrider_handle(function (PDO $db) use ($trackId) {
+        site_create_tables($db);
+        if (openrider_int_param('trackId') !== $trackId) {
+            openrider_reject('Invalid parameter: trackId');
+        }
+
+        $user = site_user();
+        $ghostString = site_find_visible_ghost(
+            $db,
+            $trackId,
+            openrider_int_param('id'),
+            $user['ID'] ?? null,
+            site_is_admin($user)
+        );
+        if ($ghostString === null) {
+            openrider_respond(404, ['error' => 'Ghost does not exist']);
+        }
+
+        return ['GHOSTSTRING' => $ghostString];
+    });
 }
 
 /**
@@ -728,6 +834,8 @@ function site_game_request(string $page, string $file): void
         openrider_respond(404, ['error' => 'Not found']);
     } elseif ($file === 'backend/db/trackdata/' && $kind === 'drafts') {
         site_draft_endpoint($id);
+    } elseif ($file === 'backend/db/ghostdata/' && $kind === 'tracks') {
+        site_track_ghost_endpoint($id);
     } else {
         site_backend_endpoint(substr($file, strlen('backend/db/'), -1));
     }
