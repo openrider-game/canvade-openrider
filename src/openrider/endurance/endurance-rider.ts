@@ -52,6 +52,6 @@ export class EnduranceRider {
         }
         this.furthestX = Math.max(this.furthestX, pos.x);
         this.distance = this.course.distanceAt(this.furthestX);
-        this.time = this.course.track.time;
+        this.time = this.runner.time;
     }
 }

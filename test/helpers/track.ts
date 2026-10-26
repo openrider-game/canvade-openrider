@@ -71,7 +71,6 @@ export function runTicks(track: Track, ticks: number, beforeTick?: (time: number
                 runner.fixedUpdate();
             }
         });
-        track.time++;
     }
 }
 

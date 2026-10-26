@@ -9,7 +9,7 @@ import { createControls, RunnerControls } from './runner-controls';
 
 /** State of a runner saved when reaching a checkpoint. */
 interface Snapshot {
-    /** Track time of the checkpoint, in physics ticks. */
+    /** Time of the run at the checkpoint, in physics ticks. */
     time: number;
     targetsReached: Set<number>;
     reachablesReached: Set<number>;
@@ -25,6 +25,10 @@ interface Snapshot {
  * {@link BikeRunner.fixedUpdate} runs the physics at 50 ticks per second,
  * {@link BikeRunner.update} interpolates the display positions between two ticks on every
  * frame, and {@link BikeRunner.render} draws the result.
+ *
+ * Each runner counts the time of its own run ({@link BikeRunner.time}): the ghosts start and
+ * restart with the player, but nothing in the physics of a runner depends on the clock of another
+ * one, so that a runner can also ride at its own pace.
  */
 export abstract class BikeRunner {
     /** Ghosts replay recorded inputs and never mark items as reached. */
@@ -32,6 +36,11 @@ export abstract class BikeRunner {
 
     /** Set once every target has been reached. */
     public done = false;
+    /**
+     * Elapsed physics ticks since the start of the run: the tick being run during
+     * {@link BikeRunner.fixedUpdate}, counted once it is over. Restored by the checkpoints.
+     */
+    public time = 0;
     /** Checkpoint snapshots, the last one being the restart point. */
     public snapshots: Snapshot[] = [];
     /** Ids of the targets reached during the current run. */
@@ -84,8 +93,8 @@ export abstract class BikeRunner {
     protected assignColor(_bike: Bike): void {}
 
     /**
-     * Starts a new run, from a checkpoint or from the start position, and sets the track time
-     * accordingly.
+     * Starts a new run, from a checkpoint or from the start position, and sets the time of the
+     * run accordingly.
      *
      * @param snapshot - Checkpoint to start from, the start position when omitted.
      */
@@ -103,7 +112,7 @@ export abstract class BikeRunner {
         this.controls = createControls();
         this.modifiersMask = 0;
 
-        this.track.time = 0;
+        this.time = 0;
 
         if (snapshot) {
             bike = snapshot.bike;
@@ -113,7 +122,7 @@ export abstract class BikeRunner {
             this.controls = { ...snapshot.controls };
             this.modifiersMask = snapshot.modifiersMask;
 
-            this.track.time = snapshot.time;
+            this.time = snapshot.time;
         }
 
         this.instance = bike ? bike.clone() : null;
@@ -162,13 +171,7 @@ export abstract class BikeRunner {
      */
     public explode(pos: Vector, vel: Vector): void {
         if (this.instance && this.die()) {
-            this.deadObject = new Explosion(
-                pos,
-                vel,
-                this.instance.clone(),
-                this.track.time,
-                this.track,
-            );
+            this.deadObject = new Explosion(pos, vel, this.instance.clone(), this.time, this.track);
             this.instance = null;
         }
     }
@@ -219,7 +222,7 @@ export abstract class BikeRunner {
         }
 
         return {
-            time: this.track.time,
+            time: this.time,
             targetsReached: new Set(this.targetsReached),
             reachablesReached: new Set(this.reachablesReached),
             commandTimes: new Map(this.commandTimes),
@@ -246,7 +249,8 @@ export abstract class BikeRunner {
 
     /**
      * Runs one physics tick (50 per second): processes the items reached on the previous tick,
-     * saves the pending checkpoint, then updates the controls, the springs and the points.
+     * saves the pending checkpoint, then updates the controls, the springs and the points, and
+     * counts the tick in the time of the run.
      *
      * The order of the steps must not change: the recorded ghosts only replay identically with
      * this exact order of computations.
@@ -297,6 +301,7 @@ export abstract class BikeRunner {
         }
 
         this.deadObject?.fixedUpdate();
+        this.time++;
     }
 
     /**

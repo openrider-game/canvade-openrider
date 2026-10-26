@@ -34,7 +34,7 @@ describe('Ghost parser', () => {
         const keyLog = track.playerRunner.instance?.keyLog;
         keyLog?.get('upPressed')?.push(0, 50);
         keyLog?.get('turnPressed')?.push(20, 21);
-        track.time = 75;
+        track.playerRunner.time = 75;
 
         const ghostString = GhostParser.generate(track.playerRunner);
         const ghost = GhostParser.parse(ghostString);

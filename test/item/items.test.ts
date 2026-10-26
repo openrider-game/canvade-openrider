@@ -105,7 +105,8 @@ describe('Reachable items', () => {
         track.ghostRunners.set(1, ghost);
 
         checkpoint.touch(playerAt(100, 0).hitbox);
-        track.time = 42;
+        // The player and the ghost ride the same run
+        track.playerRunner.time = ghost.time = 42;
         // Queued, then processed and saved at the start of the next tick of each runner
         track.playerRunner.fixedUpdate();
         expect(track.playerRunner.mustSave).toBe(false);
@@ -115,9 +116,10 @@ describe('Reachable items', () => {
         expect(track.playerRunner.snapshots).toHaveLength(1);
         expect(ghost.snapshots).toHaveLength(1);
 
-        track.time = 100;
+        track.playerRunner.time = ghost.time = 100;
         track.restart();
         expect(track.time).toBe(42);
+        expect(ghost.time).toBe(42);
         expect(checkpoint.reached).toBe(true);
     });
 
@@ -363,13 +365,13 @@ describe('Launchers and mud', () => {
 
         // Still the same pass on the next tick, or touched by another part
         const kicked = heights();
-        track.time++;
+        track.playerRunner.time++;
         launcher.touch(bike.hitbox);
         launcher.touch(bike.backWheel);
         expect(heights()).toEqual(kicked);
 
         // A new pass after leaving it
-        track.time += 10;
+        track.playerRunner.time += 10;
         launcher.touch(bike.hitbox);
         heights().forEach((y, i) => expect(y).toBeCloseTo(kicked[i] - LAUNCH_STRENGTH));
     });

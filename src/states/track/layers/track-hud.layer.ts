@@ -92,7 +92,7 @@ export class TrackHudLayer extends Layer {
 
         let index = 0;
         track.ghostRunners.forEach((runner) => {
-            const ghostTime = Math.max(0, runner.finalTime - track.time);
+            const ghostTime = Math.max(0, runner.finalTime - runner.time);
             const remainingTimeText =
                 ghostTime > 0 ? Time.format(ghostTime * FRAME_DURATION) : 'finished!';
             const reached = `${runner.targetsReached.size}/${targets}`;

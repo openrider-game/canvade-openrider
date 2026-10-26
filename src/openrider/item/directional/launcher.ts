@@ -29,7 +29,7 @@ export class Launcher extends DirectionalItem {
 
     protected override onTouch(part: Collidable): void {
         const runner = part.bike.runner;
-        const time = this.track.time;
+        const time = runner.time;
         const lastTouch = this.lastTouches.get(runner);
         this.lastTouches.set(runner, time);
 

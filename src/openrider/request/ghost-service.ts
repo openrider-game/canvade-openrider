@@ -98,7 +98,7 @@ export abstract class GhostService {
                 {
                     ghostString: GhostParser.generate(track.playerRunner),
                     trackId: track.id ?? 0,
-                    time: track.time,
+                    time: track.playerRunner.time,
                 },
             );
 

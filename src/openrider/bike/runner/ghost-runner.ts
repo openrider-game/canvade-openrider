@@ -57,7 +57,7 @@ export class GhostRunner extends BikeRunner {
 
     protected updateControls(): void {
         this.keys.forEach((times, name) => {
-            if (times.has(this.track.time)) {
+            if (times.has(this.time)) {
                 this.controls[name] = !this.controls[name];
             }
         });

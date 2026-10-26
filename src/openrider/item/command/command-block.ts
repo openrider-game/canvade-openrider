@@ -94,19 +94,23 @@ export class CommandBlock extends Item {
             return;
         }
 
-        runner.commandTimes.set(this.id, this.track.time);
+        runner.commandTimes.set(this.id, runner.time);
         if (!runner.isGhost) {
-            this.controlView();
+            this.controlView(runner.time);
         }
     }
 
-    /** Applies a view command for the player. */
-    private controlView(): void {
+    /**
+     * Applies a view command for the player.
+     *
+     * @param time - Time of the run of the player, in physics ticks.
+     */
+    private controlView(time: number): void {
         const { kind, zoom, target, duration } = this.settings;
         if (kind === 'zoom') {
             this.track.zoomTarget = zoom;
         } else if (kind === 'camera') {
-            this.track.cameraHold = { pos: target.clone(), until: this.track.time + duration };
+            this.track.cameraHold = { pos: target.clone(), until: time + duration };
         }
     }
 
@@ -127,10 +131,7 @@ export class CommandBlock extends Item {
                 if (triggeredAt === undefined) {
                     return NO_OFFSET;
                 }
-                const progress = Math.min(
-                    1,
-                    (this.track.time - triggeredAt) / Math.max(1, duration),
-                );
+                const progress = Math.min(1, (runner.time - triggeredAt) / Math.max(1, duration));
                 return progress >= 1 ? offset : offset.scale(progress);
             }
             default:

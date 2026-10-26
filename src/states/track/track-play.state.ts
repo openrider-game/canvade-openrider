@@ -52,14 +52,13 @@ export abstract class TrackPlayState extends TrackViewState {
 
         // The player runs before the ghosts so that when it saves a checkpoint, the ghosts
         // physics have not been updated yet: otherwise they would run twice on the same tick
+        // Each runner counts the tick in the time of its run
         track.playerRunner.fixedUpdate();
         track.ghostRunners.forEach((runner) => {
             if (!runner.done) {
                 runner.fixedUpdate();
             }
         });
-
-        track.time++;
     }
 
     private interpolate(e: CustomEvent<GameUpdateEvent>): void {

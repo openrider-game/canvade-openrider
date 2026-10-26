@@ -61,7 +61,8 @@ export const PLAYER_CONTROLS: Array<{
 
 /**
  * Runner driven by the keyboard. Every control change is recorded in the bike key log, with
- * the track time in physics ticks, to generate the ghost of the run.
+ * the time of the run in physics ticks, to generate the ghost of the run. Its time is the one of
+ * the track (`Track.time`).
  */
 export class PlayerRunner extends BikeRunner {
     public readonly isGhost = false;
@@ -118,7 +119,7 @@ export class PlayerRunner extends BikeRunner {
             anyPressed ||= pressed;
 
             if (pressed !== this.controls[runnerControl]) {
-                bike.keyLog.get(runnerControl)?.push(this.track.time);
+                bike.keyLog.get(runnerControl)?.push(this.time);
                 this.controls[runnerControl] = pressed;
             }
         }

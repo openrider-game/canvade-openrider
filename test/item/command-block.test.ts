@@ -151,9 +151,9 @@ describe('Command blocks', () => {
         const player = track.playerRunner;
         trigger(command, player);
 
-        track.time += 25;
+        track.playerRunner.time += 25;
         expect(command.offsetFor(player)?.y).toBeCloseTo(-150);
-        track.time += 50;
+        track.playerRunner.time += 50;
         expect(command.offsetFor(player)?.y).toBe(-300);
 
         // Moved up by 300: the bottom of the wall is now at y -250, far from its own cells
@@ -474,7 +474,7 @@ describe('Command block bindings and rendering', () => {
 
         // Moved down by half its way, then out of the view
         trigger(command, track.playerRunner);
-        track.time += 25;
+        track.playerRunner.time += 25;
         calls.length = 0;
         track.commands.render(context, layer(), false);
         const [, , y] = vi.mocked(context.drawImage).mock.lastCall as unknown as number[];

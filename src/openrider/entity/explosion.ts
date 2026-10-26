@@ -18,7 +18,7 @@ export class Explosion extends Entity {
      * Creates the blast and the shards of the bike.
      *
      * @param bike - Clone of the exploded bike.
-     * @param time - Track time of the explosion, in physics ticks.
+     * @param time - Time of the run of the exploded bike, in physics ticks.
      */
     public constructor(
         pos: Vector,

@@ -44,7 +44,7 @@ export abstract class GhostParser {
      *
      * @param time - Time of the run, in physics ticks: the current track time by default.
      */
-    public static generate(bikeRunner: BikeRunner, time = bikeRunner.track.time): string {
+    public static generate(bikeRunner: BikeRunner, time = bikeRunner.time): string {
         const ghostKeys: Array<string | number> = [];
 
         bikeRunner.instance?.keyLog.forEach((times) => {

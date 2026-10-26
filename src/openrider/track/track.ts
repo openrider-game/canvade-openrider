@@ -72,8 +72,6 @@ export class Track extends World {
     public readonly history = new HistoryManager();
 
     public paused = false;
-    /** Elapsed physics ticks since the start of the run. */
-    public time = 0;
 
     public readonly playerRunner: PlayerRunner;
     public ghostRunners = new Map<number, GhostRunner>();
@@ -104,6 +102,14 @@ export class Track extends World {
         this.pixelRatio = Display.pixelRatio;
 
         this.playerRunner = new PlayerRunner(this, BMX);
+    }
+
+    /**
+     * Elapsed physics ticks since the start of the run of the player: the time shown, and the one
+     * of the view commands. Every runner counts its own (`BikeRunner.time`).
+     */
+    public get time(): number {
+        return this.playerRunner.time;
     }
 
     /** Width of the canvas, in pixels, 0 before the first render. */

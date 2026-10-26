@@ -85,7 +85,7 @@ describe('Render cell states', () => {
 describe('Debug stats', () => {
     test('describe the frame, the view, the track and the player', () => {
         track.pause(true);
-        track.time = 120;
+        track.playerRunner.time = 120;
         track.playerRunner.controls.upPressed = true;
         track.playerRunner.controls.leftPressed = true;
         track.playerRunner.modifiersMask = MODIFIERS.SLIPPERY | MODIFIERS.ZERO_GRAVITY;

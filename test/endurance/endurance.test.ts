@@ -60,7 +60,6 @@ function moveBike(course: EnduranceCourse, runner: BikeRunner, x: number): void 
 function tickRace(track: Track): void {
     track.playerRunner.fixedUpdate();
     track.ghostRunners.forEach((ghost) => ghost.fixedUpdate());
-    track.time++;
 }
 
 /** Rides holding the up key until the rider falls, returning the run of the player. */

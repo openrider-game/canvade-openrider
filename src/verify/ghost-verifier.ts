@@ -61,14 +61,12 @@ export abstract class GhostVerifier {
         const ghost = new GhostRunner(track, ghostString, false);
         ghost.createBike();
         ghost.startFrom();
-        track.time = 0;
 
         // Runs the ticks as the play states do, until the ghost reaches every target
-        while (!ghost.done && track.time < time) {
+        while (!ghost.done && ghost.time < time) {
             ghost.fixedUpdate();
-            track.time++;
 
-            if (track.time % 1000 === 0 && Date.now() > limits.deadline) {
+            if (ghost.time % 1000 === 0 && Date.now() > limits.deadline) {
                 return GhostVerifier.refuse('The verification took too long');
             }
         }
@@ -76,8 +74,8 @@ export abstract class GhostVerifier {
         if (!ghost.done) {
             return GhostVerifier.refuse('The ghost does not reach every target');
         }
-        if (track.time !== time) {
-            return GhostVerifier.refuse(`The ghost finishes at another time: tick ${track.time}`);
+        if (ghost.time !== time) {
+            return GhostVerifier.refuse(`The ghost finishes at another time: tick ${ghost.time}`);
         }
 
         return { valid: true, reason: '' };
@@ -116,17 +114,15 @@ export abstract class GhostVerifier {
         ghost.createBike();
         ghost.startFrom();
         track.ghostRunners.set(0, ghost);
-        track.time = 0;
 
         // Runs the ticks as the endurance state does: the physics, then the course
         let rider = null;
-        while (!rider?.over && track.time <= time) {
+        while (!rider?.over && ghost.time <= time) {
             ghost.fixedUpdate();
-            track.time++;
             course.step();
             rider = course.riderOf(ghost);
 
-            if (track.time % 1000 === 0 && Date.now() > limits.deadline) {
+            if (ghost.time % 1000 === 0 && Date.now() > limits.deadline) {
                 return { ...GhostVerifier.refuse('The verification took too long'), distance: 0 };
             }
         }
