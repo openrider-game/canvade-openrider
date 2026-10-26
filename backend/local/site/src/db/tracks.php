@@ -21,7 +21,8 @@ function site_find_tracks(PDO $db, ?int $userId = null): array
 {
     $statement = $db->prepare(
         'SELECT t."ID", t."CODE", t."THUMBNAIL", d."TITLE", d."VERIFIERID",'
-        . ' u."NAME" AS "AUTHOR", COUNT(g."ID") AS "GHOSTS", MIN(g."TIME") AS "BEST"'
+        . ' u."NAME" AS "AUTHOR", COUNT(g."ID") AS "GHOSTS", MIN(g."TIME") AS "BEST", '
+        . site_thumbs_column('track', 't."ID"')
         . ' FROM "TRACKS" t'
         . ' LEFT JOIN "LOCAL_TRACK_DETAILS" d ON d."TRACKID" = t."ID"'
         . ' LEFT JOIN "LOCAL_USERS" u ON u."ID" = d."USERID"'
@@ -44,7 +45,8 @@ function site_find_track(PDO $db, int $trackId): ?array
 {
     $statement = $db->prepare(
         'SELECT t."ID", t."CODE", d."TITLE", d."DESCRIPTION", d."USERID", u."NAME" AS "AUTHOR",'
-        . ' d."VERIFIERID", v."NAME" AS "VERIFIER", d."VERIFICATIONGHOSTID"'
+        . ' d."VERIFIERID", v."NAME" AS "VERIFIER", d."VERIFICATIONGHOSTID", '
+        . site_thumbs_column('track', 't."ID"')
         . ' FROM "TRACKS" t'
         . ' LEFT JOIN "LOCAL_TRACK_DETAILS" d ON d."TRACKID" = t."ID"'
         . ' LEFT JOIN "LOCAL_USERS" u ON u."ID" = d."USERID"'
@@ -67,7 +69,7 @@ function site_find_ghosts(PDO $db, int $trackId): array
 {
     $statement = $db->prepare(
         'SELECT g."ID", g."GHOSTSTRING", g."TIME", o."USERID", u."NAME" AS "RIDER",'
-        . ' r."REASONS" AS "REVIEW"'
+        . ' r."REASONS" AS "REVIEW", ' . site_thumbs_column('ghost', 'g."ID"')
         . ' FROM "GHOSTS" g'
         . ' LEFT JOIN "LOCAL_GHOST_OWNERS" o ON o."GHOSTID" = g."ID"'
         . ' LEFT JOIN "LOCAL_USERS" u ON u."ID" = o."USERID"'
@@ -134,7 +136,8 @@ function site_find_user_ghosts(PDO $db, int $userId, bool $withReviews = false):
         'SELECT g."ID", g."TRACKID", g."TIME", d."TITLE", r."REASONS" AS "REVIEW",'
         . ' (SELECT COUNT(*) FROM "GHOSTS" f WHERE f."TRACKID" = g."TRACKID"'
         . ' AND f."ID" NOT IN (SELECT "GHOSTID" FROM "LOCAL_GHOST_REVIEWS")'
-        . ' AND (f."TIME" < g."TIME" OR (f."TIME" = g."TIME" AND f."ID" < g."ID"))) + 1 AS "RANK"'
+        . ' AND (f."TIME" < g."TIME" OR (f."TIME" = g."TIME" AND f."ID" < g."ID"))) + 1 AS "RANK",'
+        . ' ' . site_thumbs_column('ghost', 'g."ID"')
         . ' FROM "GHOSTS" g'
         . ' JOIN "LOCAL_GHOST_OWNERS" o ON o."GHOSTID" = g."ID"'
         . ' LEFT JOIN "LOCAL_TRACK_DETAILS" d ON d."TRACKID" = g."TRACKID"'
@@ -242,8 +245,9 @@ function site_approve_ghost(PDO $db, int $ghostId): void
 function site_find_ghost(PDO $db, int $ghostId): ?array
 {
     $statement = $db->prepare(
-        'SELECT g."ID", g."TRACKID", o."USERID" FROM "GHOSTS" g'
+        'SELECT g."ID", g."TRACKID", o."USERID", r."REASONS" AS "REVIEW" FROM "GHOSTS" g'
         . ' LEFT JOIN "LOCAL_GHOST_OWNERS" o ON o."GHOSTID" = g."ID"'
+        . ' LEFT JOIN "LOCAL_GHOST_REVIEWS" r ON r."GHOSTID" = g."ID"'
         . ' WHERE g."ID" = :id'
     );
     $statement->execute(['id' => $ghostId]);

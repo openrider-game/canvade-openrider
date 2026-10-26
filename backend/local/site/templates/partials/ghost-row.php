@@ -8,6 +8,7 @@
  * @var string      $name   Name of the rider.
  * @var string      $rank   Rank shown, empty for the other ghosts of a rider.
  * @var array|null  $user   Logged in account, adding the column of the delete buttons.
+ * @var array       $thumbed Ghosts the account thumbs up, by id, see site_find_thumbed().
  * @var string|null $group  Rider whose other ghosts this row lists, folded with them; null for
  *                          the best ghost of a rider.
  * @var array       $more   For the best ghost of a rider, the id of their group and their number
@@ -42,6 +43,15 @@ $verifying = (int) $track['VERIFICATIONGHOSTID'] === (int) $ghost['ID'];
     </td>
     <td><?= h(site_ghost_bike($ghost['GHOSTSTRING'])) ?></td>
     <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
+    <td>
+        <?php site_render('partials/thumbs', [
+            'kind' => 'ghosts',
+            'id' => (int) $ghost['ID'],
+            'count' => (int) $ghost['THUMBS'],
+            'thumbed' => isset($thumbed[(int) $ghost['ID']]),
+            'can' => site_can_thumb($user, $ghost),
+        ]); ?>
+    </td>
     <?php if ($user !== null): ?>
         <td>
             <?php // The verifying run is the proof of the track: admins only ?>

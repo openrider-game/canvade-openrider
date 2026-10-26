@@ -7,11 +7,14 @@
  * @var array[] $tracks Tracks of the account, newest first, see site_find_tracks().
  * @var array[] $ghosts Ghosts of the account, newest first, see site_find_user_ghosts(): those
  *                      waiting for an admin only for the account itself and the admins.
+ * @var array   $thumbed Ghosts the account looking thumbs up, by id, see site_find_thumbed().
  */
+
+$viewer = site_user();
 ?>
 <h1><?= h($name) ?></h1>
 
-<?php if (site_can_delete(site_user(), $userId)): ?>
+<?php if (site_can_delete($viewer, $userId)): ?>
     <?php site_render('partials/delete-form', [
         'action' => '/users/' . rawurlencode($name) . '/delete/',
         'label' => 'Delete the account',
@@ -40,13 +43,18 @@
                 <th scope="col">Track</th>
                 <th scope="col">Rank</th>
                 <th scope="col" class="leaderboard__time">Time</th>
+                <th scope="col">Thumbs up</th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ($ghosts as $ghost): ?>
                 <tr>
                     <td>
-                        <a href="/tracks/<?= (int) $ghost['TRACKID'] ?>/">
+                        <?php // The track racing the ghost from the start, as a shared link ?>
+                        <?php
+                        $race = '/tracks/' . (int) $ghost['TRACKID'] . '/?ghosts=' . (int) $ghost['ID'];
+                        ?>
+                        <a href="<?= h($race) ?>">
                             <?= h(site_track_title(['ID' => $ghost['TRACKID']] + $ghost)) ?>
                         </a>
                     </td>
@@ -56,6 +64,16 @@
                         <td><span class="badge badge--review">checked by an admin</span></td>
                     <?php endif; ?>
                     <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
+                    <td>
+                        <?php site_render('partials/thumbs', [
+                            'kind' => 'ghosts',
+                            'id' => (int) $ghost['ID'],
+                            'count' => (int) $ghost['THUMBS'],
+                            'thumbed' => isset($thumbed[(int) $ghost['ID']]),
+                            // The ghosts of the page are all of its account
+                            'can' => site_can_thumb($viewer, ['USERID' => $userId] + $ghost),
+                        ]); ?>
+                    </td>
                 </tr>
             <?php endforeach; ?>
         </tbody>

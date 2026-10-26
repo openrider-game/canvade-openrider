@@ -20,6 +20,7 @@
                 &middot; by <?= h($track['AUTHOR']) ?>
             <?php endif; ?>
             &middot; <?= site_ghost_count((int) $track['GHOSTS']) ?>
+            &middot; <?= site_thumb_count((int) $track['THUMBS']) ?>
             <?php if ($track['VERIFIERID'] === null): ?>
                 &middot; unverified
             <?php endif; ?>

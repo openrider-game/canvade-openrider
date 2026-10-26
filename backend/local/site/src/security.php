@@ -41,6 +41,8 @@ const SITE_RATE_LIMITS = [
     // Uploads of tracks and drafts, and ghosts, per account
     'upload' => [30, 3600],
     'ghost' => [60, 3600],
+    // Thumbs up given or taken back, per account
+    'thumb' => [120, 3600],
     // Failed logins, per address and per user name
     'login-address' => [20, 900],
     'login-name' => [10, 900],

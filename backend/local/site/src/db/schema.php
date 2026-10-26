@@ -14,6 +14,7 @@
  *   backend until they are published. An upload is either a track code, published to `TRACKS`
  *   with its title and description, or an editor file, which cannot be raced and is saved as a
  *   draft once named;
+ * - `LOCAL_THUMBS`: the thumbs up of the accounts on the tracks and the ghosts;
  * - `LOCAL_RATE_EVENTS`: the recent actions counted by the rate limits, see security.php;
  * - `LOCAL_ENDURANCE_RUNS`: the best endurance run of each account on each track of the day, a
  *   seed on a version of the generator of the game,
@@ -79,6 +80,14 @@ function site_create_tables(PDO $db): void
     $db->exec(
         'CREATE TABLE IF NOT EXISTS "LOCAL_GHOST_REVIEWS" ('
         . '"GHOSTID" INTEGER PRIMARY KEY REFERENCES "GHOSTS" ("ID"), "REASONS" TEXT NOT NULL)'
+    );
+
+    // The thumbs up of the accounts, one per account on each track or ghost
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_THUMBS" ('
+        . '"KIND" TEXT NOT NULL, "SUBJECTID" INTEGER NOT NULL,'
+        . ' "USERID" INTEGER NOT NULL REFERENCES "LOCAL_USERS" ("ID"),'
+        . ' PRIMARY KEY ("KIND", "SUBJECTID", "USERID"))'
     );
 
     // The best endurance run of each account on each track of the day, by seed (up to 2^32 - 1,

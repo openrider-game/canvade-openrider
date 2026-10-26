@@ -16,6 +16,8 @@
  * @var array[]  $linked     Ghosts of a shared link, racing from the start, see
  *                           site_linked_ghosts().
  * @var int      $missing    Number of ghosts of the link that are not on the track.
+ * @var bool     $trackThumbed Whether the account thumbs up the track.
+ * @var array    $thumbed    Ghosts the account thumbs up, by id, see site_find_thumbed().
  */
 
 $user = site_user();
@@ -30,6 +32,16 @@ $user = site_user();
         </span>
     <?php endif; ?>
 </h1>
+
+<div class="track-thumbs">
+    <?php site_render('partials/thumbs', [
+        'kind' => 'tracks',
+        'id' => (int) $track['ID'],
+        'count' => (int) $track['THUMBS'],
+        'thumbed' => $trackThumbed,
+        'can' => site_can_thumb($user, $track),
+    ]); ?>
+</div>
 
 <?php if ($track['DESCRIPTION'] !== null): ?>
     <p class="track-description"><?= nl2br(h($track['DESCRIPTION'])) ?></p>
@@ -131,6 +143,7 @@ $challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRid
                             'name' => $rider['NAME'],
                             'rank' => (string) ($rank + 1),
                             'user' => $user,
+                            'thumbed' => $thumbed,
                             'group' => null,
                             'more' => $others ? ['group' => $group, 'count' => count($others)] : [],
                         ]); ?>
@@ -141,6 +154,7 @@ $challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRid
                                 'name' => $rider['NAME'],
                                 'rank' => '',
                                 'user' => $user,
+                                'thumbed' => $thumbed,
                                 'group' => $group,
                                 'more' => [],
                             ]); ?>
@@ -187,6 +201,7 @@ $challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRid
                             'name' => $user['NAME'],
                             'rank' => $ranked ? (string) $myRank : '',
                             'user' => $user,
+                            'thumbed' => $thumbed,
                             'group' => null,
                             'more' => [],
                         ]); ?>

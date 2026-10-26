@@ -414,6 +414,26 @@ textarea.field__input {
     margin: 0 4px 0 0;
 }
 
+/* Thumbs up: a button pressed when given, or only their number for the accounts that cannot */
+
+.thumbs {
+    display: inline-block;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.thumbs__button {
+    padding: 2px 8px;
+}
+
+.thumbs--count {
+    padding: 2px 0;
+}
+
+.track-thumbs {
+    margin: -8px 0 16px;
+}
+
 /* Main action of a page, e.g. challenging friends to race */
 .button--accent {
     background: var(--color-toggled);

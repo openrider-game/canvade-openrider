@@ -51,6 +51,8 @@ function site_delete_user(PDO $db, int $userId): void
         site_delete_ghosts_by_id($db, $ghostIds);
         $db->prepare('DELETE FROM "LOCAL_ENDURANCE_RUNS" WHERE "USERID" = :userId')
             ->execute($params);
+        // The thumbs up it gave
+        $db->prepare('DELETE FROM "LOCAL_THUMBS" WHERE "USERID" = :userId')->execute($params);
         // The tracks it was to verify go back to their authors, without its runs
         $db->prepare(
             'UPDATE "LOCAL_UPLOADS" SET "VERIFIERID" = "USERID", "VERIFICATIONGHOST" = NULL,'
@@ -85,6 +87,7 @@ function site_delete_ghosts_by_id(PDO $db, array $ghostIds): void
     $owners = $db->prepare('DELETE FROM "LOCAL_GHOST_OWNERS" WHERE "GHOSTID" = :id');
     $ghosts = $db->prepare('DELETE FROM "GHOSTS" WHERE "ID" = :id');
     foreach ($ghostIds as $ghostId) {
+        site_delete_thumbs($db, 'ghost', (int) $ghostId);
         $reviews->execute(['id' => $ghostId]);
         $owners->execute(['id' => $ghostId]);
         $ghosts->execute(['id' => $ghostId]);
@@ -106,6 +109,7 @@ function site_delete_tracks_by_id(PDO $db, array $trackIds): void
             $db,
             site_select_ids($db, 'SELECT "ID" FROM "GHOSTS" WHERE "TRACKID" = :id', $params)
         );
+        site_delete_thumbs($db, 'track', (int) $trackId);
         $details->execute($params);
         $tracks->execute($params);
     }

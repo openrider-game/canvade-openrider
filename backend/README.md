@@ -86,10 +86,12 @@ an account.
   racing now ("Can you beat these ghosts on “First ride”?", `/tracks/<id>/?ghosts=12,15`; the
   share sheet on touch screens, else copied): the page names them and gives the game the ones it
   can race (`data-ghosts`), 10 at most, those waiting for an admin for their account and the
-  admins only;
+  admins only. The track and each ghost show their thumbs up (see "Thumbs up");
 - `/users/` lists the accounts by name, 50 a page, with the number of their tracks and ghosts,
   and searches them by name (`?q=`), whatever its case; the header links to it;
-- `/users/<name>/` lists the tracks published by an account, and its ghosts with their rank;
+- `/users/<name>/` lists the tracks published by an account, and its ghosts with their rank,
+  each with its thumbs up; a ghost links to its track racing it from the start
+  (`/tracks/<id>/?ghosts=<ghost>`);
 - `/reviews/` lists the ghosts, the verifying runs and the endurance runs waiting for an admin,
   for the admins only (see "Reviews");
 - `/register/` and `/login/` create an account (a user name of 3 to 20 letters, digits, `_` or
@@ -131,8 +133,9 @@ The other requests reach the backend endpoints and the icons under the page. The
 and `ghostupload` endpoints of `backend/db/` are refused, which would bypass the accounts.
 
 The backend stores no account, title nor description: the site keeps them in its own tables
-(`LOCAL_USERS`, `LOCAL_TRACK_DETAILS`, `LOCAL_GHOST_OWNERS`, `LOCAL_GHOST_REVIEWS` and
-`LOCAL_ENDURANCE_RUNS`), adding the missing ones and their missing columns to an existing database.
+(`LOCAL_USERS`, `LOCAL_TRACK_DETAILS`, `LOCAL_GHOST_OWNERS`, `LOCAL_GHOST_REVIEWS`,
+`LOCAL_THUMBS` and `LOCAL_ENDURANCE_RUNS`), adding the missing ones and their missing columns to
+an existing database.
 The tracks and ghosts uploaded without the site or before the accounts have no author: the tracks
 are named after their id when they have no title, and the ghosts after the name of their ghost
 string. The first account created takes over the drafts made before the accounts. A database created
@@ -155,10 +158,10 @@ before the titles holds none: delete `openrider.db` to start over with the sampl
   versions), an account keeping one run on each seed and version.
 - Uploads: a track code or editor file holds 16 MB at most (with `post_max_size` large enough in
   the PHP configuration), and its thumbnail must be a 500x300 PNG.
-- Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads and 60 ghosts or endurance runs an hour per
-  account, 5 new accounts
-  an hour per address, and 20 failed logins per address and 10 per user name over 15 minutes,
-  after which even the right password is refused for a while.
+- Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads, 60 ghosts or endurance runs and 120 thumbs up
+  given or taken back an hour per account, 5 new accounts an hour per address, and 20 failed
+  logins per address and 10 per user name over 15 minutes, after which even the right password
+  is refused for a while.
 
 Not covered: captchas, changing a password, and the moderation of the titles and descriptions
 before they are published.
@@ -218,6 +221,17 @@ leaderboard, listed for the admins on the page of its track to race it. On `/rev
 watch them and approve or reject them: a rejected ghost or endurance run is deleted, and a rejected
 verifying run dropped, its verifier saving another one. These signs catch the programs playing fast
 or precisely, not the ones imitating a human: the reviews are the safeguard.
+
+#### Thumbs up
+
+An account logged in gives a thumb up to the published tracks and the ghosts of the others, and
+takes it back with the same button: `POST /tracks/<id>/thumb/` or `/ghosts/<id>/thumb/`, with
+the CSRF token of the session. The button is a form opening its page again, sent in the
+background by `public/js/thumbs.js`, which asks for JSON (`{ "THUMBS", "THUMBED" }`). The
+accounts see the number of thumbs of their own tracks and ghosts, and everyone the number of
+the others, without a button; the ghosts waiting for an admin cannot get any. The thumbs
+(`LOCAL_THUMBS`, one per account on each track or ghost) leave with their track, their ghost or
+the account giving them.
 
 #### Moderation
 

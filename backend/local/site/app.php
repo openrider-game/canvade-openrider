@@ -51,6 +51,7 @@ require_once __DIR__ . '/src/controllers/account.php';
 require_once __DIR__ . '/src/controllers/editor.php';
 require_once __DIR__ . '/src/controllers/endurance.php';
 require_once __DIR__ . '/src/controllers/reviews.php';
+require_once __DIR__ . '/src/controllers/thumbs.php';
 require_once __DIR__ . '/src/controllers/tracks.php';
 require_once __DIR__ . '/src/controllers/users.php';
 require_once __DIR__ . '/src/controllers/verification.php';
@@ -128,6 +129,8 @@ function site_handle(string $path): bool
         site_drafts_page();
     } elseif (preg_match('#^/drafts/([0-9]+)/?$#', $path, $match)) {
         site_draft_page((int) $match[1]);
+    } elseif (preg_match('#^/(tracks|ghosts)/([0-9]+)/thumb/$#', $path, $match)) {
+        site_thumb($match[1], (int) $match[2]);
     } elseif (preg_match('#^/(tracks|ghosts|drafts|users)/([^/]+)/delete/$#', $path, $match)) {
         site_delete($match[1], rawurldecode($match[2]));
     } elseif (preg_match('#^/verify/([0-9]+)/?$#', $path, $match)) {

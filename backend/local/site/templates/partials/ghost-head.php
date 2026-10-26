@@ -11,6 +11,7 @@
         <th scope="col">Rider</th>
         <th scope="col">Bike</th>
         <th scope="col" class="leaderboard__time">Time</th>
+        <th scope="col">Thumbs up</th>
         <?php if ($user !== null): ?>
             <th scope="col"><span class="visually-hidden">Actions</span></th>
         <?php endif; ?>

@@ -33,7 +33,7 @@ function site_users_page(): void
     ], ['users.css']);
 }
 
-/** The published tracks and the ghosts of an account. */
+/** The published tracks and the ghosts of an account, with their thumbs up. */
 function site_user_page(string $name): void
 {
     $db = site_db();
@@ -43,12 +43,21 @@ function site_user_page(string $name): void
         return;
     }
     $userId = (int) $user['ID'];
+    $viewer = site_user();
+    // With the ghosts waiting for an admin for the account itself and the admins
+    $ghosts = site_find_user_ghosts($db, $userId, site_can_delete($viewer, $userId));
 
     site_render_page('user', $user['NAME'], [
         'userId' => $userId,
         'name' => $user['NAME'],
         'tracks' => site_find_tracks($db, $userId),
-        // With the ghosts waiting for an admin for the account itself and the admins
-        'ghosts' => site_find_user_ghosts($db, $userId, site_can_delete(site_user(), $userId)),
-    ]);
+        'ghosts' => $ghosts,
+        // What the account looking thumbed up, its buttons pressed
+        'thumbed' => $viewer === null ? [] : site_find_thumbed(
+            $db,
+            'ghost',
+            $viewer['ID'],
+            array_map('intval', array_column($ghosts, 'ID'))
+        ),
+    ], [], ['/assets/js/thumbs.js']);
 }

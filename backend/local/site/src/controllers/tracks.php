@@ -38,6 +38,13 @@ function site_track_page(int $trackId): void
     ));
     $myRank = array_search('user:' . ($viewer['ID'] ?? ''), array_keys($riders), true);
     [$linked, $missing] = site_linked_ghosts($ghosts, $viewer);
+    // What the account thumbed up, its buttons pressed
+    $thumbed = $viewer === null ? [] : site_find_thumbed(
+        $db,
+        'ghost',
+        $viewer['ID'],
+        array_map('intval', array_column($ghosts, 'ID'))
+    );
 
     site_render_page(
         'track',
@@ -51,16 +58,20 @@ function site_track_page(int $trackId): void
             'myRank' => $myRank === false ? null : $myRank + 1,
             'linked' => $linked,
             'missing' => $missing,
+            'trackThumbed' => $viewer !== null
+                && site_find_thumbed($db, 'track', $viewer['ID'], [$trackId]),
+            'thumbed' => $thumbed,
         ],
         ['track.css', 'game.css'],
         // The leaderboard drives the game through its page API, set up by the game script, and
         // shows its tabs and the other ghosts of its riders with its own script; the race is
-        // shared with its ghosts
+        // shared with its ghosts, and its thumbs up given without leaving the page
         [
             '/dist/main.js',
             '/assets/js/leaderboard.js',
             '/assets/js/leaderboard-tabs.js',
             '/assets/js/share.js',
+            '/assets/js/thumbs.js',
         ],
     );
 }
