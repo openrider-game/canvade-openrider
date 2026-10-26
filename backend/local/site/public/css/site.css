@@ -32,7 +32,7 @@
  */
 
 @media (prefers-color-scheme: dark) {
-    :root:not([data-theme='light']) {
+    :root:not([data-theme="light"]) {
         color-scheme: dark;
         --color-text: #eee;
         --color-muted: #aaa;
@@ -47,7 +47,7 @@
     }
 }
 
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
     color-scheme: dark;
     --color-text: #eee;
     --color-muted: #aaa;
@@ -114,8 +114,8 @@ a {
     background: var(--color-active);
 }
 
-.button[aria-pressed='true'],
-.button[aria-current='page'] {
+.button[aria-pressed="true"],
+.button[aria-current="page"] {
     background: var(--color-toggled);
     color: var(--color-toggled-text);
 }
@@ -165,7 +165,7 @@ a {
     background: var(--color-hover);
 }
 
-.site-header__link[aria-current='page'] {
+.site-header__link[aria-current="page"] {
     font-weight: bold;
     text-decoration: underline;
     text-decoration-thickness: 2px;
@@ -213,11 +213,11 @@ a {
 }
 
 .account-menu__toggle::after {
-    content: ' \25BE';
+    content: " \25BE";
 }
 
 .account-menu[open] .account-menu__toggle::after {
-    content: ' \25B4';
+    content: " \25B4";
 }
 
 .account-menu__panel {
@@ -444,8 +444,8 @@ a {
     outline-offset: 2px;
 }
 
-.tabs__tab[aria-selected='true'],
-.tabs__tab[aria-current='page'] {
+.tabs__tab[aria-selected="true"],
+.tabs__tab[aria-current="page"] {
     border-bottom-color: var(--color-background);
     color: var(--color-text);
     font-weight: bold;
@@ -495,7 +495,7 @@ a {
     outline-offset: 2px;
 }
 
-.field__input[aria-invalid='true'] {
+.field__input[aria-invalid="true"] {
     border-color: var(--color-error);
 }
 
@@ -636,4 +636,26 @@ textarea.field__input {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+/* Track and endurance pages: the bar of the live races over the game, and the results of the
+   session, a tab of the leaderboard of a track, under the game in endurance */
+
+.live-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    max-width: var(--content-width);
+    margin: 0 auto 12px;
+}
+
+section.live-results {
+    max-width: var(--content-width);
+    margin: 24px auto 0;
+}
+
+.live-results .leaderboard__mine td {
+    background: var(--color-surface);
+    font-weight: bold;
 }

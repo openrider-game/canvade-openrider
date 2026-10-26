@@ -1,18 +1,20 @@
 import { spawn } from 'node:child_process';
 
-/** Run of the player finishing a track, as given to the ghost verifier. */
-export interface VerifyInput {
-    trackCode: string;
-    ghostString: string;
-    /** Time of the run, in physics ticks. */
-    time: number;
-}
+/**
+ * Run of the player finishing a track, as given to the ghost verifier: on a published track, or
+ * on an endurance track until the rider fell.
+ */
+export type VerifyInput = { ghostString: string; time: number } & (
+    { trackCode: string } | { seed: number; version: number }
+);
 
 /** Verdict of the ghost verifier. */
 export interface Verdict {
     valid: boolean;
     /** Why the run is refused, empty when it is valid. */
     reason: string;
+    /** Distance of an endurance run, in meters. */
+    distance?: number;
 }
 
 /**
@@ -48,7 +50,13 @@ export function createVerifier(
                 try {
                     const verdict = JSON.parse(output) as Partial<Verdict>;
                     if (status === 0 && typeof verdict.valid === 'boolean') {
-                        resolve({ valid: verdict.valid, reason: String(verdict.reason ?? '') });
+                        resolve({
+                            valid: verdict.valid,
+                            reason: String(verdict.reason ?? ''),
+                            ...(typeof verdict.distance === 'number'
+                                ? { distance: verdict.distance }
+                                : {}),
+                        });
                         return;
                     }
                 } catch {

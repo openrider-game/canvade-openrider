@@ -10,8 +10,23 @@ import {
     ServerMessage,
 } from '../../src/openrider/live/protocol';
 import { RunLog } from '../../src/openrider/live/run-log';
-import { LiveToken, readToken } from './token';
+import { LiveToken, LiveTrack, readToken, trackKey } from './token';
 import type { Verdict, VerifyInput } from './verifier';
+
+/** Best run of a rider: its time in ticks, and its distance in whole meters in endurance. */
+interface BestRun {
+    time: number;
+    distance: number | null;
+}
+
+/** Whether a run beats another: further in whole meters, else as far and faster. */
+function beats(run: BestRun, best: BestRun | null): boolean {
+    if (best === null) {
+        return true;
+    }
+    const further = (run.distance ?? 0) - (best.distance ?? 0);
+    return further > 0 || (further === 0 && run.time < best.time);
+}
 
 /** Limits of the server, against riders keeping it busy. */
 export interface LiveLimits {
@@ -69,16 +84,17 @@ interface Rider {
     /** Connection of the rider, null once they left. */
     socket: WebSocket | null;
     run: RunLog;
-    best: number | null;
+    best: BestRun | null;
     /** Whether a run of the rider is being verified. */
     verifying: boolean;
 }
 
 interface Session {
     id: string;
-    trackId: number;
+    /** Track of the session: a published one, or an endurance track (see {@link LiveTrack}). */
+    track: LiveTrack;
     riders: Map<string, Rider>;
-    /** Code of the track, downloaded for the first run to verify. */
+    /** Code of the published track, downloaded for the first run to verify. */
     trackCode: Promise<string> | null;
     /** Time the last rider left at, null while riders are connected. */
     emptySince: number | null;
@@ -202,7 +218,7 @@ export class LiveServer {
             socket.close(LIVE_CLOSE_CODES.SERVER_FULL, 'Too many live sessions, try again later');
             return;
         }
-        if (session.trackId !== token.track) {
+        if (trackKey(session.track) !== trackKey(token.track)) {
             socket.close(LIVE_CLOSE_CODES.INVALID_TOKEN, 'The session races another track');
             return;
         }
@@ -269,7 +285,7 @@ export class LiveServer {
             }
             session = {
                 id: token.session,
-                trackId: token.track,
+                track: token.track,
                 riders: new Map(),
                 trackCode: null,
                 emptySince: null,
@@ -338,7 +354,10 @@ export class LiveServer {
         }
     }
 
-    /** Verifies a run finishing the track, keeping it as the best time of the rider if it is. */
+    /**
+     * Verifies a run finishing the track, or falling on an endurance track, keeping it as the best
+     * run of the rider if it is.
+     */
     private async finish(
         session: Session,
         rider: Rider,
@@ -358,9 +377,11 @@ export class LiveServer {
         rider.verifying = true;
         let verdict: Verdict;
         try {
-            session.trackCode ??= this.options.loadTrackCode(session.trackId);
-            const trackCode = await session.trackCode;
-            verdict = await this.options.verify({ trackCode, ghostString, time });
+            verdict = await this.options.verify({
+                ghostString,
+                time,
+                ...(await this.trackOf(session)),
+            });
         } catch (error) {
             // Downloaded again for the next run
             session.trackCode = null;
@@ -374,11 +395,31 @@ export class LiveServer {
             this.send(socket, { type: 'refused', reason: verdict.reason });
             return;
         }
-        this.send(socket, { type: 'finished', time });
-        if (rider.best === null || time < rider.best) {
-            rider.best = time;
+        const run: BestRun = {
+            time,
+            distance: verdict.distance === undefined ? null : Math.floor(verdict.distance),
+        };
+        this.send(socket, {
+            type: 'finished',
+            time,
+            ...(run.distance === null ? {} : { distance: run.distance }),
+        });
+        if (beats(run, rider.best)) {
+            rider.best = run;
             this.broadcastResults(session);
         }
+    }
+
+    /** What the verifier replays the runs of a session on: a track code, or a seed. */
+    private async trackOf(
+        session: Session,
+    ): Promise<{ trackCode: string } | { seed: number; version: number }> {
+        const track = session.track;
+        if (typeof track !== 'number') {
+            return { seed: track.seed, version: track.version };
+        }
+        session.trackCode ??= this.options.loadTrackCode(track);
+        return { trackCode: await session.trackCode };
     }
 
     private leave(session: Session, rider: Rider, socket: WebSocket): void {
@@ -419,15 +460,26 @@ export class LiveServer {
         return [...session.riders.values()].filter((rider) => rider.socket);
     }
 
-    /** Riders of the session, fastest first, then those without time, by name. */
+    /** Riders of the session, best run first (see {@link beats}), then those without, by name. */
     private results(session: Session): LiveResult[] {
         return [...session.riders.values()]
             .filter((rider) => rider.socket || rider.best !== null)
-            .map(({ id, name, best, socket }) => ({ id, name, best, riding: socket !== null }))
-            .sort(
-                (a, b) =>
-                    (a.best ?? Infinity) - (b.best ?? Infinity) || a.name.localeCompare(b.name),
-            );
+            .sort((a, b) => {
+                if (a.best && b.best && beats(a.best, b.best) !== beats(b.best, a.best)) {
+                    return beats(a.best, b.best) ? -1 : 1;
+                }
+                if (Boolean(a.best) !== Boolean(b.best)) {
+                    return a.best ? -1 : 1;
+                }
+                return a.name.localeCompare(b.name);
+            })
+            .map(({ id, name, best, socket }) => ({
+                id,
+                name,
+                best: best?.time ?? null,
+                distance: best?.distance ?? null,
+                riding: socket !== null,
+            }));
     }
 
     private broadcastResults(session: Session): void {

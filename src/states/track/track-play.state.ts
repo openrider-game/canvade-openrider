@@ -1,5 +1,6 @@
 import { GameUpdateEvent, Layer } from 'canvade';
 import { LiveSession } from '../../openrider/live/live-session';
+import { GhostParser } from '../../openrider/parser/ghost-parser';
 import { GhostService } from '../../openrider/request/ghost-service';
 import { CAMERA_FOLLOW_FACTOR } from '../../openrider/track/track.constants';
 import { Zoom } from '../../openrider/track/zoom';
@@ -73,7 +74,10 @@ export abstract class TrackPlayState extends TrackViewState {
         if (track.playerRunner.done) {
             track.playerRunner.done = false;
             // Verified for the results of the live session, before asking to save it
-            LiveSession.of(track)?.finish();
+            LiveSession.of(track)?.finish(
+                GhostParser.generate(track.playerRunner),
+                track.playerRunner.time,
+            );
             void GhostService.saveGhost(track);
         }
 

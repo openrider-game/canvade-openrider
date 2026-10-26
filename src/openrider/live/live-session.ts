@@ -1,5 +1,4 @@
 import { RemoteRunner } from '../bike/runner/remote-runner';
-import { GhostParser } from '../parser/ghost-parser';
 import type { Track } from '../track/track';
 import { ClientMessage, LIVE_CLOSE_CODES, LiveResult, LiveRider, ServerMessage } from './protocol';
 import { RunReporter } from './run-reporter';
@@ -28,8 +27,11 @@ export interface LiveState {
     you: LiveRider | null;
     /** Best times of the riders of the session, fastest first. */
     results: LiveResult[];
-    /** How the verification of the last run finishing the track went, null before any. */
-    finish: { time: number } | { reason: string } | null;
+    /**
+     * How the verification of the last run finishing the track went, null before any: its time,
+     * and its distance in whole meters on an endurance track.
+     */
+    finish: { time: number; distance?: number } | { reason: string } | null;
 }
 
 /** Sessions of the tracks, one per track. */
@@ -110,15 +112,16 @@ export class LiveSession {
         });
     }
 
-    /** Sends the run of the player that just finished the track, for the server to verify it. */
-    public finish(): void {
-        const runner = this.track.playerRunner;
+    /**
+     * Sends the run of the player that just finished the track, or fell on an endurance track,
+     * for the server to verify it.
+     *
+     * @param ghostString - Ghost string of the run.
+     * @param time - Time of the run, in physics ticks.
+     */
+    public finish(ghostString: string, time: number): void {
         if (this.isOpen()) {
-            this.send({
-                type: 'finish',
-                ghostString: GhostParser.generate(runner),
-                time: runner.time,
-            });
+            this.send({ type: 'finish', ghostString, time });
         }
     }
 
@@ -192,7 +195,12 @@ export class LiveSession {
                 this.update({ results: message.results });
                 return;
             case 'finished':
-                this.update({ finish: { time: message.time } });
+                this.update({
+                    finish: {
+                        time: message.time,
+                        ...(message.distance === undefined ? {} : { distance: message.distance }),
+                    },
+                });
                 return;
             case 'refused':
                 this.update({ finish: { reason: message.reason } });

@@ -14,7 +14,8 @@ const PANEL_WIDTH = 300,
 
 /**
  * Heads-up display of the endurance mode: time, distance, difficulty and status effects of the
- * run at the top left, the track and the records at the top right, and the result of the run in
+ * run at the top left, then the state of the live session if any; the track and the records at
+ * the top right, then the distance of each rider of the session; and the result of the run in
  * the middle once the rider fell.
  */
 export class EnduranceHudLayer extends TrackHudLayer {
@@ -61,6 +62,13 @@ export class EnduranceHudLayer extends TrackHudLayer {
                 LINE_HEIGHT * (index + 1),
             ),
         );
+
+        this.drawLiveRiders(ctx, width, right.length + 1, (runner) => {
+            const rider = course.riderOf(runner);
+            const distance = `${Math.floor(rider?.distance ?? 0)} m`;
+            return rider?.over ? `fell at ${distance}` : distance;
+        });
+        this.drawLiveState(ctx, left.length + 1);
 
         if (run.result) {
             this.drawResult(ctx, width, height, run.result);

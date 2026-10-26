@@ -19,10 +19,16 @@ export interface LiveRider {
     name: string;
 }
 
-/** Best time of a rider of the session, see {@link ServerMessage}. */
+/**
+ * Best run of a rider of the session, see {@link ServerMessage}: the fastest on a published
+ * track, the furthest on an endurance track, then the fastest at the same distance in whole
+ * meters.
+ */
 export interface LiveResult extends LiveRider {
-    /** Best time of the runs finishing the track, in physics ticks, null without one. */
+    /** Time of the best run, in physics ticks, null without one. */
     best: number | null;
+    /** Distance of the best run in whole meters on an endurance track, else null. */
+    distance: number | null;
     /** Whether the rider is still in the session. */
     riding: boolean;
 }
@@ -31,7 +37,10 @@ export interface LiveResult extends LiveRider {
 export type ClientMessage =
     /** Events of the run of the player, in order. */
     | { type: 'run'; events: RunEvent[] }
-    /** The player finished the track: the ghost string of the run and its time, in ticks. */
+    /**
+     * The player finished the track, or fell on an endurance track: the ghost string of the run
+     * and its time, in ticks.
+     */
     | { type: 'finish'; ghostString: string; time: number }
     /** Asks for the whole run of a rider again, e.g. when its replay no longer matches it. */
     | { type: 'resync'; rider: string };
@@ -53,8 +62,11 @@ export type ServerMessage =
     | { type: 'run'; rider: string; events: RunEvent[]; resync?: true }
     /** Results of the session, sent whenever they change. */
     | { type: 'results'; results: LiveResult[] }
-    /** The run of the player finishing the track was verified: its time, or why it was refused. */
-    | { type: 'finished'; time: number }
+    /**
+     * The run of the player finishing the track was verified: its time, and its distance in whole
+     * meters on an endurance track; or why it was refused.
+     */
+    | { type: 'finished'; time: number; distance?: number }
     | { type: 'refused'; reason: string };
 
 /**

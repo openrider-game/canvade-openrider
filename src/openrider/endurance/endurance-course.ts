@@ -65,10 +65,13 @@ const ITEMS: Record<SectionItemKind, (pos: Vector, rotation: number, track: Trac
  * Infinite track of the endurance mode, generated from a seed (see {@link TerrainGenerator}),
  * and the runs of its runners (see {@link EnduranceRider}).
  *
- * Only the sections around the bikes are on the track, as lines and items of its main layer:
- * {@link EnduranceCourse.step} adds the sections coming ahead of the furthest bike and removes the
- * ones left behind the slowest running one, every physics tick. A run on a seed always plays the
- * same, as the ghosts and the backend replay it, whatever the other runners do:
+ * Only the sections around the bikes are on the track, as lines and items of its main layer: the
+ * sections from behind the slowest running bike to ahead of the furthest one, following the
+ * player and the ghosts every physics tick ({@link EnduranceCourse.step}), and the riders of the
+ * live session after each of their own ticks. Each runner starts its runs at the start whenever
+ * it likes, its sections put back before its first tick, the others riding on. A run on a seed
+ * always plays the same, as the ghosts, the live sessions and the backend replay it, whatever
+ * the other runners do:
  *
  * - the sections are added long before a bike reaches them, and a bike never rides back to the
  *   sections taken off (see {@link BACK_LIMIT});
@@ -80,11 +83,8 @@ export class EnduranceCourse {
     private readonly generator: TerrainGenerator;
     /** Objects of the sections on the track, by section index. */
     private readonly loaded = new Map<number, TrackObject[]>();
-    /** Runs of the runners since the last restart. */
-    private readonly riders = new Map<BikeRunner, EnduranceRider>();
-    /** Positions the sections are loaded behind and ahead of, only growing until a restart. */
-    private behindX: number;
-    private aheadX: number;
+    /** Run of each runner, since it last started. */
+    private readonly riders = new WeakMap<BikeRunner, EnduranceRider>();
 
     /**
      * @param seed - Seed of the track.
@@ -102,10 +102,9 @@ export class EnduranceCourse {
             track.origin.y + GROUND_OFFSET,
             version,
         );
-        this.behindX = this.aheadX = track.origin.x;
         COURSES.set(track, this);
-        // The runners start over: the track too, before the first physics tick of their runs
-        track.onRestart = () => this.restart();
+        track.onRunnerStart = (runner) => this.start(runner);
+        track.onRemoteTick = (runner) => this.follow(runner);
         this.load();
     }
 
@@ -145,60 +144,72 @@ export class EnduranceCourse {
         return Math.max(...sections.map((section) => section.lowestY)) + FALL_DEPTH;
     }
 
-    /** Run of a runner since the last restart, null before its first physics tick. */
+    /** Run of a runner since it last started, null before. */
     public riderOf(runner: BikeRunner): EnduranceRider | null {
         return this.riders.get(runner) ?? null;
     }
 
     /**
-     * Follows the runs after a physics tick, the player then the ghosts, then puts on the track
-     * the sections coming ahead of the furthest bike, and takes off the ones behind every
-     * running bike.
+     * Follows the runs of the player and the ghosts after a physics tick, then puts on the track
+     * the sections coming ahead of the furthest bike, and takes off the ones out of reach.
      */
     public step(): void {
-        const runners = [this.track.playerRunner, ...this.track.ghostRunners.values()];
-        const riders: EnduranceRider[] = [];
-        for (const runner of runners) {
-            // A run starts with a bike, and goes on once the bike exploded, to end
-            let rider = this.riders.get(runner);
-            if (!rider && runner.instance) {
-                rider = new EnduranceRider(runner, this);
-                this.riders.set(runner, rider);
-            }
-            if (rider) {
-                rider.update();
-                riders.push(rider);
-            }
+        for (const runner of [this.track.playerRunner, ...this.track.ghostRunners.values()]) {
+            this.riderFor(runner)?.update();
         }
-
-        const running = riders.filter((rider) => !rider.over);
-        if (running.length > 0) {
-            const slowest = Math.min(...running.map((rider) => rider.furthestX));
-            this.behindX = Math.max(this.behindX, slowest);
-        }
-        this.aheadX = Math.max(this.aheadX, ...riders.map((rider) => rider.furthestX));
         this.load();
     }
 
-    /** Starts over from an empty track, the runs starting over with the runners. */
-    public restart(): void {
-        this.loaded.forEach((objects) => objects.forEach((object) => object.removeFromTrack()));
-        this.loaded.clear();
-        this.riders.clear();
-        this.behindX = this.aheadX = this.track.origin.x;
+    /** A runner starts a run: its sections are put back on the track before its first tick. */
+    private start(runner: BikeRunner): void {
+        this.riders.set(runner, new EnduranceRider(runner, this));
         this.load();
+    }
+
+    /** Follows the run of a rider of the live session after one of their physics ticks. */
+    private follow(runner: BikeRunner): void {
+        this.riderFor(runner)?.update();
+        this.load();
+    }
+
+    /** Run of a runner, started with its bike if it has none yet; null without bike. */
+    private riderFor(runner: BikeRunner): EnduranceRider | null {
+        let rider = this.riders.get(runner);
+        // A run starts with a bike, and goes on once the bike exploded, to end
+        if (!rider && runner.instance) {
+            rider = new EnduranceRider(runner, this);
+            this.riders.set(runner, rider);
+        }
+        return rider ?? null;
     }
 
     /**
      * Puts on the track the sections from {@link LOADED_BEHIND} behind the slowest running bike
-     * to {@link LOADED_AHEAD} ahead of the furthest one, in order, and takes off the ones behind.
+     * to {@link LOADED_AHEAD} ahead of the furthest one, of every runner on the track, and takes
+     * off the others. Without running bike, the sections behind stay.
      */
     private load(): void {
-        const first = this.generator.sectionIndexAt(this.behindX - LOADED_BEHIND);
-        const last = this.generator.sectionIndexAt(this.aheadX + LOADED_AHEAD);
+        const runners = [
+            this.track.playerRunner,
+            ...this.track.ghostRunners.values(),
+            ...this.track.remoteRunners.values(),
+        ];
+        // A bike whose run has not been followed yet is at the start, e.g. the player while a
+        // rider of the session rides far ahead on its first tick
+        const riders = runners.flatMap((runner) => this.riderFor(runner) ?? []);
+        const running = riders.filter((rider) => !rider.over);
+        const furthest = Math.max(this.track.origin.x, ...riders.map((rider) => rider.furthestX));
+        const last = this.generator.sectionIndexAt(furthest + LOADED_AHEAD);
+        const first = running.length
+            ? this.generator.sectionIndexAt(
+                  Math.min(...running.map((rider) => rider.furthestX)) - LOADED_BEHIND,
+              )
+            : this.loaded.size
+              ? Math.min(...this.loaded.keys())
+              : this.generator.sectionIndexAt(this.track.origin.x - LOADED_BEHIND);
 
         for (const [index, objects] of this.loaded) {
-            if (index < first) {
+            if (index < first || index > last) {
                 objects.forEach((object) => object.removeFromTrack());
                 this.loaded.delete(index);
             }

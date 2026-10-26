@@ -1,5 +1,6 @@
 import { GameRenderEvent, GameUpdateEvent, Layer } from 'canvade';
 import { FRAME_DURATION } from '../../../openrider/constants/game.constants';
+import type { RemoteRunner } from '../../../openrider/bike/runner/remote-runner';
 import { LiveSession } from '../../../openrider/live/live-session';
 import { InterfaceScale } from '../../../openrider/numeric/interface-scale';
 import { Time } from '../../../openrider/numeric/time';
@@ -109,32 +110,55 @@ export class TrackHudLayer extends Layer {
             );
         });
 
-        track.remoteRunners.forEach((runner) => {
+        this.drawLiveRiders(ctx, width, index + 1, (runner) => {
             const time = Time.format((runner.finishedAt ?? runner.time) * FRAME_DURATION);
-            const progress =
-                runner.finishedAt === null
-                    ? `${time} - ${runner.targetsReached.size}/${targets}`
-                    : `finished in ${time}`;
-            const text = `${runner.label}: ${progress}`;
+            return runner.finishedAt === null
+                ? `${time} - ${runner.targetsReached.size}/${targets}`
+                : `finished in ${time}`;
+        });
+        this.drawLiveState(ctx, 3);
+    }
 
+    /**
+     * Draws the progress of each rider of the live session at the right, in its color.
+     *
+     * @param line - Line of the first rider, from 1 at the top.
+     * @param progress - Progress of a rider, after their name.
+     */
+    protected drawLiveRiders(
+        ctx: CanvasRenderingContext2D,
+        width: number,
+        line: number,
+        progress: (runner: RemoteRunner) => string,
+    ): void {
+        let index = line;
+        this.state.track.remoteRunners.forEach((runner) => {
+            const text = `${runner.label}: ${progress(runner)}`;
             ctx.fillStyle = runner.color;
             ctx.fillText(
                 text,
                 width - HUD_MARGIN - ctx.measureText(text).width,
-                LINE_HEIGHT * (1 + index++),
+                LINE_HEIGHT * index++,
             );
         });
+    }
 
-        const live = LiveSession.of(track);
+    /**
+     * Draws the state of the live session at the left, if any: the connection, then the
+     * verification of the last run.
+     *
+     * @param line - Line of the state, from 1 at the top.
+     */
+    protected drawLiveState(ctx: CanvasRenderingContext2D, line: number): void {
+        const live = LiveSession.of(this.state.track);
         if (live) {
             ctx.fillStyle = '#000';
-            TrackHudLayer.liveLines(live).forEach((line, i) =>
-                ctx.fillText(line, HUD_MARGIN, LINE_HEIGHT * (3 + i)),
+            TrackHudLayer.liveLines(live).forEach((text, i) =>
+                ctx.fillText(text, HUD_MARGIN, LINE_HEIGHT * (line + i)),
             );
         }
     }
 
-    /** State of the live session: the connection, then the verification of the last run. */
     private static liveLines(live: LiveSession): string[] {
         const { state, message, results, finish } = live.state;
         if (state !== 'open') {
@@ -143,7 +167,12 @@ export class TrackHudLayer extends Layer {
         const riding = results.filter((result) => result.riding).length;
         const lines = [`Live: ${riding} ${riding === 1 ? 'rider' : 'riders'}`];
         if (finish && 'time' in finish) {
-            lines.push(`Run verified: ${Time.format(finish.time * FRAME_DURATION)}`);
+            const time = Time.format(finish.time * FRAME_DURATION);
+            lines.push(
+                finish.distance === undefined
+                    ? `Run verified: ${time}`
+                    : `Run verified: ${finish.distance} m in ${time}`,
+            );
         } else if (finish) {
             lines.push(`Run refused: ${finish.reason}`);
         }

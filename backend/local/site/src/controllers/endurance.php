@@ -77,10 +77,22 @@ function site_endurance_page(): void
             site_is_admin($user)
         );
 
+    // A live session races a given track, the one of the button below for a new track
+    $live = $seed === null ? null : site_live_session();
+    $newLive = site_live_enabled() && $live === null
+        ? site_endurance_url($seed ?? random_int(0, SITE_MAX_ENDURANCE_SEED), $version, [
+            'live' => site_new_live_session(),
+        ])
+        : null;
+
     $attributes = ['base-url' => '/endurance/', 'game-mode' => 'endurance'];
     if ($seed !== null) {
         $attributes['seed'] = $seed;
         $attributes['version'] = $version;
+    }
+    if ($live !== null) {
+        $attributes['live-url'] = site_live_url();
+        $attributes['live-token'] = site_live_token($live, ['seed' => $seed, 'version' => $version]);
     }
     if ($rival !== null) {
         $attributes['ghosts'] = $rival['ID'];
@@ -112,6 +124,8 @@ function site_endurance_page(): void
             'mine' => $mine,
             'rider' => $rider,
             'rival' => $rival,
+            'live' => $live,
+            'newLive' => $newLive,
             // The admins watch the runs waiting for them before approving them
             'reviews' => $seed !== null && site_is_admin($user)
                 ? site_find_endurance_reviews($db, $seed, $version)
@@ -124,6 +138,7 @@ function site_endurance_page(): void
             '/assets/js/leaderboard.js',
             '/assets/js/endurance-leaderboard.js',
             '/assets/js/share.js',
+            '/assets/js/live-results.js',
         ],
     );
 }

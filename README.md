@@ -162,8 +162,9 @@ window.OpenRider.toggleGhost(ghostId);
 window.OpenRider.racingGhosts();
 ```
 
-With `data-live-url` and `data-live-token`, the player races the track at the same time as the
-other riders of a live session, each seeing the others ride (see `src/openrider/live/` and the
+With `data-live-url` and `data-live-token`, the player races the track, or rides the endurance
+track of `data-seed`, at the same time as the other riders of a live session, each seeing the
+others ride (see `src/openrider/live/` and the
 "Live sessions" part of `backend/README.md`). The page follows the session:
 
 ```js
@@ -179,7 +180,7 @@ document.addEventListener("openrider:live", (event) => console.log(event.detail.
 harder: the goal is to go as far as possible, then as fast as possible for the same distance.
 
 - The track is generated from a seed, shown at the top right: `?mode=endurance&seed=<seed>` rides
-  the same track again, restarting (`Enter`) too, while `N` generates a new one.
+  the same track again, restarting (`Enter`) too, while a page without seed rides a new one.
 - It starts flat, then hills and dips, descents and valleys come, then kickers and gaps to jump,
   climbs with boosts, stairs, mud, drops behind a slow motion, platforms, launchers over wide gaps,
   tunnels whose ceiling the rider must not touch, and bombs over the ground. They grow over the

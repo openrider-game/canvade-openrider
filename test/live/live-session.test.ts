@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { BikeRunner } from '../../src/openrider/bike/runner/bike-runner';
+import { GhostParser } from '../../src/openrider/parser/ghost-parser';
 import { LIVE_SEND_INTERVAL, LiveSession } from '../../src/openrider/live/live-session';
 import type { Track } from '../../src/openrider/track/track';
 import { LiveServer } from '../../server/live/live-server';
@@ -126,11 +127,13 @@ describe('Live session', () => {
 
         await ride([ann], 150);
         const time = ann.playerRunner.time;
-        live.finish();
+        live.finish(GhostParser.generate(ann.playerRunner), time);
         await until([ann], () => live.state.finish !== null);
 
         expect(live.state.finish).toEqual({ time });
-        expect(live.state.results).toEqual([{ id: 'ann', name: 'ann', best: time, riding: true }]);
+        expect(live.state.results).toEqual([
+            { id: 'ann', name: 'ann', best: time, distance: null, riding: true },
+        ]);
         expect(dispatchEvent).toHaveBeenLastCalledWith(
             expect.objectContaining({ type: 'openrider:live', detail: live.state }),
         );

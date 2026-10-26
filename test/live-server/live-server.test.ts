@@ -6,6 +6,7 @@ import type { RunEvent } from '../../src/openrider/live/run-events';
 import { LiveLimits, LiveServer } from '../../server/live/live-server';
 import { LiveToken, readToken, signToken } from '../../server/live/token';
 import { createVerifier, Verdict } from '../../server/live/verifier';
+import { GhostVerifier } from '../../src/verify/ghost-verifier';
 
 const SECRET = 'test-secret';
 const NOW = 1_800_000_000_000;
@@ -140,6 +141,19 @@ describe('Live tokens', () => {
         expect(readToken(signToken(payload, 'other'), SECRET, 99)).toBeNull();
     });
 
+    test('race a published track, or an endurance track, a seed on a version', () => {
+        const endurance = { ...payload, track: { seed: 0, version: 1 } };
+        expect(readToken(signToken(endurance, SECRET), SECRET, 99)).toEqual(endurance);
+        for (const track of [
+            { seed: -1, version: 1 },
+            { seed: 2 ** 32, version: 1 },
+            { seed: 4 },
+        ]) {
+            const token = signToken({ ...payload, track } as unknown as LiveToken, SECRET);
+            expect(readToken(token, SECRET, 99)).toBeNull();
+        }
+    });
+
     test('are refused when changed, or with invalid fields', () => {
         const [, signature] = signToken(payload, SECRET).split('.');
         const changed = Buffer.from(JSON.stringify({ ...payload, track: 5 })).toString('base64url');
@@ -171,7 +185,7 @@ describe('Live server', () => {
             type: 'welcome',
             you: { id: 'ann', name: 'ANN' },
             riders: [],
-            results: [{ id: 'ann', name: 'ANN', best: null, riding: true }],
+            results: [{ id: 'ann', name: 'ANN', best: null, distance: null, riding: true }],
         });
         ann.send({ type: 'run', events: RUN });
         // Received once the server answers the next message
@@ -226,8 +240,8 @@ describe('Live server', () => {
         const annTimed = (message: { results: Array<{ best: number | null }> }) =>
             message.results[0].best !== null;
         expect((await bob.next('results', annTimed)).results).toEqual([
-            { id: 'ann', name: 'ANN', best: 300, riding: true },
-            { id: 'bob', name: 'BOB', best: null, riding: true },
+            { id: 'ann', name: 'ANN', best: 300, distance: null, riding: true },
+            { id: 'bob', name: 'BOB', best: null, distance: null, riding: true },
         ]);
 
         // A slower run keeps the best time, a faster one beats it
@@ -255,9 +269,61 @@ describe('Live server', () => {
         const bobLeft = (message: { results: Array<{ riding: boolean }> }) =>
             !message.results[0].riding;
         expect((await ann.next('results', bobLeft)).results).toEqual([
-            { id: 'bob', name: 'BOB', best: 250, riding: false },
-            { id: 'ann', name: 'ANN', best: 300, riding: true },
+            { id: 'bob', name: 'BOB', best: 250, distance: null, riding: false },
+            { id: 'ann', name: 'ANN', best: 300, distance: null, riding: true },
         ]);
+    });
+
+    test('verifies the endurance runs on their seed, ranking the furthest first', async () => {
+        const verdicts = [
+            { valid: true, reason: '', distance: 120.8 },
+            { valid: true, reason: '', distance: 95.2 },
+            { valid: true, reason: '', distance: 120.1 },
+        ];
+        const { port, verify, loadTrackCode } = await start({
+            verify: async () => verdicts.shift()!,
+        });
+        const track = { seed: 42, version: 1 };
+        const ann = connect(port, token('ann', { track }));
+        const bob = connect(port, token('bob', { track }));
+        await ann.next('welcome');
+        await bob.next('welcome');
+
+        ann.send({ type: 'finish', ghostString: GHOST, time: 900 });
+        expect(await ann.next('finished')).toEqual({ type: 'finished', time: 900, distance: 120 });
+        expect(verify).toHaveBeenCalledWith({
+            seed: 42,
+            version: 1,
+            ghostString: GHOST,
+            time: 900,
+        });
+        expect(loadTrackCode).not.toHaveBeenCalled();
+
+        // Faster but not as far, then as far in whole meters and faster
+        bob.send({ type: 'finish', ghostString: GHOST, time: 500 });
+        await bob.next('finished');
+        const bobRanked = (message: { results: Array<{ best: number | null }> }) =>
+            message.results.every((result) => result.best !== null);
+        expect((await ann.next('results', bobRanked)).results).toEqual([
+            { id: 'ann', name: 'ANN', best: 900, distance: 120, riding: true },
+            { id: 'bob', name: 'BOB', best: 500, distance: 95, riding: true },
+        ]);
+        bob.send({ type: 'finish', ghostString: GHOST, time: 800 });
+        await bob.next('finished');
+        const bobFirst = (message: { results: Array<{ id: string }> }) =>
+            message.results[0].id === 'bob';
+        expect((await ann.next('results', bobFirst)).results[0]).toEqual({
+            id: 'bob',
+            name: 'BOB',
+            best: 800,
+            distance: 120,
+            riding: true,
+        });
+
+        // Another seed is another session
+        expect(
+            (await connect(port, token('cid', { track: { seed: 43, version: 1 } })).closed).code,
+        ).toBe(LIVE_CLOSE_CODES.INVALID_TOKEN);
     });
 
     test('refuses the runs too long to verify, or when the verification fails', async () => {
@@ -299,7 +365,7 @@ describe('Live server', () => {
         const second = connect(port, token('ann'));
         expect((await first.closed).code).toBe(LIVE_CLOSE_CODES.REPLACED);
         expect((await second.next('welcome')).results).toEqual([
-            { id: 'ann', name: 'ANN', best: 300, riding: true },
+            { id: 'ann', name: 'ANN', best: 300, distance: null, riding: true },
         ]);
     });
 
@@ -335,7 +401,7 @@ describe('Live server', () => {
         expect(server?.stats).toEqual({ sessions: 0, riders: 0 });
         const again = connect(port, token('ann', { exp: now / 1000 + 60 }));
         expect((await again.next('welcome')).results).toEqual([
-            { id: 'ann', name: 'ANN', best: null, riding: true },
+            { id: 'ann', name: 'ANN', best: null, distance: null, riding: true },
         ]);
     });
 });
@@ -350,5 +416,22 @@ describe('Live verifier', () => {
         expect((await verify({ trackCode: TRACK_CODE, ghostString: GHOST, time: 177 })).valid).toBe(
             false,
         );
+    });
+
+    test('replays the endurance runs, telling their distance', async () => {
+        // Holding the up key from the start until the rider falls, at the tick the replay tells
+        const limits = { maxTicks: 10000, deadline: Number.MAX_SAFE_INTEGER };
+        const probe = GhostVerifier.verifyEndurance(4, 1, '0,,,,,10000,BMX', 10000, limits);
+        const fall = Number(/tick (\d+)/.exec(probe.reason)?.[1]);
+        const ghostString = `0,,,,,${fall},BMX`;
+        const expected = GhostVerifier.verifyEndurance(4, 1, ghostString, fall, limits);
+        expect(expected.valid).toBe(true);
+
+        const verify = createVerifier(join(__dirname, '../../dist/verify-ghost.cjs'), 30);
+        expect(await verify({ seed: 4, version: 1, ghostString, time: fall })).toEqual({
+            valid: true,
+            reason: '',
+            distance: expected.distance,
+        });
     });
 });

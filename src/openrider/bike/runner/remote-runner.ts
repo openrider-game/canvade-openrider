@@ -121,6 +121,7 @@ export class RemoteRunner extends ReplayRunner {
                 break;
             }
             this.fixedUpdate();
+            this.track.onRemoteTick?.(this);
             this.moved = true;
         }
     }

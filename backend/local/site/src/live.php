@@ -66,13 +66,18 @@ function site_live_rider(): array
     return ['g' . $guest, 'Guest ' . (hexdec(substr($guest, 0, 4)) % 10000)];
 }
 
-/** Token of the rider of the page for a session racing a track, see `server/live/token.ts`. */
-function site_live_token(string $session, int $trackId): string
+/**
+ * Token of the rider of the page for a session racing a track, see `server/live/token.ts`.
+ *
+ * @param int|array $track Id of a published track, or an endurance track: its `seed` on a
+ *   `version` of the generator.
+ */
+function site_live_token(string $session, $track): string
 {
     [$rider, $name] = site_live_rider();
     $payload = site_base64url(json_encode([
         'session' => $session,
-        'track' => $trackId,
+        'track' => $track,
         'rider' => $rider,
         'name' => $name,
         'exp' => time() + SITE_LIVE_TOKEN_TTL,

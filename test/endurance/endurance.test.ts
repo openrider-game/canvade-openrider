@@ -2,6 +2,7 @@ import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { BikeRunner } from '../../src/openrider/bike/runner/bike-runner';
 import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
+import { RemoteRunner } from '../../src/openrider/bike/runner/remote-runner';
 import { GameConfig } from '../../src/openrider/config/game-config';
 import { EnduranceCourse } from '../../src/openrider/endurance/endurance-course';
 import {
@@ -285,6 +286,40 @@ describe('Endurance course', () => {
         ghost.crash(true);
         course.step();
         expect(Math.min(...xs())).toBeGreaterThan(20000 - LOADED_BEHIND - 2 * SECTION_LENGTH);
+    });
+
+    test('keeps the sections of the riders of the live session, whatever the player does', () => {
+        const course = createCourse(4);
+        const track = course.track;
+        const remote = new RemoteRunner(track, 'Rider');
+        track.remoteRunners.set('rider', remote);
+        remote.receive([
+            { type: 'start', time: 0, checkpoints: 0, bike: 'BMX' },
+            { type: 'progress', time: 1 },
+        ]);
+        remote.advance();
+        const xs = () =>
+            [...track.layers.main[0].grid.totalSolidLines.values()].map((line) => line.pos.x);
+        const has = (x: number) => xs().some((lineX) => Math.abs(lineX - x) < SECTION_LENGTH);
+
+        // The rider rides far ahead: followed after their own tick
+        moveBike(course, remote, 20000);
+        track.onRemoteTick?.(remote);
+        expect(has(20000 + LOADED_AHEAD)).toBe(true);
+        expect(has(0)).toBe(true);
+
+        // The player restarts: the start is there, and the sections of the rider stay
+        track.restart();
+        expect(has(0)).toBe(true);
+        expect(has(20000)).toBe(true);
+
+        // The player crashed: only the rider keeps sections, then they start over
+        track.playerRunner.crash(true);
+        course.step();
+        expect(has(0)).toBe(false);
+        remote.startFrom();
+        expect(has(0)).toBe(true);
+        expect(has(20000)).toBe(false);
     });
 
     test('tells the distance in meters, and where a bike falls into a gap', () => {

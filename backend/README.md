@@ -284,15 +284,17 @@ The sample holds four tracks, each with a ghost finishing it:
 Riders racing the same track at the same time, each seeing the others ride, go through the
 session server of `server/live`, built with the game as `dist/live-server.cjs`. It keeps the
 sessions in memory, without database: the run of each rider, sent whole to the riders joining,
-and the best time of each one, verified by replaying it with `dist/verify-ghost.cjs` (built next
-to it) on the track downloaded from `db/trackdata/`. A session left without rider is forgotten
-after 10 minutes. The messages are described in `src/openrider/live/protocol.ts`.
+and the best run of each one, verified by replaying it with `dist/verify-ghost.cjs` (built next
+to it): on the track downloaded from `db/trackdata/`, or on the endurance track of its seed, the
+furthest run then winning, then the fastest at the same distance in whole meters. A session left
+without rider is forgotten after 10 minutes. The messages are described in `src/openrider/live/protocol.ts`.
 
 On the site, set up with `OPENRIDER_LIVE_SECRET` (and `OPENRIDER_LIVE_URL` when the server is
 not at `/live/` of the site), the "Race live" button of a track page opens a new session, the
 page `/tracks/<id>/?live=<session>`: everyone opening its link joins it, as their account or as
 a guest of their browser session, the "Live results" tab of the leaderboard listing the best time
-of each rider. The site gives the game the URL of the server and a token for the rider
+of each rider. On the endurance page, the button opens a session on the track ridden, or on a new
+track: `/endurance/?seed=<seed>&version=<version>&live=<session>`, its results under the game. The site gives the game the URL of the server and a token for the rider
 (`data-live-url` and `data-live-token`, see `src/live.php` of the site), valid for 12 hours.
 
 | Variable                   | Setting                                              | Default                  |
@@ -307,8 +309,8 @@ A rider connects over a WebSocket on any path, with the token the site gives the
 `wss://<site>/live/?token=<token>`. The token is `<payload>.<signature>`: the payload is the JSON
 `{ "session", "track", "rider", "name", "exp" }` in base64url, the signature its HMAC-SHA256 with
 `OPENRIDER_LIVE_SECRET`, in base64url too (see `server/live/token.ts`). `session` is the id of
-the session chosen by the site (6 to 64 letters, digits, `-` or `_`), `track` the id of its
-published track, `rider` the id of the rider in the session (the account, or a guest; 1 to 40
+the session chosen by the site (6 to 64 letters, digits, `-` or `_`), `track` its track: the id
+of a published track, or `{ "seed", "version" }` for an endurance track, `rider` the id of the rider in the session (the account, or a guest; 1 to 40
 letters, digits, `-` or `_`), `name` the name shown to the others (40 characters at most) and
 `exp` its expiry in seconds since the epoch.
 

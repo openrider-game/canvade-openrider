@@ -1,6 +1,6 @@
 /**
- * Live results tab of the track page, in a live session: the best time of each rider of the
- * session, and how the connection goes. The game tells them with the `openrider:live` event on
+ * Live results of the track and endurance pages, in a live session: the best run of each rider
+ * of the session (a time, or a distance and a time in endurance), and how the connection goes. The game tells them with the `openrider:live` event on
  * the document, and its page API (`window.OpenRider.live()`) for the state before this script.
  */
 (() => {
@@ -51,12 +51,11 @@
                 const row = document.createElement("tr");
                 const you = result.id === live.you?.id;
                 const name = you ? `${result.name} (you)` : result.name;
-                const time =
-                    result.best !== null
-                        ? duration(result.best)
-                        : result.riding
-                          ? "Riding"
-                          : "Left";
+                const best =
+                    result.distance !== null
+                        ? `${result.distance} m in ${duration(result.best)}`
+                        : duration(result.best);
+                const time = result.best !== null ? best : result.riding ? "Riding" : "Left";
                 row.append(
                     cell(result.best !== null ? String(index + 1) : ""),
                     cell(name),

@@ -1,5 +1,6 @@
 import { Display, Vector, World, WorldVector } from 'canvade';
 import { BMX } from '../bike/bmx';
+import type { BikeRunner } from '../bike/runner/bike-runner';
 import type { GhostRunner } from '../bike/runner/ghost-runner';
 import type { RemoteRunner } from '../bike/runner/remote-runner';
 import type { ReplayRunner } from '../bike/runner/replay-runner';
@@ -74,8 +75,16 @@ export class Track extends World {
     public zoomTarget: number | null = null;
     /** Point a command block shows instead of the focal point, until a physics tick. */
     public cameraHold: { pos: Vector; until: number } | null = null;
-    /** Called first by {@link Track.restart}, e.g. for the endurance course to start over. */
-    public onRestart: (() => void) | null = null;
+    /**
+     * Called when a runner starts a run, its bike at the start or at a checkpoint, before its
+     * first physics tick: e.g. for the endurance course to follow it.
+     */
+    public onRunnerStart: ((runner: BikeRunner) => void) | null = null;
+    /**
+     * Called after each physics tick of a rider of the live session, who rides at their own pace
+     * (see `RemoteRunner.advance`): e.g. for the endurance course to follow them.
+     */
+    public onRemoteTick: ((runner: RemoteRunner) => void) | null = null;
     public toolCollection = new ToolCollection();
     public readonly toolManager = new ToolManager(this);
     public readonly history = new HistoryManager();
@@ -310,7 +319,6 @@ export class Track extends World {
 
     /** Restarts the runners from their last checkpoint or from the start, resetting the items. */
     public restart(): void {
-        this.onRestart?.();
         this.unreachEverything();
         this.pause(false);
         // The view commands of the last run end with it

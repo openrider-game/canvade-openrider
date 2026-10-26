@@ -11,14 +11,41 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 export interface LiveToken {
     /** Id of the session, chosen by the site. */
     session: string;
-    /** Id of the published track of the session. */
-    track: number;
+    /**
+     * Track of the session: a published track by id, or an endurance track, a seed on a version
+     * of its generator.
+     */
+    track: LiveTrack;
     /** Id of the rider: the account (`u<id>`), or a guest (`g<random>`). */
     rider: string;
     /** Name shown to the other riders. */
     name: string;
     /** Expiry, in seconds since the epoch. */
     exp: number;
+}
+
+/** Track of a live session, see {@link LiveToken.track}. */
+export type LiveTrack = number | { seed: number; version: number };
+
+/** Key of a track, the same for the tokens of a session. */
+export function trackKey(track: LiveTrack): string {
+    return typeof track === 'number'
+        ? `track:${track}`
+        : `endurance:${track.seed}:${track.version}`;
+}
+
+function isLiveTrack(value: unknown): value is LiveTrack {
+    if (typeof value === 'number') {
+        return Number.isInteger(value) && value >= 1;
+    }
+    const { seed, version } = (value ?? {}) as Record<string, unknown>;
+    return (
+        Number.isInteger(seed) &&
+        (seed as number) >= 0 &&
+        (seed as number) < 2 ** 32 &&
+        Number.isInteger(version) &&
+        (version as number) >= 1
+    );
 }
 
 const SESSION_ID = /^[A-Za-z0-9_-]{6,64}$/;
@@ -63,8 +90,7 @@ export function readToken(token: string, secret: string, now: number): LiveToken
     if (
         typeof session !== 'string' ||
         !SESSION_ID.test(session) ||
-        !Number.isInteger(track) ||
-        (track as number) < 1 ||
+        !isLiveTrack(track) ||
         typeof rider !== 'string' ||
         !RIDER_ID.test(rider) ||
         typeof name !== 'string' ||
@@ -75,5 +101,7 @@ export function readToken(token: string, secret: string, now: number): LiveToken
     ) {
         return null;
     }
-    return { session, track: track as number, rider, name, exp };
+    const liveTrack: LiveTrack =
+        typeof track === 'number' ? track : { seed: track.seed, version: track.version };
+    return { session, track: liveTrack, rider, name, exp };
 }

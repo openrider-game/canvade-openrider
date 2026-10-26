@@ -137,6 +137,7 @@ export abstract class BikeRunner {
         }
 
         this.instance = bike ? bike.clone() : null;
+        this.track.onRunnerStart?.(this);
     }
 
     /** @param force - Whether the rider dies even when invincible. */
