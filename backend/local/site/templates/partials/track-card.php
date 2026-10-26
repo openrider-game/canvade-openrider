@@ -25,7 +25,10 @@
         <span class="track-card__meta">
             <?= h(site_track_bike($track['CODE'])) ?>
             <?php if ($track['AUTHOR'] !== null): ?>
-                &middot; by <?= h($track['AUTHOR']) ?>
+                &middot; by <?= h(implode(', ', [$track['AUTHOR'], ...$track['COAUTHORS']])) ?>
+            <?php endif; ?>
+            <?php if ($track['COAUTHORS']): ?>
+                &middot; collab
             <?php endif; ?>
             &middot; <?= site_ghost_count((int) $track['GHOSTS']) ?>
             <?php if ($track['VERIFIERID'] === null): ?>

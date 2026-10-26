@@ -32,6 +32,13 @@ export class HistoryManager {
         return this;
     }
 
+    /** Forgets every edit, e.g. the track being replaced. */
+    public clear(): void {
+        this.history.length = 0;
+        this.position = -1;
+        this.group = null;
+    }
+
     /** Starts grouping the next edits, does nothing if a group is already open. */
     public startGroup(): void {
         this.group ??= [];

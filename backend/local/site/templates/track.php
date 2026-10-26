@@ -34,8 +34,16 @@ $user = site_user();
     <?php if ($track['AUTHOR'] !== null): ?>
         <span class="muted">
             by
-            <a href="/users/<?= rawurlencode($track['AUTHOR']) ?>/"><?= h($track['AUTHOR']) ?></a>
+            <?php // The accounts that edited it with its author, in an editing session, after it ?>
+            <a href="/users/<?= rawurlencode($track['AUTHOR']) ?>/"><?= h($track['AUTHOR']) ?></a><?php
+            foreach ($track['COAUTHORS'] as $index => $coauthor):
+                ?><?= $index === count($track['COAUTHORS']) - 1 ? ' and' : ',' ?>
+                <a href="/users/<?= rawurlencode($coauthor) ?>/"><?= h($coauthor) ?></a><?php
+            endforeach; ?>
         </span>
+        <?php if ($track['COAUTHORS']): ?>
+            <span class="tag">collab</span>
+        <?php endif; ?>
     <?php endif; ?>
 </h1>
 <?php site_render('partials/thumbs', [

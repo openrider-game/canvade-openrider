@@ -406,6 +406,65 @@ describe('Live server', () => {
     });
 });
 
+describe('Live editing sessions', () => {
+    const SNAPSHOT = {
+        layers: [{ uid: 'L0', type: 'main', name: 'Main' }],
+        objects: [{ uid: 'p0', layer: 'L0', kind: 'solid', code: '0 0 a 0' }],
+        origin: '0 0',
+    };
+
+    test('asks another editor for the track when the first one leaves without giving it', async () => {
+        const { port } = await start();
+        const ann = connect(port, token('uann', { track: 'edit' }));
+        expect((await ann.next('welcome')).editor).toMatchObject({
+            provide: true,
+            snapshot: null,
+            host: 'uann',
+        });
+        const bob = connect(port, token('ubob', { track: 'edit' }));
+        expect((await bob.next('welcome')).editor).toMatchObject({
+            provide: false,
+            snapshot: null,
+            host: null,
+        });
+
+        ann.socket.close();
+        await bob.next('snapshotRequest');
+        bob.send({ type: 'snapshot', seq: 0, snapshot: SNAPSHOT });
+        bob.send({ type: 'edits', edits: [{ type: 'origin', from: '0 0', to: 'a a' }] });
+        expect(await bob.next('edits')).toEqual({
+            type: 'edits',
+            rider: 'ubob',
+            first: 1,
+            edits: [{ type: 'origin', from: '0 0', to: 'a a' }],
+        });
+
+        const cid = connect(port, token('ucid', { track: 'edit' }));
+        expect((await cid.next('welcome')).editor).toEqual({
+            prefix: 'ucid.2.',
+            snapshot: SNAPSHOT,
+            seq: 0,
+            edits: [{ type: 'origin', from: '0 0', to: 'a a' }],
+            provide: false,
+            // Bob gave the track, the first editor having left without it
+            host: 'ubob',
+        });
+    });
+
+    test('refuses the edits out of an editing session, and the invalid ones', async () => {
+        const { port } = await start();
+        const ann = connect(port, token('uann'));
+        await ann.next('welcome');
+        ann.send({ type: 'edits', edits: [] });
+        expect((await ann.closed).reason).toBe('Not an editing session');
+
+        const bob = connect(port, token('ubob', { session: 'edit-2', track: 'edit' }));
+        await bob.next('welcome');
+        bob.send({ type: 'edits', edits: [{ type: 'add', objects: [{ uid: 'x' }] }] });
+        expect((await bob.closed).reason).toBe('Invalid message');
+    });
+});
+
 describe('Live verifier', () => {
     test('replays the runs with the ghost verifier of the game', async () => {
         const verify = createVerifier(join(__dirname, '../../dist/verify-ghost.cjs'), 30);

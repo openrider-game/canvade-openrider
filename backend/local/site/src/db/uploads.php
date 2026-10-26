@@ -9,15 +9,26 @@
  * Keeps a track uploaded by an editor page, out of the backend.
  *
  * @param string|null $thumbnail Base64 PNG, without the data URL prefix.
+ * @param string $collaborators Other accounts that edited the track, see site_live_credits().
  * @return int Id of the upload.
  */
-function site_insert_upload(PDO $db, int $userId, string $code, ?string $thumbnail): int
-{
+function site_insert_upload(
+    PDO $db,
+    int $userId,
+    string $code,
+    ?string $thumbnail,
+    string $collaborators = ''
+): int {
     $statement = $db->prepare(
-        'INSERT INTO "LOCAL_UPLOADS" ("USERID", "CODE", "THUMBNAIL")'
-        . ' VALUES (:userId, :code, :thumbnail) RETURNING "ID"'
+        'INSERT INTO "LOCAL_UPLOADS" ("USERID", "CODE", "THUMBNAIL", "COLLABORATORS")'
+        . ' VALUES (:userId, :code, :thumbnail, :collaborators) RETURNING "ID"'
     );
-    $statement->execute(['userId' => $userId, 'code' => $code, 'thumbnail' => $thumbnail]);
+    $statement->execute([
+        'userId' => $userId,
+        'code' => $code,
+        'thumbnail' => $thumbnail,
+        'collaborators' => $collaborators,
+    ]);
 
     return (int) $statement->fetchColumn();
 }
@@ -41,6 +52,7 @@ function site_find_any_upload(PDO $db, int $uploadId): ?array
 {
     $statement = $db->prepare(
         'SELECT up."ID", up."CODE", up."THUMBNAIL", up."TITLE", up."DESCRIPTION", up."USERID",'
+        . ' up."COLLABORATORS",'
         . ' u."NAME" AS "AUTHOR", up."VERIFIERID", v."NAME" AS "VERIFIER",'
         . ' up."VERIFICATIONGHOST", up."VERIFICATIONTIME", up."REVIEW"'
         . ' FROM "LOCAL_UPLOADS" up'
@@ -180,12 +192,38 @@ function site_save_draft(PDO $db, int $uploadId, string $title, string $descript
  *
  * @param string|null $thumbnail Base64 PNG, without the data URL prefix.
  */
-function site_update_draft(PDO $db, int $draftId, string $code, ?string $thumbnail): void
-{
+function site_update_draft(
+    PDO $db,
+    int $draftId,
+    string $code,
+    ?string $thumbnail,
+    string $collaborators = ''
+): void {
+    // The co-authors of the draft stay, joined by those of the new editor file
+    $current = $db->prepare('SELECT "COLLABORATORS" FROM "LOCAL_UPLOADS" WHERE "ID" = :id');
+    $current->execute(['id' => $draftId]);
+    $merged = site_merge_ids((string) $current->fetchColumn(), $collaborators);
+    $current->closeCursor();
+
     $statement = $db->prepare(
-        'UPDATE "LOCAL_UPLOADS" SET "CODE" = :code, "THUMBNAIL" = :thumbnail WHERE "ID" = :id'
+        'UPDATE "LOCAL_UPLOADS" SET "CODE" = :code, "THUMBNAIL" = :thumbnail,'
+        . ' "COLLABORATORS" = :collaborators WHERE "ID" = :id'
     );
-    $statement->execute(['id' => $draftId, 'code' => $code, 'thumbnail' => $thumbnail]);
+    $statement->execute([
+        'id' => $draftId,
+        'code' => $code,
+        'thumbnail' => $thumbnail,
+        'collaborators' => $merged,
+    ]);
+}
+
+/** Ids separated with commas, of both lists, each once, sorted. */
+function site_merge_ids(string $first, string $second): string
+{
+    $ids = array_map('intval', array_filter(explode(',', "$first,$second")));
+    $ids = array_values(array_unique($ids));
+    sort($ids);
+    return implode(',', $ids);
 }
 
 /**
@@ -217,8 +255,9 @@ function site_publish_verified(PDO $db, array $upload): int
 
         $db->prepare(
             'INSERT INTO "LOCAL_TRACK_DETAILS"'
-            . ' ("TRACKID", "TITLE", "DESCRIPTION", "USERID", "VERIFIERID", "VERIFICATIONGHOSTID")'
-            . ' VALUES (:id, :title, :description, :userId, :verifierId, :ghostId)'
+            . ' ("TRACKID", "TITLE", "DESCRIPTION", "USERID", "VERIFIERID", "VERIFICATIONGHOSTID",'
+            . ' "COLLABORATORS")'
+            . ' VALUES (:id, :title, :description, :userId, :verifierId, :ghostId, :collaborators)'
         )->execute([
             'id' => $trackId,
             'title' => $upload['TITLE'],
@@ -226,6 +265,7 @@ function site_publish_verified(PDO $db, array $upload): int
             'userId' => $upload['USERID'],
             'verifierId' => $upload['VERIFIERID'],
             'ghostId' => $ghostId,
+            'collaborators' => $upload['COLLABORATORS'] ?? '',
         ]);
 
         $db->prepare('DELETE FROM "LOCAL_UPLOADS" WHERE "ID" = :id')

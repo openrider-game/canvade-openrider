@@ -39,11 +39,7 @@ export class StartPositionTool extends Tool {
     }
 
     private setStartPosition(pos: Vector): void {
-        this.track.origin.set(pos);
-
-        const playerRunner = this.track.playerRunner;
-        playerRunner.initialBike = new playerRunner.bikeClass(this.track, playerRunner);
-
+        this.track.editor.moveOrigin(pos);
         this.dummyRunner?.instance?.setBikeInitialState(pos);
     }
 
@@ -56,6 +52,10 @@ export class StartPositionTool extends Tool {
     }
 
     public override render(ctx: CanvasRenderingContext2D): void {
+        // Where the start position is, e.g. moved by another editor of the track
+        if (!this.mouseDown) {
+            this.dummyRunner?.instance?.setBikeInitialState(this.track.origin);
+        }
         this.dummyRunner?.renderInstance(ctx);
     }
 

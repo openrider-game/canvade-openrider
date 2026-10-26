@@ -15,7 +15,10 @@ const SITE_REVIEWED_GHOST = 'g."ID" NOT IN (SELECT "GHOSTID" FROM "LOCAL_GHOST_R
  * null without ghost) and number of thumbs up (`THUMBS`). The ghosts waiting for an admin are
  * not counted.
  *
- * @param int|null $userId    Author of the tracks, null for every track.
+ * The tracks made with other accounts, in an editing session, give the names of these accounts
+ * (`COAUTHORS`, see site_coauthors()).
+ *
+ * @param int|null $userId    Author or co-author of the tracks, null for every track.
  * @param bool     $mostLiked Whether the tracks with the most thumbs up come first, the newest
  *                            first for the same number.
  * @return array[]
@@ -23,20 +26,27 @@ const SITE_REVIEWED_GHOST = 'g."ID" NOT IN (SELECT "GHOSTID" FROM "LOCAL_GHOST_R
 function site_find_tracks(PDO $db, ?int $userId = null, bool $mostLiked = false): array
 {
     $statement = $db->prepare(
-        'SELECT t."ID", t."CODE", t."THUMBNAIL", d."TITLE", d."VERIFIERID",'
+        'SELECT t."ID", t."CODE", t."THUMBNAIL", d."TITLE", d."VERIFIERID", d."COLLABORATORS",'
         . ' u."NAME" AS "AUTHOR", COUNT(g."ID") AS "GHOSTS", MIN(g."TIME") AS "BEST", '
         . site_thumbs_column('track', 't."ID"')
         . ' FROM "TRACKS" t'
         . ' LEFT JOIN "LOCAL_TRACK_DETAILS" d ON d."TRACKID" = t."ID"'
         . ' LEFT JOIN "LOCAL_USERS" u ON u."ID" = d."USERID"'
         . ' LEFT JOIN "GHOSTS" g ON g."TRACKID" = t."ID" AND ' . SITE_REVIEWED_GHOST
-        . ($userId === null ? '' : ' WHERE d."USERID" = :userId')
-        . ' GROUP BY t."ID", t."CODE", t."THUMBNAIL", d."TITLE", d."VERIFIERID", u."NAME"'
+        . ($userId === null ? '' : ' WHERE d."USERID" = :userId'
+            . ' OR \',\' || d."COLLABORATORS" || \',\' LIKE :coauthor')
+        . ' GROUP BY t."ID", t."CODE", t."THUMBNAIL", d."TITLE", d."VERIFIERID", d."COLLABORATORS",'
+        . ' u."NAME"'
         . ' ORDER BY ' . ($mostLiked ? '"THUMBS" DESC, ' : '') . 't."ID" DESC'
     );
-    $statement->execute($userId === null ? [] : ['userId' => $userId]);
+    $statement->execute(
+        $userId === null ? [] : ['userId' => $userId, 'coauthor' => "%,$userId,%"]
+    );
 
-    return $statement->fetchAll(PDO::FETCH_ASSOC);
+    return array_map(
+        fn (array $track) => $track + ['COAUTHORS' => site_coauthors($db, $track)],
+        $statement->fetchAll(PDO::FETCH_ASSOC)
+    );
 }
 
 /**
@@ -48,6 +58,7 @@ function site_find_track(PDO $db, int $trackId): ?array
 {
     $statement = $db->prepare(
         'SELECT t."ID", t."CODE", d."TITLE", d."DESCRIPTION", d."USERID", u."NAME" AS "AUTHOR",'
+        . ' d."COLLABORATORS",'
         . ' d."VERIFIERID", v."NAME" AS "VERIFIER", d."VERIFICATIONGHOSTID", '
         . site_thumbs_column('track', 't."ID"')
         . ' FROM "TRACKS" t'
@@ -57,8 +68,31 @@ function site_find_track(PDO $db, int $trackId): ?array
         . ' WHERE t."ID" = :id'
     );
     $statement->execute(['id' => $trackId]);
+    $track = $statement->fetch(PDO::FETCH_ASSOC);
 
-    return $statement->fetch(PDO::FETCH_ASSOC) ?: null;
+    return $track ? $track + ['COAUTHORS' => site_coauthors($db, $track)] : null;
+}
+
+/**
+ * Names of the other accounts that made a track with its author, in an editing session, by
+ * name; the deleted ones left out. Empty for a track of its author alone.
+ *
+ * @param array $track Track with its `COLLABORATORS`.
+ * @return string[]
+ */
+function site_coauthors(PDO $db, array $track): array
+{
+    $ids = array_map('intval', array_filter(explode(',', (string) ($track['COLLABORATORS'] ?? ''))));
+    if (!$ids) {
+        return [];
+    }
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $statement = $db->prepare(
+        "SELECT \"NAME\" FROM \"LOCAL_USERS\" WHERE \"ID\" IN ($placeholders) ORDER BY \"NAME\""
+    );
+    $statement->execute($ids);
+
+    return $statement->fetchAll(PDO::FETCH_COLUMN);
 }
 
 /**

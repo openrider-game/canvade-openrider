@@ -123,6 +123,11 @@ function site_create_tables(PDO $db): void
     site_add_column($db, 'LOCAL_UPLOADS', 'VERIFIERID', $userColumn);
     site_add_column($db, 'LOCAL_UPLOADS', 'VERIFICATIONGHOST', 'TEXT');
     site_add_column($db, 'LOCAL_UPLOADS', 'VERIFICATIONTIME', 'INTEGER');
+
+    // Added with the editing sessions: the other accounts that edited a track with its author,
+    // their ids separated with commas, empty for a track of its author alone
+    site_add_column($db, 'LOCAL_UPLOADS', 'COLLABORATORS', "TEXT NOT NULL DEFAULT ''");
+    site_add_column($db, 'LOCAL_TRACK_DETAILS', 'COLLABORATORS', "TEXT NOT NULL DEFAULT ''");
     site_add_column($db, 'LOCAL_UPLOADS', 'REVIEW', 'TEXT');
 }
 

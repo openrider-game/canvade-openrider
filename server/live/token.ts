@@ -25,16 +25,22 @@ export interface LiveToken {
 }
 
 /** Track of a live session, see {@link LiveToken.track}. */
-export type LiveTrack = number | { seed: number; version: number };
+export type LiveTrack = number | { seed: number; version: number } | 'edit';
 
 /** Key of a track, the same for the tokens of a session. */
 export function trackKey(track: LiveTrack): string {
+    if (track === 'edit') {
+        return 'edit';
+    }
     return typeof track === 'number'
         ? `track:${track}`
         : `endurance:${track.seed}:${track.version}`;
 }
 
 function isLiveTrack(value: unknown): value is LiveTrack {
+    if (value === 'edit') {
+        return true;
+    }
     if (typeof value === 'number') {
         return Number.isInteger(value) && value >= 1;
     }
@@ -56,10 +62,15 @@ function signature(payload: string, secret: string): Buffer {
     return createHmac('sha256', secret).update(payload).digest();
 }
 
+/** Signs a JSON value, as the tokens: `<payload>.<signature>`. */
+export function signPayload(value: unknown, secret: string): string {
+    const payload = Buffer.from(JSON.stringify(value)).toString('base64url');
+    return `${payload}.${signature(payload, secret).toString('base64url')}`;
+}
+
 /** Signs a token, as the site does. */
 export function signToken(token: LiveToken, secret: string): string {
-    const payload = Buffer.from(JSON.stringify(token)).toString('base64url');
-    return `${payload}.${signature(payload, secret).toString('base64url')}`;
+    return signPayload(token, secret);
 }
 
 /**
@@ -102,6 +113,6 @@ export function readToken(token: string, secret: string, now: number): LiveToken
         return null;
     }
     const liveTrack: LiveTrack =
-        typeof track === 'number' ? track : { seed: track.seed, version: track.version };
+        typeof track === 'object' ? { seed: track.seed, version: track.version } : track;
     return { session, track: liveTrack, rider, name, exp };
 }

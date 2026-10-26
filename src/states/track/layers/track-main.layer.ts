@@ -7,6 +7,7 @@ import {
     Layer,
     Vector,
 } from 'canvade';
+import { LiveEditSession } from '../../../openrider/live/live-edit-session';
 import { TrackRenderer } from '../../../openrider/track/track-renderer';
 import type { TrackViewState } from '../track-view.state';
 
@@ -58,6 +59,7 @@ export class TrackMainLayer extends Layer {
             hideHiddenLayers: this.state.editsLayers(),
         });
         track.toolManager.render(ctx);
+        LiveEditSession.of(track)?.renderCursors(ctx);
         ctx.restore();
 
         // The cursor of the current tool is replaced while the interface is hovered

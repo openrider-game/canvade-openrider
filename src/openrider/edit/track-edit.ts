@@ -44,8 +44,21 @@ export type TrackEdit =
     | { type: 'removeLayer'; layer: LayerData; index: number; objects: ObjectData[] }
     | { type: 'moveLayer'; layer: string; from: number; to: number }
     | { type: 'renameLayer'; layer: string; from: string; to: string }
+    /** The start position moved, as base 32 `x y`. */
+    | { type: 'origin'; from: string; to: string }
     /** Edits made together, e.g. the lines of a brush stroke, undone together. */
     | { type: 'group'; edits: TrackEdit[] };
+
+/**
+ * The whole track as edits describe it, for a screen joining the edition of a track: its layers
+ * from the bottom one, its objects in their order (see `TrackObject.order`), and its start
+ * position, as base 32 `x y`.
+ */
+export interface TrackSnapshot {
+    layers: LayerData[];
+    objects: ObjectData[];
+    origin: string;
+}
 
 /** Edit undoing an edit. */
 export function invertEdit(edit: TrackEdit): TrackEdit {
@@ -69,6 +82,8 @@ export function invertEdit(edit: TrackEdit): TrackEdit {
             return { type: 'moveLayer', layer: edit.layer, from: edit.to, to: edit.from };
         case 'renameLayer':
             return { type: 'renameLayer', layer: edit.layer, from: edit.to, to: edit.from };
+        case 'origin':
+            return { type: 'origin', from: edit.to, to: edit.from };
         case 'group':
             return { type: 'group', edits: [...edit.edits].reverse().map(invertEdit) };
     }

@@ -164,8 +164,10 @@ window.OpenRider.racingGhosts();
 
 With `data-live-url` and `data-live-token`, the player races the track, or rides the endurance
 track of `data-seed`, at the same time as the other riders of a live session, each seeing the
-others ride (see `src/openrider/live/` and the
-"Live sessions" part of `backend/README.md`). The page follows the session:
+others ride; in the editor, the player edits the track with the other editors of the session,
+each seeing the edits and the cursors of the others (see `src/openrider/live/`,
+`src/openrider/edit/` and the "Live sessions" part of `backend/README.md`). The page follows
+the session:
 
 ```js
 // Connection, riders and best times of the session, null outside of one
@@ -367,6 +369,7 @@ src/
 │   ├── endurance/        endurance mode: track generation from a seed, course, runs and records
 │   ├── entity/           points with verlet physics, ragdoll, explosion
 │   ├── grid/             spatial grids: physics cells and cached render cells
+│   ├── edit/             edits of the tracks: data, undone by the history, shared by the editors
 │   ├── item/             lines and items of the tracks
 │   ├── live/             live races: runs sent and replayed, messages of the session server
 │   ├── parser/           track code parser and generator, ghost strings

@@ -34,10 +34,14 @@ function site_live_url(): string
     return (site_is_https() ? 'wss' : 'ws') . '://' . $host . '/live/';
 }
 
-/** The session of the page (`?live=`), null without a valid one or without live races. */
-function site_live_session(): ?string
+/**
+ * The session of the page, null without a valid one or without live races.
+ *
+ * @param string $param Parameter of the page giving it: `live` racing, `collab` editing.
+ */
+function site_live_session(string $param = 'live'): ?string
 {
-    $session = $_GET['live'] ?? null;
+    $session = $_GET[$param] ?? null;
     $valid = is_string($session) && preg_match(SITE_LIVE_SESSION_PATTERN, $session);
     return site_live_enabled() && $valid ? $session : null;
 }
@@ -90,4 +94,44 @@ function site_live_token(string $session, $track): string
 function site_base64url(string $data): string
 {
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+/**
+ * The other accounts that edited a track with the account uploading it, from the credits of the
+ * editing session sent by the game: `<payload>.<signature>`, signed by the session server with
+ * `OPENRIDER_LIVE_SECRET`, the payload `{ "session", "host", "authors", "exp" }` in base64url.
+ * Only the host of the session, the main creator of the track, credits them.
+ *
+ * @return string Their ids separated with commas, sorted; empty for invalid or expired credits,
+ *   or uploaded by another account than the host.
+ */
+function site_live_credits(string $credits, int $uploaderId): string
+{
+    $secret = (string) getenv('OPENRIDER_LIVE_SECRET');
+    $parts = explode('.', $credits);
+    if ($secret === '' || count($parts) !== 2) {
+        return '';
+    }
+    [$payload, $signature] = $parts;
+    if (!hash_equals(site_base64url(hash_hmac('sha256', $payload, $secret, true)), $signature)) {
+        return '';
+    }
+
+    $data = json_decode((string) base64_decode(strtr($payload, '-_', '+/')), true);
+    if (!is_array($data) || !is_int($data['exp'] ?? null) || $data['exp'] < time()) {
+        return '';
+    }
+    if (($data['host'] ?? null) !== 'u' . $uploaderId) {
+        return '';
+    }
+    $ids = [];
+    foreach ((array) ($data['authors'] ?? []) as $rider) {
+        // The accounts only, the editing sessions taking no guest
+        if (is_string($rider) && preg_match('/^u([0-9]{1,10})$/', $rider, $match)) {
+            $ids[] = (int) $match[1];
+        }
+    }
+    $ids = array_diff($ids, [$uploaderId]);
+
+    return site_merge_ids(implode(',', $ids), '');
 }

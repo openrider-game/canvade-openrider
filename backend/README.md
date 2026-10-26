@@ -297,6 +297,19 @@ of each rider. On the endurance page, the button opens a session on the track ri
 track: `/endurance/?seed=<seed>&version=<version>&live=<session>`, its results under the game. The site gives the game the URL of the server and a token for the rider
 (`data-live-url` and `data-live-token`, see `src/live.php` of the site), valid for 12 hours.
 
+The editor pages open editing sessions the same way, for the logged in accounts: "Edit
+together" starts one on the track edited, `/create/?collab=<session>` or
+`/drafts/<id>/?collab=<session>`, and its link joins it from `/create/?collab=<session>`. The
+first editor gives the track to the session; the server keeps it and the edits since, numbered,
+sends them to the editors joining, and asks an editor for the whole track again after 1,000
+edits. Each editor sees the cursors of the others. The first editor is the host of the session,
+the main creator of the track: the only one exporting and uploading it. The server signs the list
+of the accounts that edited the track and the host, which the game sends with its upload
+(`credits`, see `site_live_credits`), for the site to credit them as co-authors of the track
+when the host uploads it (`COLLABORATORS` of `LOCAL_UPLOADS`, then of `LOCAL_TRACK_DETAILS`),
+marked as a collab. A draft keeps its co-authors, joined by those of each session editing it,
+and the tracks published from it credit them all.
+
 | Variable                   | Setting                                              | Default                  |
 | -------------------------- | ---------------------------------------------------- | ------------------------ |
 | `OPENRIDER_LIVE_SECRET`    | Secret the site signs the tokens of the riders with  | Required, but `--dev`    |
@@ -317,7 +330,9 @@ letters, digits, `-` or `_`), `name` the name shown to the others (40 characters
 Limits: 8 riders connected at once per session, 500 sessions, messages of 256 KB at most, 30 per
 second after a burst of 60, runs of 90,000 inputs and verified runs of 30 minutes at most. The
 connections breaking them are closed with the codes of `LIVE_CLOSE_CODES`, and so are those
-without a valid token or joining a full session. `GET /health` answers `ok`.
+without a valid token or joining a full session. `GET /health` answers `ok`. An editing session
+takes no guest (`rider` not starting with `u`), its token having `"edit"` as track; the whole
+tracks of its editors weigh 16 MB at most, and it keeps 20,000 edits at most.
 
 ## Deploying
 

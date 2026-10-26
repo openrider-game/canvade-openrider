@@ -7,7 +7,13 @@ import { LinkedItemGroup } from '../item/linked-item-group';
 import type { TrackObject } from '../item/track-object';
 import type { Track } from '../track/track';
 import { TrackLayer, TrackLayerType } from '../track/track-layer';
-import { LayerData, ObjectData, TrackEdit } from './track-edit';
+import { LayerData, ObjectData, TrackEdit, TrackSnapshot } from './track-edit';
+
+/**
+ * Ranks of the objects of an edit, after those of the edits before (see `TrackObject.order`):
+ * far more than the objects of an edit, and of a whole track.
+ */
+const EDIT_ORDERS = 1_000_000;
 
 /**
  * Edits the track: every change of its objects and layers made in the editor goes through it as
@@ -113,6 +119,15 @@ export class TrackEditor {
         this.make({ type: 'moveLayer', layer: layer.uid, from, to });
     }
 
+    /** Moves the start position, as an edit that can be undone. */
+    public moveOrigin(pos: Vector): void {
+        const from = this.track.origin.toString();
+        const to = pos.toString();
+        if (from !== to) {
+            this.make({ type: 'origin', from, to });
+        }
+    }
+
     /** Renames a layer, as an edit that can be undone. */
     public renameLayer(layer: TrackLayer, name: string): void {
         this.make({ type: 'renameLayer', layer: layer.uid, from: layer.name, to: name });
@@ -179,9 +194,112 @@ export class TrackEditor {
                 }
                 break;
             }
+            case 'origin': {
+                const [x, y] = edit.to.split(' ').map((value) => parseInt(value, 32));
+                this.track.origin.set(new Vector(x, y));
+                // The next runs of the player start there
+                const runner = this.track.playerRunner;
+                runner.initialBike = new runner.bikeClass(this.track, runner);
+                break;
+            }
             case 'group':
                 edit.edits.forEach((part) => this.apply(part));
                 break;
+        }
+    }
+
+    /**
+     * Gives the objects added by an edit their rank on every screen (see `TrackObject.order`):
+     * after the objects of the edits numbered before it, so that the grid cells keep them in the
+     * same order whatever the order the screens received them in.
+     *
+     * @param seq - Number of the edit in the session.
+     */
+    public order(edit: TrackEdit, seq: number): void {
+        let index = 0;
+        const visit = (part: TrackEdit) => {
+            if (part.type === 'group') {
+                part.edits.forEach(visit);
+            } else if (part.type === 'add') {
+                for (const { uid } of part.objects) {
+                    const object = this.objects.get(uid);
+                    if (object) {
+                        TrackEditor.rank(object, seq * EDIT_ORDERS + index);
+                    }
+                    index++;
+                }
+            }
+        };
+        visit(edit);
+    }
+
+    /**
+     * The whole track as edits describe it, its objects in their order, ranked from 0 here too
+     * to give them the order the screens loading it give them.
+     */
+    public snapshot(): TrackSnapshot {
+        const units = new Set<TrackObject>();
+        for (const layer of this.track.layers.all) {
+            layer.objects().forEach((object) => units.add(TrackEditor.unitOf(object)));
+        }
+        const objects = [...units].sort(
+            (a, b) => (TrackEditor.orderOf(a) ?? -1) - (TrackEditor.orderOf(b) ?? -1),
+        );
+        objects.forEach((object, index) => TrackEditor.rank(object, index));
+
+        return {
+            layers: this.track.layers.all.map(TrackEditor.layerData),
+            objects: objects.map((object) => this.describe(object, this.uidOf(object))),
+            origin: this.track.origin.toString(),
+        };
+    }
+
+    /**
+     * Replaces the track with a whole track (see {@link TrackEditor.snapshot}), forgetting the
+     * history: e.g. joining the edition of a track.
+     */
+    public load(snapshot: TrackSnapshot): void {
+        const layers = this.track.layers;
+        for (const layer of layers.all) {
+            layer.objects().forEach((object) => object.removeFromTrack());
+        }
+        this.objects.clear();
+        this.detached.clear();
+        this.detachedLayers.clear();
+        this.track.history.clear();
+
+        layers.reset(snapshot.layers.map((data) => new TrackLayer(data.type, data.name)));
+        layers.all.forEach((layer, index) => (layer.uid = snapshot.layers[index].uid));
+        this.apply({ type: 'origin', from: snapshot.origin, to: snapshot.origin });
+        snapshot.objects.forEach((data, index) => {
+            this.create(data);
+            const object = this.objects.get(data.uid);
+            if (object) {
+                TrackEditor.rank(object, index);
+            }
+        });
+        this.track.invalidateUI();
+    }
+
+    /** Rank of an object in the grid cells: of its items for a group of linked items. */
+    private static orderOf(object: TrackObject): number | null {
+        return object instanceof LinkedItemGroup
+            ? (object.instances[0]?.order ?? null)
+            : object.order;
+    }
+
+    /** Puts an object at its rank in the grid cells, see `TrackObject.order`. */
+    private static rank(object: TrackObject, order: number): void {
+        const parts = object instanceof LinkedItemGroup ? object.instances : [object];
+        if (parts.every((part) => part.order === order)) {
+            return;
+        }
+        // Taken off and put back, at its rank
+        const onTrack = parts[0]?.onTrack ?? false;
+        object.removeFromTrack();
+        parts.forEach((part) => (part.order = order));
+        if (onTrack) {
+            object.addToTrack();
         }
     }
 

@@ -1,6 +1,7 @@
 import { Layer } from 'canvade';
 import { GameConfig } from '../../openrider/config/game-config';
 import { TRACKUPLOAD_PATH } from '../../openrider/constants/request.constants';
+import { LiveEditSession } from '../../openrider/live/live-edit-session';
 import { Requests } from '../../openrider/request/requests';
 import { UPLOAD_TOOLBAR } from '../../openrider/tool/toolbar.constants';
 import { TrackRenderer } from '../../openrider/track/track-renderer';
@@ -116,6 +117,7 @@ export class TrackUploadState extends TrackViewState {
     private async upload(format: ExportFormat): Promise<void> {
         const image = this.createThumbnail();
         const code = format === 'editor' ? this.session.editorCode : this.session.trackCode;
+        const credits = LiveEditSession.of(this.track)?.credits ?? null;
 
         try {
             const response = await Requests.postJson<{ ID: number }>(
@@ -123,6 +125,8 @@ export class TrackUploadState extends TrackViewState {
                 {
                     trackCode: code ?? '',
                     thumbnail: image.replace('data:image/png;base64,', ''),
+                    // The editors of an editing session, signed by its server
+                    ...(credits === null ? {} : { credits }),
                 },
             );
 

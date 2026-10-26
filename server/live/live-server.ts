@@ -10,7 +10,8 @@ import {
     ServerMessage,
 } from '../../src/openrider/live/protocol';
 import { RunLog } from '../../src/openrider/live/run-log';
-import { LiveToken, LiveTrack, readToken, trackKey } from './token';
+import type { TrackEdit, TrackSnapshot } from '../../src/openrider/edit/track-edit';
+import { LiveToken, LiveTrack, readToken, signPayload, trackKey } from './token';
 import type { Verdict, VerifyInput } from './verifier';
 
 /** Best run of a rider: its time in ticks, and its distance in whole meters in endurance. */
@@ -36,6 +37,12 @@ export interface LiveLimits {
     sessions: number;
     /** Size of a message, in bytes. */
     messageBytes: number;
+    /** Size of a whole track sent by an editor, in bytes. */
+    snapshotBytes: number;
+    /** Edits kept since the last whole track, before asking for a new one. */
+    compactEdits: number;
+    /** Edits kept at most since the last whole track. */
+    maxEdits: number;
     /** Messages a rider can send in a burst, then per second. */
     messageBurst: number;
     messagesPerSecond: number;
@@ -53,6 +60,9 @@ export const DEFAULT_LIVE_LIMITS: LiveLimits = {
     ridersPerSession: 8,
     sessions: 500,
     messageBytes: 256 * 1024,
+    snapshotBytes: 16 * 1024 * 1024,
+    compactEdits: 1000,
+    maxEdits: 20000,
     messageBurst: 60,
     messagesPerSecond: 30,
     // An hour of a rider pressing a key every two ticks
@@ -89,8 +99,31 @@ interface Rider {
     verifying: boolean;
 }
 
+/** Edition of the track of an editing session, see `EditorWelcome`. */
+interface EditState {
+    /** The whole track, null until the first editor gives it. */
+    snapshot: TrackSnapshot | null;
+    /** Number of the last edit applied to the snapshot. */
+    snapshotSeq: number;
+    /** Edits since the snapshot, the first one numbered `snapshotSeq + 1`. */
+    log: TrackEdit[];
+    /** Screens that joined, numbering the prefixes of their ids. */
+    screens: number;
+    /** Editor asked for the whole track, null when none is. */
+    provider: Rider | null;
+    /** Editor who gave the track to the session, its main creator, null until then. */
+    host: string | null;
+    /** Names of the accounts that edited the track, by rider id. */
+    authors: Map<string, string>;
+}
+
+/** Time the credits of an editing session can be used to upload its track, in seconds. */
+const CREDITS_TTL = 12 * 60 * 60;
+
 interface Session {
     id: string;
+    /** Edition of the track, in an editing session. */
+    edit: EditState | null;
     /** Track of the session: a published one, or an endurance track (see {@link LiveTrack}). */
     track: LiveTrack;
     riders: Map<string, Rider>;
@@ -140,7 +173,8 @@ export class LiveServer {
         });
         this.sockets = new WebSocketServer({
             noServer: true,
-            maxPayload: this.limits.messageBytes,
+            // The whole tracks of the editors only, see receive
+            maxPayload: Math.max(this.limits.messageBytes, this.limits.snapshotBytes),
         });
         this.http.on('upgrade', (request: IncomingMessage, socket: Duplex, head: Buffer) => {
             this.sockets.handleUpgrade(request, socket, head, (ws) => this.connect(ws, request));
@@ -222,6 +256,10 @@ export class LiveServer {
             socket.close(LIVE_CLOSE_CODES.INVALID_TOKEN, 'The session races another track');
             return;
         }
+        if (session.edit && !token.rider.startsWith('u')) {
+            socket.close(LIVE_CLOSE_CODES.INVALID_TOKEN, 'Log in to edit the track together');
+            return;
+        }
 
         const known = session.riders.get(token.rider);
         if (known?.socket) {
@@ -264,6 +302,12 @@ export class LiveServer {
         socket.on('error', (error) => this.log(`Live session ${session.id}: ${error.message}`));
 
         const you = { id: rider.id, name: rider.name };
+        const edit = session.edit;
+        // The first editor gives the track, the others waiting for it
+        const provide = edit !== null && edit.snapshot === null && !edit.provider?.socket;
+        if (edit && provide) {
+            edit.provider = rider;
+        }
         this.send(socket, {
             type: 'welcome',
             you,
@@ -271,7 +315,20 @@ export class LiveServer {
                 .filter((other) => other !== rider)
                 .map(({ id, name, run }) => ({ id, name, events: run.resync() })),
             results: this.results(session),
+            ...(edit && {
+                editor: {
+                    prefix: `${rider.id}.${edit.screens++}.`,
+                    snapshot: edit.snapshot,
+                    seq: edit.snapshotSeq,
+                    edits: edit.log,
+                    provide,
+                    host: edit.host ?? (provide ? rider.id : null),
+                },
+            }),
         });
+        if (edit?.authors.size) {
+            this.send(socket, { type: 'credits', token: this.credits(session, edit) });
+        }
         this.broadcast(session, { type: 'joined', rider: you }, rider);
         this.broadcastResults(session);
     }
@@ -285,6 +342,18 @@ export class LiveServer {
             }
             session = {
                 id: token.session,
+                edit:
+                    token.track === 'edit'
+                        ? {
+                              snapshot: null,
+                              snapshotSeq: 0,
+                              log: [],
+                              screens: 0,
+                              provider: null,
+                              host: null,
+                              authors: new Map(),
+                          }
+                        : null,
                 track: token.track,
                 riders: new Map(),
                 trackCode: null,
@@ -309,6 +378,14 @@ export class LiveServer {
             socket.close(LIVE_CLOSE_CODES.BAD_MESSAGE, 'Too many messages');
             return;
         }
+        // Only the editor asked for the whole track sends a large message
+        const size = Array.isArray(data)
+            ? data.reduce((total, part) => total + part.length, 0)
+            : data.byteLength;
+        if (size > this.limits.messageBytes && session.edit?.provider !== rider) {
+            socket.close(LIVE_CLOSE_CODES.BAD_MESSAGE, 'Message too large');
+            return;
+        }
         const message = isBinary ? null : parseClientMessage(data.toString());
         if (!message) {
             socket.close(LIVE_CLOSE_CODES.BAD_MESSAGE, 'Invalid message');
@@ -323,6 +400,15 @@ export class LiveServer {
         socket: WebSocket,
         message: ClientMessage,
     ): void {
+        const edit = session.edit;
+        if (['edits', 'snapshot', 'cursor'].includes(message.type)) {
+            if (edit) {
+                this.handleEdit(session, edit, rider, socket, message);
+            } else {
+                socket.close(LIVE_CLOSE_CODES.BAD_MESSAGE, 'Not an editing session');
+            }
+            return;
+        }
         switch (message.type) {
             case 'run':
                 rider.run.apply(message.events);
@@ -352,6 +438,103 @@ export class LiveServer {
                 break;
             }
         }
+    }
+
+    /** Handles the messages of an editor: edits, whole tracks and cursor. */
+    private handleEdit(
+        session: Session,
+        edit: EditState,
+        rider: Rider,
+        socket: WebSocket,
+        message: ClientMessage,
+    ): void {
+        switch (message.type) {
+            case 'edits': {
+                if (edit.log.length + message.edits.length > this.limits.maxEdits) {
+                    socket.close(LIVE_CLOSE_CODES.BAD_MESSAGE, 'Too many edits in the session');
+                    return;
+                }
+                const first = edit.snapshotSeq + edit.log.length + 1;
+                edit.log.push(...message.edits);
+                // To every screen, its author too: each one applies the edits in that order
+                this.broadcast(session, {
+                    type: 'edits',
+                    rider: rider.id,
+                    first,
+                    edits: message.edits,
+                });
+
+                if (!edit.authors.has(rider.id)) {
+                    edit.authors.set(rider.id, rider.name);
+                    this.broadcast(session, {
+                        type: 'credits',
+                        token: this.credits(session, edit),
+                    });
+                }
+                // Starting again from a new whole track, rather than from many edits
+                if (edit.log.length >= this.limits.compactEdits && !edit.provider?.socket) {
+                    edit.provider = rider;
+                    this.send(socket, { type: 'snapshotRequest' });
+                }
+                break;
+            }
+            case 'snapshot': {
+                const last = edit.snapshotSeq + edit.log.length;
+                if (
+                    edit.provider !== rider ||
+                    message.seq < edit.snapshotSeq ||
+                    message.seq > last
+                ) {
+                    return;
+                }
+                const first = edit.snapshot === null;
+                edit.log = edit.log.slice(message.seq - edit.snapshotSeq);
+                edit.snapshot = message.snapshot;
+                edit.snapshotSeq = message.seq;
+                edit.provider = null;
+                if (first) {
+                    // The editor giving the track is its main creator
+                    edit.host = rider.id;
+                    this.broadcast(
+                        session,
+                        {
+                            type: 'snapshot',
+                            seq: message.seq,
+                            snapshot: message.snapshot,
+                            host: rider.id,
+                        },
+                        rider,
+                    );
+                    if (edit.authors.size) {
+                        this.broadcast(session, {
+                            type: 'credits',
+                            token: this.credits(session, edit),
+                        });
+                    }
+                }
+                break;
+            }
+            case 'cursor':
+                this.broadcast(
+                    session,
+                    { type: 'cursor', rider: rider.id, pos: message.pos },
+                    rider,
+                );
+                break;
+        }
+    }
+
+    /** The accounts that edited the track of a session, signed for the site. */
+    private credits(session: Session, edit: EditState): string {
+        return signPayload(
+            {
+                session: session.id,
+                host: edit.host,
+                authors: [...edit.authors.keys()],
+                exp: Math.floor(this.now() / 1000) + CREDITS_TTL,
+            },
+            this.options.secret,
+        );
     }
 
     /**
@@ -415,6 +598,9 @@ export class LiveServer {
         session: Session,
     ): Promise<{ trackCode: string } | { seed: number; version: number }> {
         const track = session.track;
+        if (track === 'edit') {
+            throw new Error('An editing session has no track to verify the runs on');
+        }
         if (typeof track !== 'number') {
             return { seed: track.seed, version: track.version };
         }
@@ -431,6 +617,13 @@ export class LiveServer {
         rider.run = new RunLog();
         this.broadcast(session, { type: 'left', rider: rider.id });
         this.broadcastResults(session);
+
+        // The track asked of the editor leaving is asked of another one
+        const edit = session.edit;
+        if (edit?.provider === rider) {
+            edit.provider = this.connected(session)[0] ?? null;
+            edit.provider?.socket?.send(JSON.stringify({ type: 'snapshotRequest' }));
+        }
         if (!this.connected(session).length) {
             session.emptySince = this.now();
         }

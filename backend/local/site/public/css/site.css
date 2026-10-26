@@ -659,3 +659,14 @@ section.live-results {
     background: var(--color-surface);
     font-weight: bold;
 }
+
+/* Small label after a title, e.g. the tracks made in an editing session */
+
+.tag {
+    display: inline-block;
+    padding: 0 6px;
+    border: 1px solid var(--color-border);
+    font-size: 14px;
+    font-weight: normal;
+    vertical-align: middle;
+}

@@ -1,6 +1,7 @@
 import { GameRenderEvent, GameUpdateEvent, Layer } from 'canvade';
 import { FRAME_DURATION } from '../../../openrider/constants/game.constants';
 import type { RemoteRunner } from '../../../openrider/bike/runner/remote-runner';
+import { LiveEditSession } from '../../../openrider/live/live-edit-session';
 import { LiveSession } from '../../../openrider/live/live-session';
 import { InterfaceScale } from '../../../openrider/numeric/interface-scale';
 import { Time } from '../../../openrider/numeric/time';
@@ -150,6 +151,18 @@ export class TrackHudLayer extends Layer {
      * @param line - Line of the state, from 1 at the top.
      */
     protected drawLiveState(ctx: CanvasRenderingContext2D, line: number): void {
+        const editing = LiveEditSession.of(this.state.track)?.state;
+        if (editing) {
+            const editors = editing.editors.length;
+            ctx.fillStyle = '#000';
+            ctx.fillText(
+                editing.state === 'open' && editing.loaded
+                    ? `Live: ${editors} ${editors === 1 ? 'editor' : 'editors'}`
+                    : `Live: ${editing.message}`,
+                HUD_MARGIN,
+                LINE_HEIGHT * line,
+            );
+        }
         const live = LiveSession.of(this.state.track);
         if (live) {
             ctx.fillStyle = '#000';

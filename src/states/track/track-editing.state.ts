@@ -1,3 +1,6 @@
+import { GameUpdateEvent } from 'canvade';
+import { GameConfig } from '../../openrider/config/game-config';
+import { LiveEditSession } from '../../openrider/live/live-edit-session';
 import { TrackFormat } from '../../openrider/parser/track-format';
 import { CameraTool } from '../../openrider/tool/misc/camera.tool';
 import { LEFT_TOOLBAR_EDITING, RIGHT_TOOLBAR } from '../../openrider/tool/toolbar.constants';
@@ -8,12 +11,36 @@ import { TrackPlayState } from './track-play.state';
 
 /** Common definition of the action buttons, at the bottom left of the canvas. */
 const ACTION_BUTTON = { y: 10, height: 26, verticalAlign: 'bottom' } as const;
+/** Offset of the first action button from the left, then between two buttons, in UI pixels. */
+const ACTION_BUTTON_LEFT = 10,
+    ACTION_BUTTON_GAP = 10;
 
 /**
  * Drawing a track on any number of layers. The track can be imported from a track code or an
  * editor file, exported to either of them, or uploaded.
+ *
+ * With the live session of the page (see `GameConfig.live`), the player edits the track with
+ * the other editors of the session (see `LiveEditSession`): the track is then the one of the
+ * session, not imported.
  */
 export class TrackEditingState extends TrackPlayState {
+    protected override initState(): void {
+        super.initState();
+        this.subscribe('enter', this.joinEditSession);
+        this.subscribe('update', this.sendEdits);
+    }
+
+    private joinEditSession(): void {
+        const live = GameConfig.live;
+        if (live) {
+            LiveEditSession.start(this.track, live.url, live.token);
+        }
+    }
+
+    private sendEdits(e: CustomEvent<GameUpdateEvent>): void {
+        LiveEditSession.of(this.track)?.update(e.detail.delta);
+    }
+
     public override editsLayers(): boolean {
         return true;
     }
@@ -33,37 +60,45 @@ export class TrackEditingState extends TrackPlayState {
         ];
     }
 
+    /**
+     * The action buttons, side by side from the left. In an editing session, the track is the one
+     * of the session, not imported, and only its host exports and uploads it.
+     */
     public override getButtons(): ButtonDefinition[] {
-        return [
-            {
+        const live = LiveEditSession.of(this.track);
+        const buttons: Array<Omit<ButtonDefinition, 'x'>> = [];
+        if (!live) {
+            buttons.push({
                 ...ACTION_BUTTON,
-                x: 10,
                 width: 60,
                 label: 'Import',
                 action: () => this.importTrack(),
-            },
-            {
-                ...ACTION_BUTTON,
-                x: 80,
-                width: 90,
-                label: 'Export code',
-                action: () => this.exportTrack('code'),
-            },
-            {
-                ...ACTION_BUTTON,
-                x: 180,
-                width: 100,
-                label: 'Export editor',
-                action: () => this.exportTrack('editor'),
-            },
-            {
-                ...ACTION_BUTTON,
-                x: 290,
-                width: 60,
-                label: 'Upload',
-                action: () => this.uploadTrack(),
-            },
-        ];
+            });
+        }
+        if (!live || live.isHost) {
+            buttons.push(
+                {
+                    ...ACTION_BUTTON,
+                    width: 90,
+                    label: 'Export code',
+                    action: () => this.exportTrack('code'),
+                },
+                {
+                    ...ACTION_BUTTON,
+                    width: 100,
+                    label: 'Export editor',
+                    action: () => this.exportTrack('editor'),
+                },
+                { ...ACTION_BUTTON, width: 60, label: 'Upload', action: () => this.uploadTrack() },
+            );
+        }
+
+        let x = ACTION_BUTTON_LEFT;
+        return buttons.map((button) => {
+            const placed = { ...button, x };
+            x += button.width + ACTION_BUTTON_GAP;
+            return placed;
+        });
     }
 
     /**

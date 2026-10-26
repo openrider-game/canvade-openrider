@@ -19,8 +19,34 @@ function site_create_page(): void
         return;
     }
 
-    $data = ['draft' => null];
-    site_render_page('editor', 'Create a track', $data, ['game.css'], ['/dist/main.js']);
+    $data = ['draft' => null] + site_collab_data('/create/');
+    site_render_page(
+        'editor',
+        'Create a track',
+        $data,
+        ['game.css'],
+        ['/dist/main.js', '/assets/js/share.js']
+    );
+}
+
+/**
+ * Editing session of an editor page (`?collab=`), the accounts with its link editing the track
+ * together: the first one gives the track, the others joining from `/create/?collab=`.
+ *
+ * @param string $page Path of the editor page.
+ * @return array `collab`, the session of the page; `collabToken`, the token of the account for
+ *   it; `newCollab`, the page starting a new one; all null without live sessions.
+ */
+function site_collab_data(string $page): array
+{
+    $collab = site_live_session('collab');
+    return [
+        'collab' => $collab,
+        'collabToken' => $collab === null ? null : site_live_token($collab, 'edit'),
+        'newCollab' => site_live_enabled() && $collab === null
+            ? $page . '?collab=' . site_new_live_session()
+            : null,
+    ];
 }
 
 /** The drafts of the account, and the tracks it made or verifies waiting for verification. */
@@ -55,9 +81,9 @@ function site_draft_page(int $draftId): void
     site_render_page(
         'editor',
         'Edit ' . $draft['TITLE'],
-        ['draft' => $draft],
+        ['draft' => $draft] + site_collab_data('/drafts/' . $draftId . '/'),
         ['game.css'],
-        ['/dist/main.js'],
+        ['/dist/main.js', '/assets/js/share.js'],
     );
 }
 
@@ -90,13 +116,22 @@ function site_upload_endpoint(?int $draftId): void
             openrider_respond(429, ['error' => 'Too many uploads, try again later']);
         }
 
+        // Made in an editing session: its other editors are credited
+        $credits = $_POST['credits'] ?? '';
+        $collaborators = is_string($credits) ? site_live_credits($credits, $user['ID']) : '';
+
         $draft = $draftId === null ? null : site_find_upload($db, $draftId, $user['ID']);
-        if ($draft !== null && site_is_saved_draft($draft) && site_is_editor_file($code)) {
-            site_update_draft($db, $draftId, $code, $thumbnail);
+        $savedDraft = $draft !== null && site_is_saved_draft($draft);
+        if ($savedDraft && site_is_editor_file($code)) {
+            site_update_draft($db, $draftId, $code, $thumbnail, $collaborators);
             return ['ID' => $draftId];
         }
+        // A track published from a draft credits those who edited the draft at some point
+        if ($savedDraft) {
+            $collaborators = site_merge_ids($draft['COLLABORATORS'], $collaborators);
+        }
 
-        return ['ID' => site_insert_upload($db, $user['ID'], $code, $thumbnail)];
+        return ['ID' => site_insert_upload($db, $user['ID'], $code, $thumbnail, $collaborators)];
     });
 }
 

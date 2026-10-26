@@ -2,6 +2,7 @@ import { Game, State, StateClass } from 'canvade';
 import { GameConfig } from './openrider/config/game-config';
 import { EnduranceCourse } from './openrider/endurance/endurance-course';
 import { GAME_UPS } from './openrider/constants/game.constants';
+import { LiveEditSession, LiveEditState } from './openrider/live/live-edit-session';
 import { LiveSession, LiveState } from './openrider/live/live-session';
 import { GhostService } from './openrider/request/ghost-service';
 import { Session } from './states/session';
@@ -68,11 +69,15 @@ const api = {
     },
 
     /**
-     * State of the live session of the page, null outside of one or before the track is parsed;
-     * then told with the `openrider:live` event on the document.
+     * State of the live session of the page, racing or editing the track, null outside of one or
+     * before the track is parsed; then told with the `openrider:live` event on the document.
      */
-    live(): LiveState | null {
-        return session.hasTrack() ? (LiveSession.of(session.track)?.state ?? null) : null;
+    live(): LiveState | LiveEditState | null {
+        if (!session.hasTrack()) {
+            return null;
+        }
+        const track = session.track;
+        return LiveSession.of(track)?.state ?? LiveEditSession.of(track)?.state ?? null;
     },
 
     /**
