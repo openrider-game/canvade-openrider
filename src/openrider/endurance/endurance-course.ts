@@ -156,14 +156,19 @@ export class EnduranceCourse {
         this.load();
     }
 
-    /** Replaces the track with the one of another seed, the bikes going back to the start. */
+    /**
+     * Replaces the track with the one of another seed, the bikes going back to the start. The
+     * ghosts leave the race: their runs were ridden on the track of another seed.
+     */
     public reset(seed: number): void {
         this.generator = new TerrainGenerator(
             seed,
             this.track.origin.x,
             this.track.origin.y + GROUND_OFFSET,
         );
+        this.track.ghostRunners.clear();
         this.restart();
+        this.track.updateFocalPoint();
     }
 
     /** Starts over from an empty track, the runs starting over with the runners. */

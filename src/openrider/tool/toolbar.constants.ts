@@ -1,9 +1,4 @@
-import {
-    ItemGroupTool,
-    LineGroupTool,
-    ShapeGroupTool,
-    StatusGroupTool,
-} from './group/group.tools';
+import { ItemGroupTool, LineGroupTool, ShapeGroupTool, StatusGroupTool } from './group/group.tools';
 import { CameraTool } from './misc/camera.tool';
 import { CancelCheckpointTool } from './misc/cancel-checkpoint.tool';
 import { ControlsTool } from './misc/controls.tool';

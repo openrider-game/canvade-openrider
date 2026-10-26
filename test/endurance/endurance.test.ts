@@ -18,6 +18,7 @@ import { EnduranceRun } from '../../src/openrider/endurance/endurance-run';
 import { SeededRandom } from '../../src/openrider/endurance/seeded-random';
 import { Point, TerrainGenerator } from '../../src/openrider/endurance/terrain-generator';
 import { EnduranceService } from '../../src/openrider/request/endurance-service';
+import { GhostService } from '../../src/openrider/request/ghost-service';
 import { NewTrackTool } from '../../src/openrider/tool/misc/new-track.tool';
 import { MODIFIERS } from '../../src/openrider/item/modifiers';
 import { Track } from '../../src/openrider/track/track';
@@ -328,6 +329,63 @@ describe('Endurance course', () => {
         expect(course.seed).not.toBe(5);
         expect(EnduranceCourse.of(course.track)).toBe(course);
         expect(EnduranceCourse.of(new Track(null))).toBeNull();
+    });
+});
+
+describe('Endurance ghosts', () => {
+    /** Response double of the ghost endpoint. */
+    const ghostResponse = () =>
+        Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ GHOSTSTRING: '0,,,,,100,BMX,Rival' }),
+        } as Response);
+
+    test('leave the race when the new track tool generates another track', () => {
+        const course = createCourse(4);
+        const ghost = new GhostRunner(course.track, '0,,,,,100,BMX,Rival');
+        ghost.createBike();
+        course.track.ghostRunners.set(3, ghost);
+
+        new NewTrackTool(course.track).run();
+
+        expect(course.track.ghostRunners.size).toBe(0);
+        expect(course.track.focalPoint).toBe(course.track.playerRunner.instance?.hitbox);
+    });
+
+    test('only race on the track of the page, asked to the backend for it', async () => {
+        GameConfig.seed = 4;
+        const course = createCourse(4);
+        const fetch = vi.fn(ghostResponse);
+        vi.stubGlobal('fetch', fetch);
+
+        expect(GhostService.canRace(course.track)).toBe(true);
+        await GhostService.toggleGhost(course.track, 3);
+        expect([...course.track.ghostRunners.keys()]).toEqual([3]);
+        const body = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
+            .body as URLSearchParams;
+        expect(body.get('seed')).toBe('4');
+
+        new NewTrackTool(course.track).run();
+        expect(GhostService.canRace(course.track)).toBe(false);
+        await GhostService.toggleGhost(course.track, 3);
+        expect(course.track.ghostRunners.size).toBe(0);
+        expect(GhostService.canRace(new Track(null))).toBe(true);
+    });
+
+    test('are not added when the track changed while downloading', async () => {
+        GameConfig.seed = 4;
+        const course = createCourse(4);
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(() => {
+                course.reset(5);
+                return ghostResponse();
+            }),
+        );
+
+        await GhostService.toggleGhost(course.track, 3);
+
+        expect(course.track.ghostRunners.size).toBe(0);
     });
 });
 

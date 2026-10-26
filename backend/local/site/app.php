@@ -354,8 +354,9 @@ function site_endurance_upload_endpoint(): void
 
 /**
  * Ghost endpoint of the endurance page, in place of the ghostdata endpoint of the backend: the
- * ghost string of a ranked run (`id`), of a run of the account, or of any run for the admins,
- * watching the runs waiting for them.
+ * ghost string of a ranked run (`id`) on the track ridden by the game (`seed`), of a run of the
+ * account, or of any run for the admins, watching the runs waiting for them. A run of another
+ * track is not found: its ghost would not ride the track of the game.
  */
 function site_endurance_ghost_endpoint(): void
 {
@@ -365,6 +366,7 @@ function site_endurance_ghost_endpoint(): void
         $ghostString = site_find_endurance_ghost(
             $db,
             openrider_int_param('id'),
+            openrider_int_param('seed', 0),
             $user['ID'] ?? null,
             site_is_admin($user)
         );

@@ -329,6 +329,19 @@ a {
     display: none;
 }
 
+.button:disabled {
+    background: var(--color-background);
+    color: var(--color-muted);
+    border-color: var(--color-muted);
+    cursor: not-allowed;
+}
+
+.leaderboard__other-track {
+    padding: 8px 12px;
+    border: var(--border);
+    font-weight: bold;
+}
+
 /* Track page: description under the title */
 
 .track-description {

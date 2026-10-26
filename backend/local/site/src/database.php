@@ -993,16 +993,23 @@ function site_save_endurance_run(
 }
 
 /**
- * The ghost string of an endurance run: a ranked run, a run of the account, or any run for the
- * admins; null for the others.
+ * The ghost string of an endurance run on the track of a seed: a ranked run, a run of the
+ * account, or any run for the admins; null for the others, and for the runs of other tracks.
  */
-function site_find_endurance_ghost(PDO $db, int $runId, ?int $userId, bool $admin): ?string
-{
+function site_find_endurance_ghost(
+    PDO $db,
+    int $runId,
+    int $seed,
+    ?int $userId,
+    bool $admin
+): ?string {
     $statement = $db->prepare(
-        'SELECT "GHOSTSTRING" FROM "LOCAL_ENDURANCE_RUNS" WHERE "ID" = :id'
+        'SELECT "GHOSTSTRING" FROM "LOCAL_ENDURANCE_RUNS" WHERE "ID" = :id AND "SEED" = :seed'
         . ($admin ? '' : ' AND ("REVIEW" IS NULL OR "USERID" = :userId)')
     );
-    $statement->execute(['id' => $runId] + ($admin ? [] : ['userId' => $userId ?? 0]));
+    $statement->execute(
+        ['id' => $runId, 'seed' => $seed] + ($admin ? [] : ['userId' => $userId ?? 0])
+    );
     $ghostString = $statement->fetchColumn();
 
     return $ghostString === false ? null : (string) $ghostString;

@@ -1,6 +1,7 @@
 import { GhostRunner } from '../bike/runner/ghost-runner';
 import { GameConfig } from '../config/game-config';
 import { GHOSTDATA_PATH, GHOSTUPLOAD_PATH } from '../constants/request.constants';
+import { EnduranceCourse } from '../endurance/endurance-course';
 import { GhostParser } from '../parser/ghost-parser';
 import type { Track } from '../track/track';
 import { Requests } from './requests';
@@ -8,7 +9,18 @@ import { Requests } from './requests';
 /** Loads the ghosts of a race and uploads the player runs. */
 export abstract class GhostService {
     /**
-     * Adds the ghost to the race, or removes it if it is already racing.
+     * Whether the ghosts of the page can race on the track: always on a published track, and in
+     * endurance mode only on the track of the seed of the page (see `GameConfig.seed`), not on a
+     * track generated since then by the new track tool.
+     */
+    public static canRace(track: Track): boolean {
+        const course = EnduranceCourse.of(track);
+        return course === null || course.seed === GameConfig.seed;
+    }
+
+    /**
+     * Adds the ghost to the race, or removes it if it is already racing. A ghost is only added on
+     * a track it can race on (see {@link GhostService.canRace}).
      *
      * Ghost strings are downloaded once and cached on the track. Adding a ghost restarts the race
      * from the start position for every runner.
@@ -19,14 +31,24 @@ export abstract class GhostService {
             track.updateFocalPoint();
             return;
         }
+        if (!GhostService.canRace(track)) {
+            return;
+        }
 
         let ghostString = track.ghostCache.get(ghostId);
         if (ghostString === undefined) {
             const url = GameConfig.url(GHOSTDATA_PATH);
+            // In endurance mode, the backend only gives the runs of the track ridden
+            const seed = EnduranceCourse.of(track)?.seed;
             const response = await Requests.postJson<{ GHOSTSTRING: string }>(url, {
                 trackId: track.id ?? 0,
                 id: ghostId,
+                ...(seed === undefined ? {} : { seed }),
             });
+            // The track may have changed during the download
+            if (!GhostService.canRace(track)) {
+                return;
+            }
             ghostString = response.GHOSTSTRING;
             track.ghostCache.set(ghostId, ghostString);
         }

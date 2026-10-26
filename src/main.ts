@@ -1,5 +1,6 @@
 import { Game, State, StateClass } from 'canvade';
 import { GameConfig } from './openrider/config/game-config';
+import { EnduranceCourse } from './openrider/endurance/endurance-course';
 import { GAME_UPS } from './openrider/constants/game.constants';
 import { GhostService } from './openrider/request/ghost-service';
 import { Session } from './states/session';
@@ -42,14 +43,20 @@ const api = {
      * the first time. Does nothing until a track has been parsed.
      *
      * @param ghostId - Id of the published ghost.
-     * @returns Whether the ghost was toggled, false while no track is parsed.
+     * @returns Whether the ghost was toggled, false while no track is parsed, or when the ghost
+     * cannot race on the track ridden: in endurance mode, a track generated since the page was
+     * loaded (see {@link api.trackSeed}).
      */
     toggleGhost(ghostId: number): boolean {
         if (!session.hasTrack()) {
             return false;
         }
+        const track = session.track;
+        if (!track.ghostRunners.has(ghostId) && !GhostService.canRace(track)) {
+            return false;
+        }
 
-        GhostService.toggleGhost(session.track, ghostId).catch((e) =>
+        GhostService.toggleGhost(track, ghostId).catch((e) =>
             console.error(`Cannot load ghost ${ghostId}`, e),
         );
         return true;
@@ -58,6 +65,14 @@ const api = {
     /** Ids of the ghosts racing, fastest first; empty while no track is parsed. */
     racingGhosts(): number[] {
         return session.hasTrack() ? [...session.track.ghostRunners.keys()] : [];
+    },
+
+    /**
+     * Seed of the endurance track ridden, which the new track tool changes; null outside of the
+     * endurance mode, or while no track is created.
+     */
+    trackSeed(): number | null {
+        return session.hasTrack() ? (EnduranceCourse.of(session.track)?.seed ?? null) : null;
     },
 };
 

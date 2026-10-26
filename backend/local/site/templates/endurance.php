@@ -113,8 +113,13 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
 <?php site_render('partials/game', ['attributes' => $attributes]); ?>
 
 <?php if ($leaderboard): ?>
-    <section class="leaderboard" aria-labelledby="leaderboard-title">
+    <?php // The ghosts only race on the track of the seed, see leaderboard.js ?>
+    <section class="leaderboard" aria-labelledby="leaderboard-title" data-seed="<?= $seed ?>">
         <h2 id="leaderboard-title"><?= $open ? 'Leaderboard of the day' : 'Leaderboard' ?></h2>
+        <p class="leaderboard__other-track" hidden>
+            You are riding another track: these ghosts only race on track <?= $seed ?>.
+            <a href="/endurance/?seed=<?= $seed ?>">Ride it again</a> to race them.
+        </p>
         <p class="muted">
             <?php if (!$open): ?>
                 The day of this track is over: its leaderboard is closed.

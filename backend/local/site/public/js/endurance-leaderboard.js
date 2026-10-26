@@ -6,15 +6,15 @@
  */
 (() => {
     /** Parts of the page shown again, by selector. */
-    const PARTS = ['.leaderboard', '.share-slot'];
+    const PARTS = [".leaderboard", ".share-slot"];
 
-    document.addEventListener('openrider:endurance-saved', async () => {
+    document.addEventListener("openrider:endurance-saved", async () => {
         try {
-            const response = await fetch(location.href, { credentials: 'same-origin' });
+            const response = await fetch(location.href, { credentials: "same-origin" });
             if (!response.ok) {
                 return;
             }
-            const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+            const page = new DOMParser().parseFromString(await response.text(), "text/html");
             for (const selector of PARTS) {
                 const current = document.querySelector(selector);
                 const part = page.querySelector(selector);

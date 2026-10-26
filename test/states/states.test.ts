@@ -279,6 +279,8 @@ describe('Endurance mode', () => {
             async () => new Response(JSON.stringify({ GHOSTSTRING: '0,,,,,200,BMX,Bob' })),
         );
         vi.stubGlobal('fetch', fetch);
+        // A shared link races a run on the track of its seed
+        GameConfig.seed = 1234;
         GameConfig.ghostIds = [7];
 
         manager.push(STATE_ENDURANCE_SETUP);
@@ -292,6 +294,7 @@ describe('Endurance mode', () => {
         expect(GameConfig.ghostIds).toEqual([]);
         // The camera stays on the player
         expect(session.track.focalPoint).toBe(session.track.playerRunner.instance?.hitbox);
+        GameConfig.seed = null;
     });
 
     test('generates a track from the seed of the host element, then rides it', async () => {

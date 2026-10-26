@@ -6,7 +6,7 @@
     // Delay between two checks of the verification, in milliseconds
     const POLL_INTERVAL = 3000;
 
-    const section = document.querySelector('[data-verification-id]');
+    const section = document.querySelector("[data-verification-id]");
     if (!section) {
         return;
     }
@@ -28,7 +28,7 @@
     }
 
     // Only the runs waiting for an admin or the verifier change by themselves
-    if (verificationState !== 'verified') {
+    if (verificationState !== "verified") {
         setTimeout(checkState, POLL_INTERVAL);
     }
 })();

@@ -20,5 +20,4 @@ export class ToolCollection {
         const tool = this.toolsByToolName.get(controlName);
         return tool?.toolClass.key ? tool : undefined;
     }
-
 }
