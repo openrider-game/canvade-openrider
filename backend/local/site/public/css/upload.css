@@ -15,4 +15,5 @@
     max-width: 500px;
     height: auto;
     border: var(--border);
+    background: var(--color-track);
 }

@@ -60,5 +60,5 @@
 }
 
 .leaderboard__other td {
-    background: #f6f6f6;
+    background: var(--color-surface);
 }

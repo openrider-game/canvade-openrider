@@ -8,13 +8,13 @@
     OpenRider, built on the canvade engine
     <br />
     <br />
-    <a href="https://tomiy.online/openrider/">View Demo</a>
+    <a href="https://openrider.tomiy.online/">View Demo</a>
     ·
-    <a href="https://github.com/tomiy/canvade/issues">Report Bug</a>
+    <a href="https://github.com/tomiy/canvade-openrider/issues">Report Bug</a>
     ·
-    <a href="https://github.com/tomiy/canvade/issues">Request Feature</a>
+    <a href="https://github.com/tomiy/canvade-openrider/issues">Request Feature</a>
     ·
-    <a href="https://github.com/tomiy/canvade">Canvade engine</a>
+    <a href="https://github.com/tomiy/canvade-openrider">Canvade engine</a>
   </p>
 </div>
 

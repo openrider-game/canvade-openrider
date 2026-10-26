@@ -217,8 +217,11 @@ describe('Loading states', () => {
         const texts = vi.mocked(context.fillText).mock.calls.map(([text]) => text);
         expect(texts[0]).toBe('Parsing Solid lines (Main): 0 %');
         expect(texts[1]).toMatch(/^Parsing Solid lines \(Main\): \d+ %$/);
-        // The progress bar never exceeds the bar width
-        const bars = vi.mocked(context.fillRect).mock.calls.map(([, , width]) => width);
+        // The progress bar never exceeds the bar width, past the background filling each frame
+        const bars = vi
+            .mocked(context.fillRect)
+            .mock.calls.filter(([x, y]) => x !== 0 || y !== 0)
+            .map(([, , width]) => width);
         expect(Math.max(...bars)).toBeLessThanOrEqual(500);
     });
 });

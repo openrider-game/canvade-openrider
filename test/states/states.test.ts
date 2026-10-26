@@ -122,7 +122,8 @@ describe('Editing a track', () => {
         manager.render(context);
 
         expect(session.track.canvas).toBe(context.canvas);
-        expect(calls).toContain('clearRect');
+        // The frame starts by filling the canvas with the background color
+        expect(calls.indexOf('fillRect')).toBeLessThan(calls.indexOf('stroke'));
         // HUD time and interface buttons texts
         expect(vi.mocked(context.fillText).mock.calls.map(([text]) => text)).toEqual(
             expect.arrayContaining(['00:00.0', 'Import', 'Export code', 'Export editor', 'Upload']),

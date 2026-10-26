@@ -4,9 +4,12 @@
  */
 
 :root {
+    color-scheme: light;
     --color-text: #000;
     --color-muted: #666;
     --color-background: #fff;
+    /* Rows standing out of a table */
+    --color-surface: #f6f6f6;
     --color-hover: #ddd;
     --color-active: #ccc;
     --color-toggled: #077;
@@ -14,10 +17,48 @@
     --color-accent-hover: #055;
     --color-accent-active: #044;
     --color-error: #b00;
-    --border: 2px solid #000;
+    --color-border: #000;
+    /* Behind the pictures of tracks, white as in the game, whatever the theme */
+    --color-track: #fff;
+    --border: 2px solid var(--color-border);
     --page-width: 960px;
     --content-width: 702px;
     --gutter: 16px;
+}
+
+/*
+ * Dark theme: the one of the system, unless a theme is picked with the button of the header
+ * (`data-theme` of the root, see theme.js).
+ */
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        color-scheme: dark;
+        --color-text: #eee;
+        --color-muted: #aaa;
+        --color-background: #111;
+        --color-surface: #222;
+        --color-hover: #333;
+        --color-active: #444;
+        --color-accent-hover: #088;
+        --color-accent-active: #099;
+        --color-error: #f66;
+        --color-border: #ccc;
+    }
+}
+
+:root[data-theme='dark'] {
+    color-scheme: dark;
+    --color-text: #eee;
+    --color-muted: #aaa;
+    --color-background: #111;
+    --color-surface: #222;
+    --color-hover: #333;
+    --color-active: #444;
+    --color-accent-hover: #088;
+    --color-accent-active: #099;
+    --color-error: #f66;
+    --color-border: #ccc;
 }
 
 *,
@@ -135,6 +176,20 @@ a {
     display: flex;
     align-items: center;
     gap: 8px;
+    white-space: nowrap;
+}
+
+/* Theme button: a moon, filled while the dark theme shows (see theme.js) */
+
+.theme-toggle {
+    padding: 6px;
+    line-height: 0;
+}
+
+.theme-toggle svg {
+    width: 20px;
+    height: 20px;
+    fill: currentColor;
 }
 
 /* Account menu: the name of the account, opening its links under it */
@@ -286,7 +341,7 @@ a {
     height: auto;
     aspect-ratio: 5 / 3;
     border-bottom: var(--border);
-    background: var(--color-background);
+    background: var(--color-track);
 }
 
 .track-card__thumbnail--empty {

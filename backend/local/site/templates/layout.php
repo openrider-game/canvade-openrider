@@ -15,9 +15,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><?= h($title) ?> - OpenRider</title>
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <script>
+        // The theme picked with the button of the header, before the page is drawn (see theme.js)
+        try {
+            const theme = localStorage.getItem("openrider.theme");
+            if (theme === "light" || theme === "dark") {
+                document.documentElement.dataset.theme = theme;
+            }
+        } catch {
+            // Storage blocked: the theme of the system
+        }
+    </script>
     <?php foreach ($styles as $style): ?>
         <link rel="stylesheet" href="/assets/css/<?= h($style) ?>" />
     <?php endforeach; ?>
+    <script src="/assets/js/theme.js" defer></script>
     <?php foreach ($scripts as $script): ?>
         <script src="<?= h($script) ?>" defer></script>
     <?php endforeach; ?>
@@ -64,6 +76,12 @@
                     <a class="site-header__link" href="/login/">Log in</a>
                     <a class="button" href="/register/">Register</a>
                 <?php endif; ?>
+                <button class="button theme-toggle" type="button" aria-pressed="false"
+                    aria-label="Dark mode" title="Dark mode" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 14.5A9 9 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z" />
+                    </svg>
+                </button>
             </div>
         </div>
     </header>

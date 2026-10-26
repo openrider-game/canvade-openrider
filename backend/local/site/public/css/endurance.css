@@ -36,7 +36,7 @@
 /* Endurance page: the run of the account in the leaderboard, under the top when further */
 
 .leaderboard__mine td {
-    background: #f6f6f6;
+    background: var(--color-surface);
     font-weight: bold;
 }
 
