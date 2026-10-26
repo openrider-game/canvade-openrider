@@ -110,12 +110,8 @@ describe('Control catalog', () => {
         const sections = ControlCatalog.sections();
         const names = sections.flatMap((section) => section.entries.map((entry) => entry.name));
 
-        expect(sections.map((section) => section.title)).toEqual([
-            'Riding',
-            'Racing',
-            'Endurance',
-            'Editor',
-        ]);
+        // The endurance mode has no tool of its own, all of them racing too
+        expect(sections.map((section) => section.title)).toEqual(['Riding', 'Racing', 'Editor']);
         expect(sections[0].entries.map((entry) => entry.label)).toEqual([
             'Accelerate',
             'Brake',
@@ -129,7 +125,7 @@ describe('Control catalog', () => {
         expect(names).toContain('Command Block');
         expect(names).toContain('Mirror');
         expect(
-            sections[3].entries.find((entry) => entry.name === 'Undo')?.defaultControl.label,
+            sections[2].entries.find((entry) => entry.name === 'Undo')?.defaultControl.label,
         ).toBe('M');
     });
 
@@ -141,14 +137,13 @@ describe('Control catalog', () => {
     });
 
     test('tells the conflicts of a key on a same screen only', () => {
-        // N runs Redo in the editor and New Track in endurance mode, never on a same screen
+        // N runs Redo in the editor
         ControlBindings.bind('Undo', new Control(KEYN));
         expect(ControlCatalog.conflicts('Undo')).toEqual(['Redo']);
-        expect(ControlCatalog.conflicts('New Track')).toEqual([]);
 
         // Pausing is possible on every screen
         ControlBindings.bind('Pause', new Control(KEYN));
-        expect(ControlCatalog.conflicts('Pause')).toEqual(['New Track', 'Undo', 'Redo']);
+        expect(ControlCatalog.conflicts('Pause')).toEqual(['Undo', 'Redo']);
 
         // As riding
         ControlBindings.bind(PLAYER_CONTROL_NAMES.up, new Control(KEYM));

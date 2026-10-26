@@ -46,6 +46,12 @@ export abstract class TrackObject {
      * objects outside of every command area (see `CommandRegistry`).
      */
     public command: CommandBlock | null = null;
+    /**
+     * Rank of the object in a track generated around the bikes (see `EnduranceCourse`): the grid
+     * cells keep their objects in that order, whatever the order they are added in, which the
+     * collisions depend on. Null to keep the order of addition, as on the other tracks.
+     */
+    public order: number | null = null;
 
     public constructor(
         pos: Vector,

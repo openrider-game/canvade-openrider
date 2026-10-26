@@ -45,8 +45,7 @@ const api = {
      *
      * @param ghostId - Id of the published ghost.
      * @returns Whether the ghost was toggled, false while no track is parsed, or when the ghost
-     * cannot race on the track ridden: in endurance mode, a track generated since the page was
-     * loaded (see {@link api.trackSeed}).
+     * cannot race on the track ridden (see `GhostService.canRace` and {@link api.trackSeed}).
      */
     toggleGhost(ghostId: number): boolean {
         if (!session.hasTrack()) {
@@ -77,8 +76,8 @@ const api = {
     },
 
     /**
-     * Seed of the endurance track ridden, which the new track tool changes; null outside of the
-     * endurance mode, or while no track is created.
+     * Seed of the endurance track ridden: the one of the page, or a new one without; null outside
+     * of the endurance mode, or while no track is created.
      */
     trackSeed(): number | null {
         return session.hasTrack() ? (EnduranceCourse.of(session.track)?.seed ?? null) : null;

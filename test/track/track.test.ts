@@ -104,6 +104,25 @@ describe('Track objects storage', () => {
         expect(cellContent(track.layers.main[0].grid)).not.toContain(line);
     });
 
+    test('keeps the objects of a cell in their order when they have one, else in addition order', () => {
+        const lines = [3, 1, 2].map((order) => {
+            const line = new SolidLine(new Vector(-20, 300), new Vector(20, 300), track);
+            line.order = order;
+            return line;
+        });
+        const unordered = new SolidLine(new Vector(-20, 300), new Vector(20, 300), track);
+        lines.forEach((line) => addLine(line));
+        addLine(unordered);
+
+        const cells = [...track.layers.main[0].grid.cells.values()].filter((cell) =>
+            cell.lines.includes(unordered),
+        );
+        expect(cells.length).toBeGreaterThan(0);
+        for (const cell of cells) {
+            expect(cell.lines.map((line) => line.order)).toEqual([1, 2, 3, null]);
+        }
+    });
+
     test('removes an object from every cell', () => {
         const line = new SolidLine(new Vector(-150, 50), new Vector(250, 50), track);
         addLine(line);

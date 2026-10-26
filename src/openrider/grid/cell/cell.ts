@@ -26,21 +26,36 @@ export abstract class Cell {
         public readonly size: number,
     ) {}
 
-    /** Stores the object in the list matching its kind. */
+    /**
+     * Stores the object in the list matching its kind: after the others, or at its rank among
+     * them when it has one (see {@link TrackObject.order}).
+     */
     public push(obj: TrackObject): void {
         switch (obj.kind) {
             case 'scenery':
-                this.scenery.push(obj as SceneryLine);
+                Cell.insert(this.scenery, obj as SceneryLine);
                 break;
             case 'solid':
-                this.lines.push(obj as SolidLine);
+                Cell.insert(this.lines, obj as SolidLine);
                 break;
             case 'item':
-                this.objects.push(obj as Item);
+                Cell.insert(this.objects, obj as Item);
                 break;
         }
 
         this.clear();
+    }
+
+    private static insert<T extends TrackObject>(list: T[], obj: T): void {
+        const order = obj.order;
+        let index = list.length;
+        // Usually at the end: the objects are mostly added in order
+        if (order !== null) {
+            while (index > 0 && (list[index - 1].order ?? -Infinity) > order) {
+                index--;
+            }
+        }
+        list.splice(index, 0, obj);
     }
 
     public remove(obj: TrackObject): void {

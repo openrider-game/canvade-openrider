@@ -6,7 +6,6 @@ import { EraserTool } from './misc/eraser.tool';
 import { FocusRiderTool } from './misc/focus-rider.tool';
 import { FullscreenTool } from './misc/fullscreen.tool';
 import { RedoTool, UndoTool } from './misc/history.tool';
-import { NewTrackTool } from './misc/new-track.tool';
 import { PauseTool } from './misc/pause.tool';
 import { RestartTool } from './misc/restart.tool';
 import { StartPositionTool } from './misc/start-position.tool';
@@ -48,11 +47,10 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
     ],
     /** Toolbar of the track upload screen, where the track can only be looked around. */
     UPLOAD_TOOLBAR: ToolbarEntries = [CameraTool, FullscreenTool],
-    /** Left toolbar in endurance mode: no checkpoints nor ghosts, but new tracks. */
+    /** Left toolbar in endurance mode: no checkpoints. */
     LEFT_TOOLBAR_ENDURANCE: ToolbarEntries = [
         PauseTool,
         RestartTool,
-        NewTrackTool,
         null,
         SwitchBikeTool,
         FocusRiderTool,

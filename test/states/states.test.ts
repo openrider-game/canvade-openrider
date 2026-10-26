@@ -312,8 +312,8 @@ describe('Endurance mode', () => {
         const track = session.track;
         expect(EnduranceCourse.of(track)?.seed).toBe(1234);
         expect(track.layers.main[0].grid.totalSolidLines.size).toBeGreaterThan(10);
-        // No checkpoints nor ghosts, but new tracks
-        expect(track.toolCollection.getByToolName('New Track')).toBeDefined();
+        // No checkpoints: another track is another page
+        expect(track.toolCollection.getByToolName('New Track')).toBeUndefined();
         expect(track.toolCollection.getByToolName('Cancel Checkpoint')).toBeUndefined();
         expect(track.toolCollection.getByToolName('Eraser')).toBeUndefined();
     });
@@ -340,8 +340,8 @@ describe('Endurance mode', () => {
             state?.dispatch('mouseUp', mouseEvent('mouseUp', x, y));
             return followed();
         };
-        // Sixth button of the left toolbar
-        const focusButton = () => click(13, 5 * 26 + 13);
+        // Fifth button of the left toolbar, after a gap
+        const focusButton = () => click(13, 4 * 26 + 13);
 
         // The ghosts, then the player again
         expect(followed()).toBe(0);
@@ -373,7 +373,7 @@ describe('Endurance mode', () => {
         manager.render(context);
 
         expect(state.run?.over).toBe(true);
-        expect(texts()).toContain('Enter: try again    N: new track');
+        expect(texts()).toContain('Enter: try again');
         expect(texts()).toContain('New record!');
     });
 });

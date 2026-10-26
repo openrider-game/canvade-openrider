@@ -98,9 +98,7 @@ export class EnduranceHudLayer extends TrackHudLayer {
             : '';
         ctx.fillText(upload, width / 2, y + 78, PANEL_WIDTH - 16);
         // The keys, or the buttons of the toolbar on touch screens
-        const hint = TouchControls.enabled
-            ? 'Try again or ride a new track from the toolbar'
-            : 'Enter: try again    N: new track';
+        const hint = TouchControls.enabled ? 'Try again from the toolbar' : 'Enter: try again';
         ctx.fillText(hint, width / 2, y + 102, PANEL_WIDTH - 16);
         ctx.restore();
     }

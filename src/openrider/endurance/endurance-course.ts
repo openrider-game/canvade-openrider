@@ -35,6 +35,12 @@ import { LATEST_GENERATOR_VERSION } from './terrain/versions';
 /** Course of each track in endurance mode, for the tools only knowing the track. */
 const COURSES = new WeakMap<Track, EnduranceCourse>();
 
+/**
+ * Ranks of the objects of a section, after those of the sections before (see
+ * `TrackObject.order`): far more than the objects of a section.
+ */
+const SECTION_ORDERS = 1_000_000;
+
 /** Creates the item of each kind of the sections, the rotation only for the directional ones. */
 const ITEMS: Record<SectionItemKind, (pos: Vector, rotation: number, track: Track) => TrackObject> =
     {
@@ -66,12 +72,12 @@ const ITEMS: Record<SectionItemKind, (pos: Vector, rotation: number, track: Trac
  *
  * - the sections are added long before a bike reaches them, and a bike never rides back to the
  *   sections taken off (see {@link BACK_LIMIT});
- * - the sections are only added in order, after the ones on the track, and every restart starts
- *   over from an empty track: the objects of each grid cell are always in the same order, which
- *   the collisions depend on.
+ * - the objects of each grid cell are always in the same order, which the collisions depend on:
+ *   the order of their sections, then their order in their section, whatever the order the
+ *   sections are added in (see `TrackObject.order`).
  */
 export class EnduranceCourse {
-    private generator: TerrainGenerator;
+    private readonly generator: TerrainGenerator;
     /** Objects of the sections on the track, by section index. */
     private readonly loaded = new Map<number, TrackObject[]>();
     /** Runs of the runners since the last restart. */
@@ -174,23 +180,6 @@ export class EnduranceCourse {
         this.load();
     }
 
-    /**
-     * Replaces the track with the one of another seed, on the latest version of the generator,
-     * the bikes going back to the start. The ghosts leave the race: their runs were ridden on
-     * another track.
-     */
-    public reset(seed: number): void {
-        this.generator = new TerrainGenerator(
-            seed,
-            this.track.origin.x,
-            this.track.origin.y + GROUND_OFFSET,
-            LATEST_GENERATOR_VERSION,
-        );
-        this.track.ghostRunners.clear();
-        this.restart();
-        this.track.updateFocalPoint();
-    }
-
     /** Starts over from an empty track, the runs starting over with the runners. */
     public restart(): void {
         this.loaded.forEach((objects) => objects.forEach((object) => object.removeFromTrack()));
@@ -216,12 +205,12 @@ export class EnduranceCourse {
         }
         for (let index = first; index <= last; index++) {
             if (!this.loaded.has(index)) {
-                this.loaded.set(index, this.addSection(this.generator.section(index)));
+                this.loaded.set(index, this.addSection(index, this.generator.section(index)));
             }
         }
     }
 
-    private addSection(section: TrackSection): TrackObject[] {
+    private addSection(index: number, section: TrackSection): TrackObject[] {
         const layer = this.track.layers.main[0];
         const objects: TrackObject[] = [
             ...EnduranceCourse.lines(
@@ -237,10 +226,11 @@ export class EnduranceCourse {
             ),
         ];
 
-        for (const object of objects) {
+        objects.forEach((object, i) => {
             object.layer = layer;
+            object.order = index * SECTION_ORDERS + i;
             object.addToTrack();
-        }
+        });
         return objects;
     }
 

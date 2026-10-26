@@ -20,7 +20,6 @@ import { TerrainGenerator } from '../../src/openrider/endurance/terrain-generato
 import { Point } from '../../src/openrider/endurance/terrain.types';
 import { EnduranceService } from '../../src/openrider/request/endurance-service';
 import { GhostService } from '../../src/openrider/request/ghost-service';
-import { NewTrackTool } from '../../src/openrider/tool/misc/new-track.tool';
 import { MODIFIERS } from '../../src/openrider/item/modifiers';
 import { Track } from '../../src/openrider/track/track';
 import { GhostVerifier } from '../../src/verify/ghost-verifier';
@@ -313,20 +312,44 @@ describe('Endurance course', () => {
         }
     });
 
-    test('changes the track for another seed, and the new track tool for a new one', () => {
-        const course = createCourse(4);
-        const lines = () =>
+    test('keeps the objects of each cell in order, whatever order the sections are added in', () => {
+        const course = createCourse(21);
+        // Far enough for many sections, items included
+        for (let x = 0; x < 20 * SECTION_LENGTH; x += LOADED_AHEAD) {
+            moveBike(course, course.track.playerRunner, x);
+            course.step();
+        }
+        const grid = course.track.layers.main[0].grid;
+        const cells = () =>
+            [...grid.cells.entries()]
+                .map(([key, cell]) => [
+                    key,
+                    [...cell.lines, ...cell.scenery, ...cell.objects].map((object) => object.id),
+                ])
+                .filter(([, ids]) => ids.length > 0);
+        const ordered = cells();
+        expect(grid.totalObjects.size).toBeGreaterThan(0);
+
+        // Taken off, then added back from the last section to the first
+        const objects = [
+            ...grid.totalSolidLines.values(),
+            ...grid.totalSceneryLines.values(),
+            ...grid.totalObjects.values(),
+        ].sort((a, b) => (b.order ?? 0) - (a.order ?? 0));
+        objects.forEach((object) => object.removeFromTrack());
+        objects.forEach((object) => object.addToTrack());
+
+        expect(cells()).toEqual(ordered);
+    });
+
+    test('generates another track from another seed', () => {
+        const lines = (course: EnduranceCourse) =>
             [...course.track.layers.main[0].grid.totalSolidLines.values()].map(
                 (line) => `${line.pos.x},${line.pos.y}`,
             );
-        const first = lines();
+        const course = createCourse(4);
 
-        course.reset(5);
-        expect(course.seed).toBe(5);
-        expect(lines()).not.toEqual(first);
-
-        new NewTrackTool(course.track).run();
-        expect(course.seed).not.toBe(5);
+        expect(lines(createCourse(5))).not.toEqual(lines(course));
         expect(EnduranceCourse.of(course.track)).toBe(course);
         expect(EnduranceCourse.of(new Track(null))).toBeNull();
     });
@@ -339,18 +362,6 @@ describe('Endurance ghosts', () => {
             ok: true,
             json: () => Promise.resolve({ GHOSTSTRING: '0,,,,,100,BMX,Rival' }),
         } as Response);
-
-    test('leave the race when the new track tool generates another track', () => {
-        const course = createCourse(4);
-        const ghost = new GhostRunner(course.track, '0,,,,,100,BMX,Rival');
-        ghost.createBike();
-        course.track.ghostRunners.set(3, ghost);
-
-        new NewTrackTool(course.track).run();
-
-        expect(course.track.ghostRunners.size).toBe(0);
-        expect(course.track.focalPoint).toBe(course.track.playerRunner.instance?.hitbox);
-    });
 
     test('only race on the track of the page, asked to the backend for it', async () => {
         GameConfig.seed = 4;
@@ -365,27 +376,12 @@ describe('Endurance ghosts', () => {
             .body as URLSearchParams;
         expect(body.get('seed')).toBe('4');
 
-        new NewTrackTool(course.track).run();
-        expect(GhostService.canRace(course.track)).toBe(false);
-        await GhostService.toggleGhost(course.track, 3);
-        expect(course.track.ghostRunners.size).toBe(0);
+        // A new track of a page without seed
+        const other = createCourse(5);
+        expect(GhostService.canRace(other.track)).toBe(false);
+        await GhostService.toggleGhost(other.track, 3);
+        expect(other.track.ghostRunners.size).toBe(0);
         expect(GhostService.canRace(new Track(null))).toBe(true);
-    });
-
-    test('are not added when the track changed while downloading', async () => {
-        GameConfig.seed = 4;
-        const course = createCourse(4);
-        vi.stubGlobal(
-            'fetch',
-            vi.fn(() => {
-                course.reset(5);
-                return ghostResponse();
-            }),
-        );
-
-        await GhostService.toggleGhost(course.track, 3);
-
-        expect(course.track.ghostRunners.size).toBe(0);
     });
 });
 

@@ -14,7 +14,7 @@ import { EnduranceHudLayer } from './layers/endurance-hud.layer';
 /**
  * Endurance mode: riding an infinite track generated as the bike goes, harder and harder, as far
  * and as fast as possible. A run ends when the rider crashes or falls into a gap, the track having
- * no checkpoints: restarting tries the same track again, the new track tool another one.
+ * no checkpoints: restarting tries the same track again. Another track is another page.
  *
  * Entered from the endurance setup state, which creates the track and its course.
  */

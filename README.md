@@ -215,7 +215,7 @@ tracks. To add or change obstacles or zones:
 1. Write the new obstacle or zone in its own file. A changed one is a new object, under a new
    name, the old one staying for the versions using it.
 2. Add a version to `terrain/versions.ts` listing every obstacle and zone it keeps plus the new
-   ones, then set `LATEST_GENERATOR_VERSION` to it: new tracks (`N`, a page without seed) use it.
+   ones, then set `LATEST_GENERATOR_VERSION` to it: new tracks (a page without seed) use it.
 3. Deploy the game, then add the version to `SITE_ENDURANCE_VERSIONS` of the sample website with
    the first day of the tracks of the day generated with it.
 
@@ -237,7 +237,6 @@ it for the track of the day.
 | Turn around                                                                          | `Z`                                          |
 | Pause, restart, last checkpoint                                                      | `Space`, `Enter`, `Backspace`                |
 | Switch bike, focus a live rider or a ghost in turn                                   | `Ctrl+B`, `Ctrl+G`                           |
-| New track, in endurance mode                                                         | `N`                                          |
 | Camera, fullscreen                                                                   | `R`, `F`                                     |
 | Controls panel                                                                       | `Ctrl+K`                                     |
 | Undo, redo                                                                           | `M`, `N`                                     |
