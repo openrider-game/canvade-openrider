@@ -67,12 +67,6 @@ export class Track extends World {
     public cameraHold: { pos: Vector; until: number } | null = null;
     /** Called first by {@link Track.restart}, e.g. for the endurance course to start over. */
     public onRestart: (() => void) | null = null;
-    /**
-     * Whether the camera follows the first ghost until the player reaches a checkpoint, to watch
-     * the best run; the endurance mode, without checkpoints, always follows the player.
-     */
-    public followsGhosts = true;
-
     public toolCollection = new ToolCollection();
     public readonly toolManager = new ToolManager(this);
     public readonly history = new HistoryManager();
@@ -310,11 +304,13 @@ export class Track extends World {
 
     /**
      * Focuses the camera on the player, or on the first ghost if the player has not reached any
-     * checkpoint.
+     * checkpoint, to watch the best run: the player takes the camera back by riding (see
+     * `PlayerRunner`). The endurance mode, without checkpoints, follows the first ghost until
+     * then on each start.
      */
     public updateFocalPoint(): void {
         let focalPoint = this.playerRunner.instance?.hitbox ?? null;
-        if (this.followsGhosts && !this.playerRunner.snapshots.length && this.ghostRunners.size) {
+        if (!this.playerRunner.snapshots.length && this.ghostRunners.size) {
             const firstGhost = this.ghostRunners.values().next().value;
             focalPoint = firstGhost?.instance?.hitbox ?? focalPoint;
         }

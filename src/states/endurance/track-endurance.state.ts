@@ -49,10 +49,8 @@ export class TrackEnduranceState extends TrackPlayState {
             throw new Error('The endurance track has no course');
         }
         this.run = new EnduranceRun(course, this.records);
-        // Racing the ghosts of the leaderboard, the camera stays on the player
-        this.track.followsGhosts = false;
-        this.track.updateFocalPoint();
-        // E.g. the ghost of a link shared to race someone
+        // E.g. the ghost of a link shared to race someone, followed by the camera as when racing
+        // a track, until the player rides
         GhostService.raceInitialGhosts(this.track);
     }
 

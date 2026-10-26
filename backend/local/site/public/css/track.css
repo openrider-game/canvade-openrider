@@ -37,36 +37,8 @@
     width: 12em;
 }
 
-/* Track page: tabs of the leaderboard, and the other ghosts of the top riders */
+/* Track page: tabs of the leaderboard (see site.css), and the other ghosts of the top riders */
 
-.tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 12px;
-    border-bottom: var(--border);
-}
-
-.tabs__tab {
-    margin-bottom: -2px;
-    padding: 6px 12px;
-    border: var(--border);
-    background: var(--color-background);
-    color: var(--color-muted);
-    font: inherit;
-    cursor: pointer;
-}
-
-.tabs__tab:hover {
-    background: var(--color-hover);
-}
-
-.tabs__tab[aria-selected='true'] {
-    border-bottom-color: var(--color-background);
-    color: var(--color-text);
-    font-weight: bold;
-}
-
-.tabs__tab:focus-visible,
 .leaderboard__more:focus-visible {
     outline: 2px solid var(--color-toggled);
     outline-offset: 2px;

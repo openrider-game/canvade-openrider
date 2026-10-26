@@ -263,6 +263,23 @@ a {
     background: var(--color-hover);
 }
 
+.track-card__media {
+    position: relative;
+    display: block;
+}
+
+.track-card__thumbs {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 2px 6px;
+    border: var(--border);
+    background: var(--color-background);
+    color: var(--color-text);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
 .track-card__thumbnail {
     display: block;
     width: 100%;
@@ -340,6 +357,52 @@ a {
     padding: 8px 12px;
     border: var(--border);
     font-weight: bold;
+}
+
+/* Tabs: the buttons of the leaderboard of the track page, or the links of the front page */
+
+.tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    border-bottom: var(--border);
+}
+
+.tabs__tab {
+    display: inline-block;
+    margin-bottom: -2px;
+    padding: 6px 12px;
+    border: var(--border);
+    background: var(--color-background);
+    color: var(--color-muted);
+    font: inherit;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.tabs__tab:hover {
+    background: var(--color-hover);
+}
+
+.tabs__tab:focus-visible {
+    outline: 2px solid var(--color-toggled);
+    outline-offset: 2px;
+}
+
+.tabs__tab[aria-selected='true'],
+.tabs__tab[aria-current='page'] {
+    border-bottom-color: var(--color-background);
+    color: var(--color-text);
+    font-weight: bold;
+}
+
+/* Pages of a list: users, ghosts */
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
 }
 
 /* Headings of the parts of a leaderboard, e.g. repeating its tabs */
@@ -430,8 +493,18 @@ textarea.field__input {
     padding: 2px 0;
 }
 
-.track-thumbs {
-    margin: -8px 0 16px;
+/* Track page: the title, then the thumbs up on its right */
+
+.track-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin-bottom: 16px;
+}
+
+.track-title h1 {
+    margin: 0;
 }
 
 /* Main action of a page, e.g. challenging friends to race */

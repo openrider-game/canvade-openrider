@@ -1,9 +1,13 @@
 <?php
 /**
- * Front page: the endurance mode, then the published tracks.
+ * Front page: the endurance mode, then the published tracks, in two tabs: the newest ones, and
+ * the most liked ones (`?sort=liked`). The tabs are links, each order having its URL.
  *
- * @var array[] $tracks Tracks, newest first, see site_find_tracks().
+ * @var array[] $tracks    Tracks in the order of the tab, see site_find_tracks().
+ * @var bool    $mostLiked Whether the tab of the most liked tracks is open.
  */
+
+$tabs = ['/' => ['Newest tracks', !$mostLiked], '/?sort=liked' => ['Most liked', $mostLiked]];
 ?>
 <section class="mode-banner">
     <p class="mode-banner__text">
@@ -15,6 +19,14 @@
 </section>
 
 <h1>Tracks</h1>
+
+<nav class="tabs" aria-label="Order of the tracks">
+    <?php foreach ($tabs as $url => [$label, $current]): ?>
+        <a class="tabs__tab" href="<?= h($url) ?>" <?= $current ? 'aria-current="page"' : '' ?>>
+            <?= h($label) ?>
+        </a>
+    <?php endforeach; ?>
+</nav>
 
 <?php if (!$tracks): ?>
     <p class="muted">No track yet: <a href="/create/">create the first one</a>.</p>

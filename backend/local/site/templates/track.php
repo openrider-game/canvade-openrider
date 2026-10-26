@@ -22,6 +22,8 @@
 
 $user = site_user();
 ?>
+<?php // The thumbs up of the track on the right of its title ?>
+<div class="track-title">
 <h1>
     <?= h(site_track_title($track)) ?>
     <span class="muted">&middot; <?= h(site_track_bike($track['CODE'])) ?></span>
@@ -32,15 +34,13 @@ $user = site_user();
         </span>
     <?php endif; ?>
 </h1>
-
-<div class="track-thumbs">
-    <?php site_render('partials/thumbs', [
-        'kind' => 'tracks',
-        'id' => (int) $track['ID'],
-        'count' => (int) $track['THUMBS'],
-        'thumbed' => $trackThumbed,
-        'can' => site_can_thumb($user, $track),
-    ]); ?>
+<?php site_render('partials/thumbs', [
+    'kind' => 'tracks',
+    'id' => (int) $track['ID'],
+    'count' => (int) $track['THUMBS'],
+    'thumbed' => $trackThumbed,
+    'can' => site_can_thumb($user, $track),
+]); ?>
 </div>
 
 <?php if ($track['DESCRIPTION'] !== null): ?>

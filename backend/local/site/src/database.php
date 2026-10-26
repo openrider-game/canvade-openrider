@@ -5,6 +5,7 @@
 require_once __DIR__ . '/db/schema.php';
 require_once __DIR__ . '/db/users.php';
 require_once __DIR__ . '/db/tracks.php';
+require_once __DIR__ . '/db/ghosts.php';
 require_once __DIR__ . '/db/thumbs.php';
 require_once __DIR__ . '/db/uploads.php';
 require_once __DIR__ . '/db/rate-events.php';

@@ -35,7 +35,7 @@ import { EraserTool } from '../../src/openrider/tool/misc/eraser.tool';
 import { TrackEditingState } from '../../src/states/track/track-editing.state';
 import { ToolIcons } from '../../src/states/track/ui/tool-icons';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
-import { keyEvent } from '../helpers/track';
+import { keyEvent, pressKey, releaseKey } from '../helpers/track';
 
 const RACE_CODE = '-50 1i 1k0 1i##T 9c 18###BMX#0 0';
 
@@ -292,8 +292,13 @@ describe('Endurance mode', () => {
         expect(session.track.ghostRunners.get(7)?.ghostName).toBe('Bob');
         expect(String((fetch.mock.calls[0] as unknown[])[0])).toContain('backend/db/ghostdata/');
         expect(GameConfig.ghostIds).toEqual([]);
-        // The camera stays on the player
-        expect(session.track.focalPoint).toBe(session.track.playerRunner.instance?.hitbox);
+        // The camera follows the ghost as when racing a track, until the player rides
+        const track = session.track;
+        expect(track.focalPoint).toBe(track.ghostRunners.get(7)?.instance?.hitbox);
+        pressKey('up');
+        track.playerRunner.fixedUpdate();
+        releaseKey('up');
+        expect(track.focalPoint).toBe(track.playerRunner.instance?.hitbox);
         GameConfig.seed = null;
     });
 

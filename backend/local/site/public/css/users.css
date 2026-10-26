@@ -2,7 +2,7 @@
  * Styles of the users page, after site.css.
  */
 
-/* Users page: search above the list, pages under it */
+/* Users page: search above the list, pages under it (see site.css) */
 
 .users-search {
     display: flex;
@@ -14,11 +14,4 @@
 .leaderboard__table .users__count {
     width: 6em;
     text-align: right;
-}
-
-.pagination {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-top: 16px;
 }

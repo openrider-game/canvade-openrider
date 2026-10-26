@@ -6,12 +6,20 @@
  */
 ?>
 <a class="track-card" href="/tracks/<?= (int) $track['ID'] ?>/">
-    <?php if ($track['THUMBNAIL']): ?>
-        <img class="track-card__thumbnail" src="data:image/png;base64,<?= h($track['THUMBNAIL']) ?>"
-            alt="" width="500" height="300" />
-    <?php else: ?>
-        <span class="track-card__thumbnail track-card__thumbnail--empty">No thumbnail</span>
-    <?php endif; ?>
+    <span class="track-card__media">
+        <?php if ($track['THUMBNAIL']): ?>
+            <img class="track-card__thumbnail"
+                src="data:image/png;base64,<?= h($track['THUMBNAIL']) ?>" alt="" width="500"
+                height="300" />
+        <?php else: ?>
+            <span class="track-card__thumbnail track-card__thumbnail--empty">No thumbnail</span>
+        <?php endif; ?>
+        <?php // Thumbs up, on the top right corner of the thumbnail ?>
+        <span class="track-card__thumbs">
+            <span aria-hidden="true">👍</span> <?= (int) $track['THUMBS'] ?>
+            <span class="visually-hidden">thumbs up</span>
+        </span>
+    </span>
     <span class="track-card__info">
         <span class="track-card__title"><?= h(site_track_title($track)) ?></span>
         <span class="track-card__meta">
@@ -20,7 +28,6 @@
                 &middot; by <?= h($track['AUTHOR']) ?>
             <?php endif; ?>
             &middot; <?= site_ghost_count((int) $track['GHOSTS']) ?>
-            &middot; <?= site_thumb_count((int) $track['THUMBS']) ?>
             <?php if ($track['VERIFIERID'] === null): ?>
                 &middot; unverified
             <?php endif; ?>

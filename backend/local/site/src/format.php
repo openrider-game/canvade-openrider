@@ -103,9 +103,3 @@ function site_ghost_count(int $count): string
 {
     return $count . ($count === 1 ? ' ghost' : ' ghosts');
 }
-
-/** Number of thumbs up, e.g. `3 thumbs up`. */
-function site_thumb_count(int $count): string
-{
-    return $count . ($count === 1 ? ' thumb up' : ' thumbs up');
-}

@@ -29,6 +29,7 @@
     // Sections of the site, each one current on its pages
     $sections = [
         ['Tracks', '/', $path === '/' || strpos($path, '/tracks/') === 0],
+        ['Ghosts', '/ghosts/', strpos($path, '/ghosts/') === 0],
         ['Endurance', '/endurance/', strpos($path, '/endurance/') === 0],
         ['Users', '/users/', strpos($path, '/users/') === 0],
     ];

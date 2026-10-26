@@ -57,8 +57,9 @@ everyone can browse and race the tracks, while creating tracks and saving drafts
 an account.
 
 - `/` presents the endurance mode, linking to the track of the day and to a new track, then lists
-  the published tracks, newest first, with their thumbnail, title, author, bike, number of ghosts
-  and best time, marking the unverified ones;
+  the published tracks in two tabs, the newest ones and the most liked ones (`?sort=liked`), with
+  their thumbnail, thumbs up, title, author, bike, number of ghosts and best time, marking the
+  unverified ones;
 - `/endurance/` runs the game in endurance mode (`data-game-mode="endurance"`): a new track on
   each load, or the track of its `seed` parameter, the number the game shows (`data-seed`, from 0
   to 4294967295), on the version of the generator of its `version` parameter (`data-version`),
@@ -87,6 +88,9 @@ an account.
   share sheet on touch screens, else copied): the page names them and gives the game the ones it
   can race (`data-ghosts`), 10 at most, those waiting for an admin for their account and the
   admins only. The track and each ghost show their thumbs up (see "Thumbs up");
+- `/ghosts/` lists the ghosts of every track out of review, 50 a page, in two tabs: the newest
+  ones, and the most liked ones (`?sort=liked`), with their track (opening it racing the ghost),
+  rider, rank, time and thumbs up; the header links to it;
 - `/users/` lists the accounts by name, 50 a page, with the number of their tracks and ghosts,
   and searches them by name (`?q=`), whatever its case; the header links to it;
 - `/users/<name>/` lists the tracks published by an account, and its ghosts with their rank,

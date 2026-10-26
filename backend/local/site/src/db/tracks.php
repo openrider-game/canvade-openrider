@@ -11,13 +11,16 @@ const SITE_REVIEWED_GHOST = 'g."ID" NOT IN (SELECT "GHOSTID" FROM "LOCAL_GHOST_R
 /**
  * The published tracks, newest first, with their title (null for the tracks uploaded to the
  * backend without the site), author name (`AUTHOR`, null without account), verifier id
- * (`VERIFIERID`, null for an unverified track), number of ghosts (`GHOSTS`) and best time
- * (`BEST`, null without ghost). The ghosts waiting for an admin are not counted.
+ * (`VERIFIERID`, null for an unverified track), number of ghosts (`GHOSTS`), best time (`BEST`,
+ * null without ghost) and number of thumbs up (`THUMBS`). The ghosts waiting for an admin are
+ * not counted.
  *
- * @param int|null $userId Author of the tracks, null for every track.
+ * @param int|null $userId    Author of the tracks, null for every track.
+ * @param bool     $mostLiked Whether the tracks with the most thumbs up come first, the newest
+ *                            first for the same number.
  * @return array[]
  */
-function site_find_tracks(PDO $db, ?int $userId = null): array
+function site_find_tracks(PDO $db, ?int $userId = null, bool $mostLiked = false): array
 {
     $statement = $db->prepare(
         'SELECT t."ID", t."CODE", t."THUMBNAIL", d."TITLE", d."VERIFIERID",'
@@ -29,7 +32,7 @@ function site_find_tracks(PDO $db, ?int $userId = null): array
         . ' LEFT JOIN "GHOSTS" g ON g."TRACKID" = t."ID" AND ' . SITE_REVIEWED_GHOST
         . ($userId === null ? '' : ' WHERE d."USERID" = :userId')
         . ' GROUP BY t."ID", t."CODE", t."THUMBNAIL", d."TITLE", d."VERIFIERID", u."NAME"'
-        . ' ORDER BY t."ID" DESC'
+        . ' ORDER BY ' . ($mostLiked ? '"THUMBS" DESC, ' : '') . 't."ID" DESC'
     );
     $statement->execute($userId === null ? [] : ['userId' => $userId]);
 

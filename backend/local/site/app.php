@@ -50,6 +50,7 @@ require_once __DIR__ . '/src/view.php';
 require_once __DIR__ . '/src/controllers/account.php';
 require_once __DIR__ . '/src/controllers/editor.php';
 require_once __DIR__ . '/src/controllers/endurance.php';
+require_once __DIR__ . '/src/controllers/ghosts.php';
 require_once __DIR__ . '/src/controllers/reviews.php';
 require_once __DIR__ . '/src/controllers/thumbs.php';
 require_once __DIR__ . '/src/controllers/tracks.php';
@@ -109,6 +110,8 @@ function site_handle(string $path): bool
         site_home_page();
     } elseif (preg_match('#^/tracks/([0-9]+)/?$#', $path, $match)) {
         site_track_page((int) $match[1]);
+    } elseif ($path === '/ghosts/') {
+        site_ghosts_page();
     } elseif ($path === '/users/') {
         site_users_page();
     } elseif (preg_match('#^/users/([^/]+)/?$#', $path, $match)) {

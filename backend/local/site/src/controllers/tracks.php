@@ -11,10 +11,15 @@ const SITE_LINKED_GHOSTS = 10;
 /** Riders listed in the top of a track, each with their best ghost. */
 const SITE_LEADERBOARD_RIDERS = 10;
 
-/** The published tracks, newest first. */
+/** The published tracks: the newest first, or the most liked first with `?sort=liked`. */
 function site_home_page(): void
 {
-    site_render_page('home', 'Tracks', ['tracks' => site_find_tracks(site_db())], ['home.css']);
+    // Two tabs: the newest tracks, and with `?sort=liked` the most liked ones
+    $mostLiked = ($_GET['sort'] ?? '') === 'liked';
+    site_render_page('home', 'Tracks', [
+        'tracks' => site_find_tracks(site_db(), null, $mostLiked),
+        'mostLiked' => $mostLiked,
+    ], ['home.css']);
 }
 
 /** A track raced by the game, with the leaderboard of its ghosts. */
