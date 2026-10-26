@@ -11,12 +11,23 @@ export default defineConfig([
     },
     // The ghost verifier of the backend, for Node: dist/verify-ghost.cjs
     {
-        entry: { "verify-ghost": "src/verify/verify-ghost.ts" },
+        entry: { "verify-ghost": "server/verify/verify-ghost.ts" },
         platform: "node",
         format: "cjs",
         outExtension: () => ({ js: ".cjs" }),
         splitting: false,
         // Bundles canvade too, so that the backend only needs the dist folder
         noExternal: [/.*/],
+    },
+    // The session server of the live races, for Node: dist/live-server.cjs
+    {
+        entry: { "live-server": "server/live/main.ts" },
+        platform: "node",
+        format: "cjs",
+        outExtension: () => ({ js: ".cjs" }),
+        splitting: false,
+        // Bundles ws too, without its optional native addons
+        noExternal: [/.*/],
+        external: ["bufferutil", "utf-8-validate"],
     },
 ]);

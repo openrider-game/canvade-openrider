@@ -51,11 +51,16 @@ function site_track_page(int $trackId): void
         array_map('intval', array_column($ghosts, 'ID'))
     );
 
+    $live = site_live_session();
     site_render_page(
         'track',
         site_track_title($track),
         [
             'track' => $track,
+            // The live session of the page, else the one the button starts
+            'live' => $live,
+            'liveToken' => $live === null ? null : site_live_token($live, $trackId),
+            'newLive' => site_live_enabled() ? site_new_live_session() : null,
             // Indexed by rank from 0, the keys of the riders dropped
             'top' => array_slice(array_values($riders), 0, SITE_LEADERBOARD_RIDERS),
             'riderCount' => count($riders),
@@ -77,6 +82,7 @@ function site_track_page(int $trackId): void
             '/assets/js/leaderboard-tabs.js',
             '/assets/js/share.js',
             '/assets/js/thumbs.js',
+            '/assets/js/live-results.js',
         ],
     );
 }

@@ -343,9 +343,11 @@ describe('Endurance mode', () => {
         // Sixth button of the left toolbar
         const focusButton = () => click(13, 5 * 26 + 13);
 
+        // The ghosts, then the player again
         expect(followed()).toBe(0);
         expect(focusButton()).toBe(1);
         expect(focusButton()).toBe(2);
+        expect(focusButton()).toBe(0);
         expect(focusButton()).toBe(1);
 
         // Clicking the track itself stops following the bike

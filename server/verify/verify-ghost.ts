@@ -12,17 +12,8 @@
  * than two hours.
  */
 import './node-stubs';
-import { GAME_UPS } from '../openrider/constants/game.constants';
-import { EnduranceVerdict, GhostVerdict, GhostVerifier } from './ghost-verifier';
-
-/** The Node globals used here, the project having no Node types. */
-declare const process: {
-    stdin: AsyncIterable<string> & { setEncoding(encoding: string): void };
-    stdout: { write(text: string): void };
-    stderr: { write(text: string): void };
-    env: Record<string, string | undefined>;
-    exitCode?: number;
-};
+import { GAME_UPS } from '../../src/openrider/constants/game.constants';
+import { EnduranceVerdict, GhostVerdict, GhostVerifier } from '../../src/verify/ghost-verifier';
 
 /** Longest run verified, in physics ticks: two hours. */
 const MAX_TICKS = 2 * 60 * 60 * GAME_UPS;

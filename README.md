@@ -145,6 +145,8 @@ data attributes (see `src/openrider/config/game-config.ts`):
 | `data-endurance-save` | `1` to upload the endurance runs on the track of `data-seed` (see below)   | Not uploaded           |
 | `data-endurance-best` | Best run uploaded on that track, `<meters>,<ticks>`                        | None                   |
 | `data-ghosts`         | Ghosts racing from the start, their ids separated with commas              | `?ghosts=`, or none    |
+| `data-live-url`       | Session server of the live races, with `data-live-token` (see below)       | No live race           |
+| `data-live-token`     | Token of the player for a session racing the track of `data-track-id`      | No live race           |
 
 ```html
 <div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>
@@ -158,6 +160,17 @@ The page hosting the game can make the player race against published ghosts:
 window.OpenRider.toggleGhost(ghostId);
 // Ids of the ghosts racing, fastest first
 window.OpenRider.racingGhosts();
+```
+
+With `data-live-url` and `data-live-token`, the player races the track at the same time as the
+other riders of a live session, each seeing the others ride (see `src/openrider/live/` and the
+"Live sessions" part of `backend/README.md`). The page follows the session:
+
+```js
+// Connection, riders and best times of the session, null outside of one
+window.OpenRider.live();
+// Told again whenever they change
+document.addEventListener("openrider:live", (event) => console.log(event.detail.results));
 ```
 
 ### Endurance mode
@@ -223,7 +236,7 @@ it for the track of the day.
 | Ride, brake, lean                                                                    | Arrows                                       |
 | Turn around                                                                          | `Z`                                          |
 | Pause, restart, last checkpoint                                                      | `Space`, `Enter`, `Backspace`                |
-| Switch bike, focus a ghost                                                           | `Ctrl+B`, `Ctrl+G`                           |
+| Switch bike, focus a live rider or a ghost in turn                                   | `Ctrl+B`, `Ctrl+G`                           |
 | New track, in endurance mode                                                         | `N`                                          |
 | Camera, fullscreen                                                                   | `R`, `F`                                     |
 | Controls panel                                                                       | `Ctrl+K`                                     |
@@ -335,6 +348,9 @@ holding its `name`, `type` (`main` or `foreground`), `visible` flag, and its `so
 ```
 .htaccess             Apache rules of the deployed sample website (see backend/README.md)
 backend/              PHP backend: endpoints, database tables, local server and sample website
+server/               Node command lines of the backend, built in dist/
+├── live/             session server of the live races (dist/live-server.cjs)
+└── verify/           ghost verifier, replaying the ghosts and endurance runs (dist/verify-ghost.cjs)
 src/
 ├── main.ts           entry point: creates the canvade game, reads ?track=<id>, exposes window.OpenRider
 ├── states/           canvade states and layers
@@ -345,19 +361,20 @@ src/
 │   ├── track-upload/     frames the thumbnail and uploads the track
 │   └── endurance/        endurance mode: creating its track, riding it, its HUD
 ├── openrider/        game logic, independent from the states
-│   ├── bike/             bikes, springs, renderers, player and ghost runners
+│   ├── bike/             bikes, springs, renderers, player, ghost and remote runners
 │   ├── config/           settings given by the page hosting the game
 │   ├── controls/         keys of the controls: default and bound ones, listed by screen
 │   ├── endurance/        endurance mode: track generation from a seed, course, runs and records
 │   ├── entity/           points with verlet physics, ragdoll, explosion
 │   ├── grid/             spatial grids: physics cells and cached render cells
 │   ├── item/             lines and items of the tracks
+│   ├── live/             live races: runs sent and replayed, messages of the session server
 │   ├── parser/           track code parser and generator, ghost strings
 │   ├── thread/           workers of the fast renderer
 │   ├── tool/             editor and race tools
 │   ├── touch/            touch screens: the riding buttons of the interface
 │   └── track/            track, layers and renderer
-└── verify/           ghost verifier of the backend, replaying the ghosts and endurance runs in Node (dist/verify-ghost.cjs)
+└── verify/           replay of the ghosts and endurance runs, for the verifier of server/verify
 ```
 
 The states share data (track id and code, parsed track) through the canvade `manager.shared` map,

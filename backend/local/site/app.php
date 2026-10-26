@@ -45,6 +45,7 @@ require_once __DIR__ . '/src/auth.php';
 require_once __DIR__ . '/src/database.php';
 require_once __DIR__ . '/src/format.php';
 require_once __DIR__ . '/src/http.php';
+require_once __DIR__ . '/src/live.php';
 require_once __DIR__ . '/src/security.php';
 require_once __DIR__ . '/src/view.php';
 require_once __DIR__ . '/src/controllers/account.php';

@@ -40,6 +40,14 @@ if (getenv('OPENRIDER_DB_DSN') === false) {
     putenv('OPENRIDER_DB_DSN=sqlite:' . $file);
 }
 
+// The session server of `npm run live:dev`, with the secret it takes with --dev
+if (getenv('OPENRIDER_LIVE_SECRET') === false) {
+    putenv('OPENRIDER_LIVE_SECRET=openrider-local-live-secret');
+}
+if (getenv('OPENRIDER_LIVE_URL') === false) {
+    putenv('OPENRIDER_LIVE_URL=ws://127.0.0.1:8090/');
+}
+
 $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 // Pages and assets of the sample website, see site/app.php

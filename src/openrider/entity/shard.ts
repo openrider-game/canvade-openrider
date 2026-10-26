@@ -9,7 +9,7 @@ import type { Explosion } from './explosion';
 // Relative distance of each of the 8 vertices of a shard to its center
 const SHARD_SHAPE = [1, 0.7, 0.8, 0.9, 0.5, 1, 0.7, 1];
 
-/** Piece of a bike that blew up on a bomb. */
+/** Piece of a bike that blew up on a bomb, in the color of the bike. */
 export class Shard extends Entity implements Collidable {
     public readonly track: Track;
 
@@ -76,7 +76,8 @@ export class Shard extends Entity implements Collidable {
         this.rotation += (this.rotationSpeed * delta) / 40;
     }
 
-    public override render(ctx: CanvasRenderingContext2D): void {
+    /** @param opacity - Opacity of the shard, as its bike was drawn. */
+    public override render(ctx: CanvasRenderingContext2D, opacity = 1): void {
         const pos = this.track.toPixel(this.displayPos);
         const size = this.size * this.track.zoomFactor;
 
@@ -88,8 +89,11 @@ export class Shard extends Entity implements Collidable {
             );
         });
 
-        ctx.fillStyle = '#000';
+        ctx.save();
+        ctx.fillStyle = this.bike.color;
+        ctx.globalAlpha = opacity;
         LinePath.render(ctx, [points]);
         ctx.fill();
+        ctx.restore();
     }
 }

@@ -57,6 +57,7 @@ export abstract class TrackRenderer {
             TrackRenderer.renderLayer(ctx, track, layer, cacheBounds, options);
         }
 
+        track.remoteRunners.forEach((runner) => runner.render(ctx));
         track.ghostRunners.forEach((runner) => runner.render(ctx));
         track.playerRunner.render(ctx);
 

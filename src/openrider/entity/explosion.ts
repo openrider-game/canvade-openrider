@@ -45,7 +45,8 @@ export class Explosion extends Entity {
         }
     }
 
-    public override render(ctx: CanvasRenderingContext2D): void {
+    /** @param opacity - Opacity of the shards, as their bike was drawn. */
+    public override render(ctx: CanvasRenderingContext2D, opacity = 1): void {
         // The blast shrinks a little on every frame until it disappears
         if (this.speedValue > 0) {
             this.speedValue -= 10;
@@ -67,7 +68,7 @@ export class Explosion extends Entity {
         }
 
         for (const piece of this.points) {
-            piece.render(ctx);
+            piece.render(ctx, opacity);
         }
     }
 }

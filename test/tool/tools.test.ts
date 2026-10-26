@@ -24,7 +24,8 @@ import { CircleTool, CurveTool } from '../../src/openrider/tool/shape/shape.tool
 import { CameraTool } from '../../src/openrider/tool/misc/camera.tool';
 import { CancelCheckpointTool } from '../../src/openrider/tool/misc/cancel-checkpoint.tool';
 import { EraserTool } from '../../src/openrider/tool/misc/eraser.tool';
-import { FocusGhostTool } from '../../src/openrider/tool/misc/focus-ghost.tool';
+import { FocusRiderTool } from '../../src/openrider/tool/misc/focus-rider.tool';
+import { RemoteRunner } from '../../src/openrider/bike/runner/remote-runner';
 import { FullscreenTool } from '../../src/openrider/tool/misc/fullscreen.tool';
 import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
 import { RedoTool, UndoTool } from '../../src/openrider/tool/misc/history.tool';
@@ -512,31 +513,94 @@ describe('View tools', () => {
         expect(vi.mocked(context.fillText).mock.calls.map(([text]) => text)).toContain('36');
     });
 
-    test('focus the ghosts in turn', () => {
-        const ghosts = [1, 2].map((id) => {
+    /** Ghosts racing, by id. */
+    function addGhosts(ids: number[]): GhostRunner[] {
+        return ids.map((id) => {
             const ghost = new GhostRunner(track, ',,,,,100,BMX,Ghost');
             ghost.createBike();
             track.ghostRunners.set(id, ghost);
             return ghost;
         });
-        const focus = new FocusGhostTool(track);
-        // Runner followed by the camera: 0 for the player, then the ghosts
+    }
+
+    /** Rider of the live session, riding from the start. */
+    function addRemote(id: string): RemoteRunner {
+        const remote = new RemoteRunner(track, id);
+        remote.receive([
+            { type: 'start', time: 0, checkpoints: 0, bike: 'BMX' },
+            { type: 'progress', time: 100 },
+        ]);
+        remote.advance();
+        track.remoteRunners.set(id, remote);
+        return remote;
+    }
+
+    test('focus the riders in turn: the live ones, the ghosts, then the player', () => {
+        const ghosts = addGhosts([1, 2]);
+        const remotes = [addRemote('ann'), addRemote('bob')];
+        const focus = new FocusRiderTool(track);
+        // Runner followed by the camera: 0 for the player, then the live riders and the ghosts
         const next = () => {
             focus.run();
-            return [track.playerRunner, ...ghosts].findIndex(
+            return [track.playerRunner, ...remotes, ...ghosts].findIndex(
                 (runner) => runner.instance?.hitbox === track.focalPoint,
             );
         };
 
-        // Racing, the camera starts on the first ghost
-        track.focalPoint = ghosts[0].instance?.hitbox ?? null;
-        expect(next()).toBe(2);
-
-        // From the player, the first ghost, then the others in turn
         track.focalPoint = track.playerRunner.instance?.hitbox ?? null;
-        expect(next()).toBe(1);
-        expect(next()).toBe(2);
-        expect(next()).toBe(1);
+        expect([next(), next(), next(), next(), next(), next()]).toEqual([1, 2, 3, 4, 0, 1]);
+
+        // Racing, the camera starts on the first ghost: the next one comes next
+        track.follow(null);
+        track.focalPoint = ghosts[0].instance?.hitbox ?? null;
+        expect(next()).toBe(4);
+    });
+
+    test('focus the ghosts in turn without live session', () => {
+        const ghosts = addGhosts([1, 2]);
+        const focus = new FocusRiderTool(track);
+        track.focalPoint = track.playerRunner.instance?.hitbox ?? null;
+        focus.run();
+        expect(track.focalPoint).toBe(ghosts[0].instance?.hitbox);
+        focus.run();
+        focus.run();
+        expect(track.focalPoint).toBe(track.playerRunner.instance?.hitbox);
+    });
+
+    test('keep following a live rider starting over, until the player rides', () => {
+        const remote = addRemote('ann');
+        new FocusRiderTool(track).run();
+        expect(track.followed).toEqual({ kind: 'remote', id: 'ann' });
+
+        // The rider starts over on a new bike, and the player restarts: still followed
+        const firstBike = remote.instance;
+        remote.receive([
+            { type: 'start', time: 0, checkpoints: 0, bike: 'MTB' },
+            { type: 'progress', time: 10 },
+        ]);
+        while (remote.lag > 0) {
+            remote.advance();
+        }
+        expect(remote.instance).not.toBe(firstBike);
+        track.restart();
+        track.refreshFocalPoint();
+        expect(track.focalPoint).toBe(remote.instance?.hitbox);
+
+        // The player rides: the camera follows them again
+        track.focalPoint = track.playerRunner.instance?.hitbox ?? null;
+        track.refreshFocalPoint();
+        expect(track.followed).toBeNull();
+        expect(track.focalPoint).toBe(track.playerRunner.instance?.hitbox);
+    });
+
+    test('follow the player again once the rider followed is gone', () => {
+        addRemote('ann');
+        new FocusRiderTool(track).run();
+        track.remoteRunners.delete('ann');
+        track.refreshFocalPoint();
+
+        expect(track.followed).toBeNull();
+        expect(track.focalPoint).toBe(track.playerRunner.instance?.hitbox);
     });
 
     test('toggle the fullscreen mode of the element hosting the canvas', () => {

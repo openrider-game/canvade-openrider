@@ -3,7 +3,7 @@ import { CameraTool } from './misc/camera.tool';
 import { CancelCheckpointTool } from './misc/cancel-checkpoint.tool';
 import { ControlsTool } from './misc/controls.tool';
 import { EraserTool } from './misc/eraser.tool';
-import { FocusGhostTool } from './misc/focus-ghost.tool';
+import { FocusRiderTool } from './misc/focus-rider.tool';
 import { FullscreenTool } from './misc/fullscreen.tool';
 import { RedoTool, UndoTool } from './misc/history.tool';
 import { NewTrackTool } from './misc/new-track.tool';
@@ -24,7 +24,7 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
         CancelCheckpointTool,
         null,
         SwitchBikeTool,
-        FocusGhostTool,
+        FocusRiderTool,
         null,
         CameraTool,
         FullscreenTool,
@@ -55,7 +55,7 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
         NewTrackTool,
         null,
         SwitchBikeTool,
-        FocusGhostTool,
+        FocusRiderTool,
         null,
         CameraTool,
         FullscreenTool,

@@ -7,9 +7,10 @@ import type { Track } from '../track/track';
 import { Entity } from './entity';
 import { Part } from './part';
 
-/** Rider detached from its bike after a crash. */
+/** Rider detached from its bike after a crash, in the color of the bike. */
 export class Ragdoll extends Entity {
     public readonly track: Track;
+    private readonly color: string;
     public readonly points: Part[];
 
     private readonly head: Part;
@@ -31,6 +32,7 @@ export class Ragdoll extends Entity {
         super(new Vector(), new Vector(), 0);
 
         this.track = bike.track;
+        this.color = bike.color;
 
         this.head = new Part(rider.head, bike);
         this.hip = new Part(rider.hip, bike);
@@ -139,7 +141,8 @@ export class Ragdoll extends Entity {
         }
     }
 
-    public override render(ctx: CanvasRenderingContext2D): void {
+    /** @param opacity - Opacity of the rider, as their bike was drawn. */
+    public override render(ctx: CanvasRenderingContext2D, opacity = 1): void {
         const zoom = this.track.zoomFactor;
         const head = this.track.toPixel(this.head.displayPos);
         const elbow = this.track.toPixel(this.elbow.displayPos);
@@ -152,15 +155,18 @@ export class Ragdoll extends Entity {
         const shadowFoot = this.track.toPixel(this.shadowFoot.displayPos);
         const hip = this.track.toPixel(this.hip.displayPos);
 
+        ctx.save();
         ctx.lineWidth = 5 * zoom;
-        ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+        ctx.strokeStyle = this.color;
+        // The limbs on the other side, in its shadow
+        ctx.globalAlpha = 0.5 * opacity;
 
         LinePath.render(ctx, [
             [head, shadowElbow, shadowHand],
             [hip, shadowKnee, shadowFoot],
         ]);
 
-        ctx.strokeStyle = '#000';
+        ctx.globalAlpha = opacity;
 
         LinePath.render(ctx, [
             [head, elbow, hand],
@@ -179,5 +185,6 @@ export class Ragdoll extends Entity {
         ctx.moveTo(head.x + 5 * zoom, head.y);
         ctx.arc(head.x, head.y, 5 * zoom, 0, 2 * Math.PI, true);
         ctx.stroke();
+        ctx.restore();
     }
 }

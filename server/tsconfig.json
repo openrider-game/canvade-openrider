@@ -1,0 +1,10 @@
+{
+    // Type checks the servers for Node, along with the sources of the game they use
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "rootDir": "..",
+        "noEmit": true,
+        "types": ["node"]
+    },
+    "include": ["."]
+}

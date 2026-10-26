@@ -24,6 +24,9 @@ import { isGeneratorVersion, LATEST_GENERATOR_VERSION } from '../endurance/terra
  *   before: only the runs beating it are uploaded.
  * - `data-ghosts`: ids of the ghosts racing from the start, separated with commas, e.g. from a
  *   link shared to race someone; else the `?ghosts=<ids>` parameter of the page URL.
+ * - `data-live-url` and `data-live-token`: URL of the session server of the live races and
+ *   token of the player for a session racing the track of `data-track-id`, given by the site
+ *   (see `LiveSession`).
  *
  * For example, a page of a website racing the track 3:
  * `<div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>`.
@@ -50,6 +53,8 @@ export abstract class GameConfig {
     public static enduranceBest: { distance: number; time: number } | null = null;
     /** Ghosts racing from the start, by id, cleared once added to the race. */
     public static ghostIds: number[] = [];
+    /** Session server of the live races and token of the player, null outside of a session. */
+    public static live: { url: string; token: string } | null = null;
 
     /**
      * Reads the settings of the host element, and else of the parameters of the page URL for
@@ -86,6 +91,9 @@ export abstract class GameConfig {
             .map(Number)
             .filter((id) => Number.isInteger(id) && id > 0)
             .slice(0, MAX_INITIAL_GHOSTS);
+
+        const { liveUrl, liveToken } = host.dataset;
+        GameConfig.live = liveUrl && liveToken ? { url: liveUrl, token: liveToken } : null;
     }
 
     /**

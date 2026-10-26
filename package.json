@@ -4,7 +4,9 @@
     "main": "main.ts",
     "scripts": {
         "build": "tsup",
-        "typecheck": "tsc --noEmit && tsc -p test",
+        "typecheck": "tsc --noEmit && tsc -p server && tsc -p test",
+        "live": "node dist/live-server.cjs",
+        "live:dev": "node dist/live-server.cjs --dev",
         "format": "prettier --ignore-path .gitignore --write \"**/*.+(js|ts|json)\"",
         "test": "vitest",
         "coverage": "vitest run --coverage --coverage.include=src/**"
@@ -14,11 +16,14 @@
     "license": "GPL-3.0",
     "description": "OpenRider, ported on the canvade engine",
     "devDependencies": {
+        "@types/node": "^24.19.2",
+        "@types/ws": "^8.18.2",
         "@vitest/coverage-v8": "^3.2.7",
         "canvade": "file:../canvade",
         "prettier": "^3.6.2",
         "tsup": "^8.5.0",
         "typescript": "^5.9.2",
-        "vitest": "^3.2.7"
+        "vitest": "^3.2.7",
+        "ws": "^8.22.0"
     }
 }

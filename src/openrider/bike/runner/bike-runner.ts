@@ -14,6 +14,7 @@ interface Snapshot {
     targetsReached: Set<number>;
     reachablesReached: Set<number>;
     commandTimes: Map<number, number>;
+    launcherTouches: Map<number, number>;
     controls: RunnerControls;
     bike: Bike;
     modifiersMask: number;
@@ -52,6 +53,11 @@ export abstract class BikeRunner {
      * objects the blocks act on depend on it for this runner (see `CommandBlock.offsetFor`).
      */
     public commandTimes = new Map<number, number>();
+    /**
+     * Last physics tick each launcher was touched at during the current run, by launcher id, to
+     * tell its passes apart (see `Launcher`).
+     */
+    public launcherTouches = new Map<number, number>();
 
     /** Bike currently running, `null` once it has exploded. */
     public instance: Bike | null = null;
@@ -73,6 +79,9 @@ export abstract class BikeRunner {
     public dead = false;
     /** Ragdoll or explosion simulated after the death of the rider. */
     public deadObject: Ragdoll | Explosion | null = null;
+
+    /** Opacity of the bike and of what is left of it once dead, 1 for the player. */
+    public readonly opacity: number = 1;
 
     /** Active status item effects, as a combination of {@link MODIFIERS} flags. */
     public modifiersMask = 0;
@@ -109,6 +118,7 @@ export abstract class BikeRunner {
         this.targetsReached = new Set();
         this.reachablesReached = new Set();
         this.commandTimes = new Map();
+        this.launcherTouches = new Map();
         this.controls = createControls();
         this.modifiersMask = 0;
 
@@ -119,6 +129,7 @@ export abstract class BikeRunner {
             this.targetsReached = new Set(snapshot.targetsReached);
             this.reachablesReached = new Set(snapshot.reachablesReached);
             this.commandTimes = new Map(snapshot.commandTimes);
+            this.launcherTouches = new Map(snapshot.launcherTouches);
             this.controls = { ...snapshot.controls };
             this.modifiersMask = snapshot.modifiersMask;
 
@@ -126,8 +137,6 @@ export abstract class BikeRunner {
         }
 
         this.instance = bike ? bike.clone() : null;
-
-        this.track.toolManager.active = false;
     }
 
     /** @param force - Whether the rider dies even when invincible. */
@@ -187,8 +196,12 @@ export abstract class BikeRunner {
         }
     }
 
+    /**
+     * Records a checkpoint reached for the first time in the run, unless the rider crashed: a
+     * checkpoint saves a living rider, which the run replayed without restarting would not be.
+     */
     public hitCheckpoint(checkpoint: ReachableItem): void {
-        if (!this.reachablesReached.has(checkpoint.id)) {
+        if (!this.dead && !this.reachablesReached.has(checkpoint.id)) {
             this.reachablesReached.add(checkpoint.id);
             this.onHitCheckpoint();
         }
@@ -226,6 +239,7 @@ export abstract class BikeRunner {
             targetsReached: new Set(this.targetsReached),
             reachablesReached: new Set(this.reachablesReached),
             commandTimes: new Map(this.commandTimes),
+            launcherTouches: new Map(this.launcherTouches),
             controls: { ...this.controls },
             bike: this.instance.clone(),
             modifiersMask: this.modifiersMask,
@@ -336,6 +350,7 @@ export abstract class BikeRunner {
             this.renderInstance(ctx);
         }
 
-        this.deadObject?.render(ctx);
+        // In the color of the bike, as it was ridden
+        this.deadObject?.render(ctx, this.opacity);
     }
 }

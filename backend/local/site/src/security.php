@@ -27,7 +27,7 @@ const SITE_GHOST_MAX_BYTES = 1024 * 1024;
 const SITE_GHOST_PATTERN =
     '/^(?:[0-9]+(?: [0-9]+)*)?(?:,(?:[0-9]+(?: [0-9]+)*)?){4},[0-9]+,(?:BMX|MTB)$/';
 
-/** Command line replaying the ghosts, built with the game (see src/verify of the game). */
+/** Command line replaying the ghosts, built with the game (see server/verify of the game). */
 const SITE_GHOST_VERIFIER = __DIR__ . '/../../../../dist/verify-ghost.cjs';
 
 /** Longest verification of a ghost, in seconds, as given to the verifier. */

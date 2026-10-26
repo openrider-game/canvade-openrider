@@ -4,7 +4,8 @@
  *
  * The leaderboard has two tabs (see `public/js/leaderboard-tabs.js`): the top riders, ranked by
  * their best ghost, their other ghosts folded under it, and the ghosts of the account, with
- * those waiting for an admin. The riders are the accounts of the ghosts, or the names of their
+ * those waiting for an admin. In a live session, a third one, selected, lists the best times of
+ * its riders (see `public/js/live-results.js`). The riders are the accounts of the ghosts, or the names of their
  * ghost strings for the ghosts saved without the site. Clicking a rider toggles their ghost in
  * the game, see `public/js/leaderboard.js`. The run verifying the track is marked.
  *
@@ -16,6 +17,9 @@
  * @var array[]  $linked     Ghosts of a shared link, racing from the start, see
  *                           site_linked_ghosts().
  * @var int      $missing    Number of ghosts of the link that are not on the track.
+ * @var string|null $live    Live session of the page, see site_live_session().
+ * @var string|null $liveToken Token of the rider of the page for that session.
+ * @var string|null $newLive Id of a new live session, null without live races.
  * @var bool     $trackThumbed Whether the account thumbs up the track.
  * @var array    $thumbed    Ghosts the account thumbs up, by id, see site_find_thumbed().
  */
@@ -98,12 +102,34 @@ $challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRid
     <span class="share__status muted" role="status"></span>
 </p>
 
+<?php $trackPage = '/tracks/' . (int) $track['ID'] . '/'; ?>
+<?php if ($live !== null): ?>
+    <?php // The riders of the session race the track at the same time, each seeing the others ?>
+    <p class="share share-bar live-bar">
+        <a class="button button--accent" href="<?= h($trackPage . '?live=' . rawurlencode($live)) ?>"
+            data-share data-share-text="<?= h("Race me live on “{$title}” on OpenRider!") ?>"
+            >Invite riders</a>
+        <span>Live session: everyone with the link races with you.</span>
+        <a class="button" href="<?= h($trackPage) ?>">Leave</a>
+        <span class="share__status muted" role="status"></span>
+    </p>
+<?php elseif ($newLive !== null): ?>
+    <p class="live-bar">
+        <a class="button" href="<?= h($trackPage . '?live=' . rawurlencode($newLive)) ?>"
+            >Race live</a>
+        <span class="muted">Start a session and send its link: you see each other ride.</span>
+    </p>
+<?php endif; ?>
+
 <?php // Always given, so that the game never races the ghosts of the link left out ?>
 <?php site_render('partials/game', ['attributes' => [
-    'base-url' => '/tracks/' . (int) $track['ID'] . '/',
+    'base-url' => $trackPage,
     'track-id' => (int) $track['ID'],
     'ghosts' => implode(',', array_column($linked, 'ID')),
-]]); ?>
+] + ($live === null ? [] : [
+    'live-url' => site_live_url(),
+    'live-token' => $liveToken,
+])]); ?>
 
 <section class="leaderboard" aria-labelledby="leaderboard-title">
     <h2 id="leaderboard-title">Leaderboard</h2>
@@ -111,11 +137,38 @@ $challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRid
 
     <?php // Shown by the script of the tabs, which hides the panel not selected ?>
     <div class="tabs" role="tablist" aria-labelledby="leaderboard-title" hidden>
+        <?php if ($live !== null): ?>
+            <button class="tabs__tab" type="button" role="tab" id="leaderboard-tab-live"
+                aria-controls="leaderboard-live" aria-selected="true">Live results</button>
+        <?php endif; ?>
         <button class="tabs__tab" type="button" role="tab" id="leaderboard-tab-top"
-            aria-controls="leaderboard-top" aria-selected="true">Top riders</button>
+            aria-controls="leaderboard-top" aria-selected="<?= $live === null ? 'true' : 'false' ?>"
+            <?= $live === null ? '' : 'tabindex="-1"' ?>>Top riders</button>
         <button class="tabs__tab" type="button" role="tab" id="leaderboard-tab-mine"
             aria-controls="leaderboard-mine" aria-selected="false" tabindex="-1">My ghosts</button>
     </div>
+
+    <?php if ($live !== null): ?>
+        <div class="tabs__panel live-results" role="tabpanel" id="leaderboard-live"
+            aria-labelledby="leaderboard-tab-live">
+            <h3 class="tabs__heading">Live results</h3>
+            <p class="live-results__status muted" role="status">Connecting to the session...</p>
+            <table class="leaderboard__table" hidden>
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Rider</th>
+                        <th scope="col" class="leaderboard__time">Best time</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+            <p class="muted">
+                The best times of the session, verified as the ghosts are. Save your run to
+                put it on the leaderboard too.
+            </p>
+        </div>
+    <?php endif; ?>
 
     <div class="tabs__panel" role="tabpanel" id="leaderboard-top"
         aria-labelledby="leaderboard-tab-top">

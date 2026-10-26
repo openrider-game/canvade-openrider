@@ -123,6 +123,17 @@ describe('Reachable items', () => {
         expect(checkpoint.reached).toBe(true);
     });
 
+    test('a checkpoint does not save a crashed rider', () => {
+        const checkpoint = place(new Checkpoint(new Vector(100, 0), track));
+        playerAt(100, 0);
+        track.playerRunner.crash();
+
+        checkpoint.touch(track.playerRunner.instance!.hitbox);
+        runTicks(track, 2);
+
+        expect(track.playerRunner.snapshots).toHaveLength(0);
+    });
+
     test('restarting from the start unreaches every item', () => {
         const target = place(new Target(new Vector(100, 0), track));
         target.touch(playerAt(100, 0).hitbox);
@@ -386,6 +397,23 @@ describe('Launchers and mud', () => {
         launcher.touch(bike.hitbox);
 
         expect(bike.hitbox.pos.y).toBeCloseTo(before - LAUNCH_STRENGTH);
+    });
+
+    test('a launcher keeps the pass of a checkpoint saved over it', () => {
+        const launcher = place(new Launcher(new Vector(100, 0), 180, track));
+        const checkpoint = place(new Checkpoint(new Vector(100, 0), track));
+        launcher.touch(playerAt(100, 0).hitbox);
+        checkpoint.touch(track.playerRunner.instance!.hitbox);
+        runTicks(track, 2);
+        expect(track.playerRunner.snapshots).toHaveLength(1);
+
+        // Restarted on the launcher, during the same pass
+        track.restart();
+        const bike = track.playerRunner.instance!;
+        const before = bike.hitbox.pos.y;
+        launcher.touch(bike.hitbox);
+
+        expect(bike.hitbox.pos.y).toBe(before);
     });
 
     test('mud slows down the parts going through it', () => {

@@ -2,6 +2,7 @@ import { Game, State, StateClass } from 'canvade';
 import { GameConfig } from './openrider/config/game-config';
 import { EnduranceCourse } from './openrider/endurance/endurance-course';
 import { GAME_UPS } from './openrider/constants/game.constants';
+import { LiveSession, LiveState } from './openrider/live/live-session';
 import { GhostService } from './openrider/request/ghost-service';
 import { Session } from './states/session';
 import States from './states/states';
@@ -65,6 +66,14 @@ const api = {
     /** Ids of the ghosts racing, fastest first; empty while no track is parsed. */
     racingGhosts(): number[] {
         return session.hasTrack() ? [...session.track.ghostRunners.keys()] : [];
+    },
+
+    /**
+     * State of the live session of the page, null outside of one or before the track is parsed;
+     * then told with the `openrider:live` event on the document.
+     */
+    live(): LiveState | null {
+        return session.hasTrack() ? (LiveSession.of(session.track)?.state ?? null) : null;
     },
 
     /**

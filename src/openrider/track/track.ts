@@ -1,6 +1,8 @@
 import { Display, Vector, World, WorldVector } from 'canvade';
 import { BMX } from '../bike/bmx';
 import type { GhostRunner } from '../bike/runner/ghost-runner';
+import type { RemoteRunner } from '../bike/runner/remote-runner';
+import type { ReplayRunner } from '../bike/runner/replay-runner';
 import { PlayerRunner } from '../bike/runner/player-runner';
 import type { Collidable } from '../entity/collidable';
 import { Entity } from '../entity/entity';
@@ -19,6 +21,9 @@ import { DEFAULT_ZOOM, MAX_LINE_LENGTH, MIN_LINE_LENGTH } from './track.constant
 import { Zoom } from './zoom';
 import type { TrackLayer } from './track-layer';
 
+/** Rider the camera follows other than the player: a rider of the live session, or a ghost. */
+export type FollowedRider = { kind: 'remote'; id: string } | { kind: 'ghost'; id: number };
+
 /**
  * Track being edited or raced: its layers, runners, editing tools and view.
  *
@@ -33,6 +38,10 @@ export class Track extends World {
     public readonly origin = new Vector();
     /** Entity the camera follows, if any. */
     public focalPoint: Entity | null = new Entity();
+    /** Rider the camera follows, see {@link Track.follow}. */
+    private followedRider: FollowedRider | null = null;
+    /** Bike part of the followed rider the camera was last given. */
+    private followedPoint: Entity | null = null;
 
     /** Mouse position, in world units. */
     public readonly realMousePos = new Vector();
@@ -75,6 +84,11 @@ export class Track extends World {
 
     public readonly playerRunner: PlayerRunner;
     public ghostRunners = new Map<number, GhostRunner>();
+    /**
+     * Riders of the live session, by id: they ride at their own pace, the restarts and the
+     * checkpoints of the player leaving them alone.
+     */
+    public readonly remoteRunners = new Map<string, RemoteRunner>();
     /** Downloaded ghost codes by ghost id. */
     public readonly ghostCache = new Map<number, string>();
 
@@ -308,13 +322,75 @@ export class Track extends World {
         this.updateFocalPoint();
     }
 
+    /** Rider the camera follows other than the player, null when none. */
+    public get followed(): FollowedRider | null {
+        return this.followedRider;
+    }
+
+    /** Runner of a followed rider, undefined once gone (left the session, ghost removed). */
+    public runnerOf(rider: FollowedRider): ReplayRunner | undefined {
+        return rider.kind === 'remote'
+            ? this.remoteRunners.get(rider.id)
+            : this.ghostRunners.get(rider.id);
+    }
+
+    /**
+     * Follows a rider with the camera, whatever bike they ride: their bike changes whenever they
+     * start over, and the runner of a rider of the live session when their run is sent again.
+     * The camera follows the player again with null, or when the rider is gone.
+     *
+     * Following stops as soon as something else moves the camera: the player riding (see
+     * `PlayerRunner`), or the camera being dragged.
+     */
+    public follow(rider: FollowedRider | null): void {
+        this.followedRider = rider;
+        this.followedPoint = null;
+        if (rider) {
+            this.refreshFocalPoint();
+        } else {
+            this.focalPoint = this.playerRunner.instance?.hitbox ?? null;
+        }
+    }
+
+    /** Points the camera at the current bike of the followed rider, on each frame. */
+    public refreshFocalPoint(): void {
+        const rider = this.followedRider;
+        if (!rider) {
+            return;
+        }
+        // Something else moved the camera
+        if (this.followedPoint !== null && this.focalPoint !== this.followedPoint) {
+            this.followedRider = null;
+            this.followedPoint = null;
+            return;
+        }
+
+        const runner = this.runnerOf(rider);
+        if (!runner) {
+            this.follow(null);
+            return;
+        }
+        // An exploded bike is gone: the camera stays where it was
+        const point = runner.instance?.hitbox ?? this.followedPoint;
+        this.focalPoint = this.followedPoint = point;
+    }
+
     /**
      * Focuses the camera on the player, or on the first ghost if the player has not reached any
      * checkpoint, to watch the best run: the player takes the camera back by riding (see
      * `PlayerRunner`). The endurance mode, without checkpoints, follows the first ghost until
      * then on each start.
+     *
+     * A rider of the live session followed stays followed: they ride on whatever the player does.
      */
     public updateFocalPoint(): void {
+        if (this.followedRider?.kind === 'remote') {
+            this.refreshFocalPoint();
+            return;
+        }
+        this.followedRider = null;
+        this.followedPoint = null;
+
         let focalPoint = this.playerRunner.instance?.hitbox ?? null;
         if (!this.playerRunner.snapshots.length && this.ghostRunners.size) {
             const firstGhost = this.ghostRunners.values().next().value;

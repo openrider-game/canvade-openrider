@@ -19,6 +19,8 @@ POST requests (see `src/openrider/constants/request.constants.ts`). They answer 
   `pdo_sqlite` extension)
 - For the sample website, Node (tested with Node 24), verifying the ghosts with `dist/verify-ghost.cjs`
   (built with the game by `npm run build`)
+- For the live races, Node running the session server `dist/live-server.cjs`, behind Apache with
+  `mod_proxy_wstunnel` (see "Live sessions")
 
 ## Configuration
 
@@ -32,6 +34,8 @@ The backend and the sample website are configured with environment variables:
 | `OPENRIDER_NODE`          | Node executable verifying the ghosts            | `node`                                           |
 | `OPENRIDER_VERIFY_GHOSTS` | `0` to save the ghosts without verifying them   | Verified                                         |
 | `OPENRIDER_ADMINS`        | User names of the admins, separated with commas | None                                             |
+| `OPENRIDER_LIVE_SECRET`   | Secret of the session server of the live races  | None: no live races                              |
+| `OPENRIDER_LIVE_URL`      | URL of the session server for the game          | `/live/` of the site, `ws://` or `wss://`        |
 
 ## Running locally
 
@@ -49,6 +53,16 @@ site (see "Deploying").
 
 In VS Code, the `OpenRider: local server` task builds the game, then starts the server with the
 PHP executable of the `php.validate.executablePath` setting (e.g. `C:\xampp\php\php.exe`).
+
+The session server of the live races runs next to it, on `ws://127.0.0.1:8090/`, downloading
+the tracks from `http://localhost:8000/` (see "Live sessions"). Unless they are set, the router
+sets `OPENRIDER_LIVE_SECRET` to the secret `--dev` gives the server, and `OPENRIDER_LIVE_URL` to
+the server: the "Race live" button of a track page then starts a session, its link opened in
+another browser, or a private window, joining it as another guest.
+
+```sh
+npm run live:dev
+```
 
 ### Sample website
 
@@ -265,13 +279,52 @@ The sample holds four tracks, each with a ghost finishing it:
 | 3     | Hills              | BMX  | 3, `Climber`  | Hills and a foreground layer                   |
 | 4     | Command blocks     | BMX  | 4, `Operator` | Zoom, camera, a door, a bridge, a sliding door |
 
+## Live sessions
+
+Riders racing the same track at the same time, each seeing the others ride, go through the
+session server of `server/live`, built with the game as `dist/live-server.cjs`. It keeps the
+sessions in memory, without database: the run of each rider, sent whole to the riders joining,
+and the best time of each one, verified by replaying it with `dist/verify-ghost.cjs` (built next
+to it) on the track downloaded from `db/trackdata/`. A session left without rider is forgotten
+after 10 minutes. The messages are described in `src/openrider/live/protocol.ts`.
+
+On the site, set up with `OPENRIDER_LIVE_SECRET` (and `OPENRIDER_LIVE_URL` when the server is
+not at `/live/` of the site), the "Race live" button of a track page opens a new session, the
+page `/tracks/<id>/?live=<session>`: everyone opening its link joins it, as their account or as
+a guest of their browser session, the "Live results" tab of the leaderboard listing the best time
+of each rider. The site gives the game the URL of the server and a token for the rider
+(`data-live-url` and `data-live-token`, see `src/live.php` of the site), valid for 12 hours.
+
+| Variable                   | Setting                                              | Default                  |
+| -------------------------- | ---------------------------------------------------- | ------------------------ |
+| `OPENRIDER_LIVE_SECRET`    | Secret the site signs the tokens of the riders with  | Required, but `--dev`    |
+| `OPENRIDER_LIVE_PORT`      | Port of the server                                   | `8090`                   |
+| `OPENRIDER_LIVE_HOST`      | Address of the server                                | `127.0.0.1`              |
+| `OPENRIDER_SITE_URL`       | URL of the site the tracks are downloaded from       | `http://localhost:8000/` |
+| `OPENRIDER_VERIFY_TIMEOUT` | Time after which a verification gives up, in seconds | `60`                     |
+
+A rider connects over a WebSocket on any path, with the token the site gives them:
+`wss://<site>/live/?token=<token>`. The token is `<payload>.<signature>`: the payload is the JSON
+`{ "session", "track", "rider", "name", "exp" }` in base64url, the signature its HMAC-SHA256 with
+`OPENRIDER_LIVE_SECRET`, in base64url too (see `server/live/token.ts`). `session` is the id of
+the session chosen by the site (6 to 64 letters, digits, `-` or `_`), `track` the id of its
+published track, `rider` the id of the rider in the session (the account, or a guest; 1 to 40
+letters, digits, `-` or `_`), `name` the name shown to the others (40 characters at most) and
+`exp` its expiry in seconds since the epoch.
+
+Limits: 8 riders connected at once per session, 500 sessions, messages of 256 KB at most, 30 per
+second after a burst of 60, runs of 90,000 inputs and verified runs of 30 minutes at most. The
+connections breaking them are closed with the codes of `LIVE_CLOSE_CODES`, and so are those
+without a valid token or joining a full session. `GET /health` answers `ok`.
+
 ## Deploying
 
 ### Sample website
 
 The site is served by Apache with PHP, at the root of a domain (its links start with `/`):
 
-1. Build the game with `npm run build`, which writes `dist/main.js` and `dist/verify-ghost.cjs`.
+1. Build the game with `npm run build`, which writes `dist/main.js`, `dist/verify-ghost.cjs`
+   and `dist/live-server.cjs`.
 2. Upload the root of the project, keeping its structure: `.htaccess`, `index.html`,
    `styles.css`, `dist/`, `media/` and `backend/` (without `backend/local/openrider.db`). The
    sources (`src/`, `test/`), `node_modules/` and the other files of the project are not needed.
@@ -288,6 +341,38 @@ the other files of the project (`.md`, `.sql`, `.json`...). The PHP built-in ser
 same rules with `local/router.php`.
 
 The tables of MySQL are not supported: the queries use `RETURNING` and quoted identifiers.
+
+### Live sessions
+
+The session server runs with Node next to the site, e.g. as a systemd service, from the root of
+the project uploaded (`dist/live-server.cjs` and `dist/verify-ghost.cjs`):
+
+```ini
+[Unit]
+Description=OpenRider live sessions
+After=network.target
+
+[Service]
+WorkingDirectory=/var/www/openrider
+ExecStart=/usr/bin/node dist/live-server.cjs
+Environment=OPENRIDER_LIVE_SECRET=<a long random secret, the same for the site>
+Environment=OPENRIDER_SITE_URL=https://<site>/
+Restart=always
+User=www-data
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Apache forwards the WebSockets of `/live/` to it, with `mod_proxy` and `mod_proxy_wstunnel`
+enabled, in the configuration of the virtual host of the site (`ProxyPass` is not allowed in
+`.htaccess`):
+
+```apache
+ProxyPass "/live/" "ws://127.0.0.1:8090/"
+```
+
+The server only listens on `127.0.0.1`: the riders reach it through Apache, over HTTPS.
 
 ### Game alone
 

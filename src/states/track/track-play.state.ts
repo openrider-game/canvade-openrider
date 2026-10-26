@@ -1,4 +1,5 @@
 import { GameUpdateEvent, Layer } from 'canvade';
+import { LiveSession } from '../../openrider/live/live-session';
 import { GhostService } from '../../openrider/request/ghost-service';
 import { CAMERA_FOLLOW_FACTOR } from '../../openrider/track/track.constants';
 import { Zoom } from '../../openrider/track/zoom';
@@ -59,6 +60,9 @@ export abstract class TrackPlayState extends TrackViewState {
                 runner.fixedUpdate();
             }
         });
+        // The riders of the live session, as far as their inputs are received
+        track.remoteRunners.forEach((runner) => runner.advance());
+        LiveSession.of(track)?.tick();
     }
 
     private interpolate(e: CustomEvent<GameUpdateEvent>): void {
@@ -68,6 +72,8 @@ export abstract class TrackPlayState extends TrackViewState {
         // The player finished the race: offer once to save the run as a ghost
         if (track.playerRunner.done) {
             track.playerRunner.done = false;
+            // Verified for the results of the live session, before asking to save it
+            LiveSession.of(track)?.finish();
             void GhostService.saveGhost(track);
         }
 
@@ -80,9 +86,12 @@ export abstract class TrackPlayState extends TrackViewState {
                     runner.update(displayProgress, delta);
                 }
             });
+            track.remoteRunners.forEach((runner) => runner.update(displayProgress, delta));
             track.playerRunner.update(displayProgress, delta);
         }
 
+        // The rider followed may ride another bike since the last frame
+        track.refreshFocalPoint();
         // A command block may show another point of the track for a while
         const hold = track.cameraHold;
         const focus = hold && track.time < hold.until ? hold.pos : track.focalPoint?.displayPos;

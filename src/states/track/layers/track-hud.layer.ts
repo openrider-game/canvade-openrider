@@ -1,5 +1,6 @@
 import { GameRenderEvent, GameUpdateEvent, Layer } from 'canvade';
 import { FRAME_DURATION } from '../../../openrider/constants/game.constants';
+import { LiveSession } from '../../../openrider/live/live-session';
 import { InterfaceScale } from '../../../openrider/numeric/interface-scale';
 import { Time } from '../../../openrider/numeric/time';
 import { debugStats } from '../../../openrider/track/debug-stats';
@@ -13,7 +14,9 @@ export const HUD_MARGIN = 30,
 
 /**
  * Heads-up display of the track states: race time and reached targets of the player at the top
- * left, remaining time and reached targets of each ghost at the top right, in its color.
+ * left, remaining time and reached targets of each ghost at the top right, in its color, then the
+ * time and the reached targets of each rider of the live session, whose state shows under the
+ * targets of the player.
  *
  * While the debug mode shows its stats, they are drawn under the debug panel.
  *
@@ -105,5 +108,45 @@ export class TrackHudLayer extends Layer {
                 LINE_HEIGHT * (1 + index++),
             );
         });
+
+        track.remoteRunners.forEach((runner) => {
+            const time = Time.format((runner.finishedAt ?? runner.time) * FRAME_DURATION);
+            const progress =
+                runner.finishedAt === null
+                    ? `${time} - ${runner.targetsReached.size}/${targets}`
+                    : `finished in ${time}`;
+            const text = `${runner.label}: ${progress}`;
+
+            ctx.fillStyle = runner.color;
+            ctx.fillText(
+                text,
+                width - HUD_MARGIN - ctx.measureText(text).width,
+                LINE_HEIGHT * (1 + index++),
+            );
+        });
+
+        const live = LiveSession.of(track);
+        if (live) {
+            ctx.fillStyle = '#000';
+            TrackHudLayer.liveLines(live).forEach((line, i) =>
+                ctx.fillText(line, HUD_MARGIN, LINE_HEIGHT * (3 + i)),
+            );
+        }
+    }
+
+    /** State of the live session: the connection, then the verification of the last run. */
+    private static liveLines(live: LiveSession): string[] {
+        const { state, message, results, finish } = live.state;
+        if (state !== 'open') {
+            return [`Live: ${message}`];
+        }
+        const riding = results.filter((result) => result.riding).length;
+        const lines = [`Live: ${riding} ${riding === 1 ? 'rider' : 'riders'}`];
+        if (finish && 'time' in finish) {
+            lines.push(`Run verified: ${Time.format(finish.time * FRAME_DURATION)}`);
+        } else if (finish) {
+            lines.push(`Run refused: ${finish.reason}`);
+        }
+        return lines;
     }
 }

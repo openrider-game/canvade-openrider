@@ -59,6 +59,26 @@ export const PLAYER_CONTROLS: Array<{
     },
 ];
 
+/** Start of an attempt of the player, see {@link RunListener.started}. */
+export interface AttemptStart {
+    /** Time the previous attempt ended at, in physics ticks. */
+    endedAt: number;
+    /** Time the attempt starts at: the one of its checkpoint, or 0 from the start. */
+    time: number;
+    /** Checkpoints kept, the attempt starting from the last one. */
+    checkpoints: number;
+    /** Name of the bike. */
+    bike: string;
+}
+
+/** Follows the run of the player, e.g. to send it to the other riders of a live session. */
+export interface RunListener {
+    /** A control toggled, on the tick being run. */
+    toggled(time: number, control: ControlName): void;
+    /** A new attempt started, from the start of the track or from a checkpoint. */
+    started(start: AttemptStart): void;
+}
+
 /**
  * Runner driven by the keyboard. Every control change is recorded in the bike key log, with
  * the time of the run in physics ticks, to generate the ghost of the run. Its time is the one of
@@ -66,6 +86,8 @@ export const PLAYER_CONTROLS: Array<{
  */
 export class PlayerRunner extends BikeRunner {
     public readonly isGhost = false;
+    /** Listener of the run, if any. */
+    public runListener: RunListener | null = null;
 
     public constructor(track: Track, bikeClass: BikeClass) {
         super(track, bikeClass);
@@ -76,7 +98,9 @@ export class PlayerRunner extends BikeRunner {
     }
 
     public override startFrom(snapshot?: Parameters<BikeRunner['startFrom']>[0]): void {
+        const endedAt = this.time;
         super.startFrom(snapshot);
+        this.track.toolManager.active = false;
 
         // The track items are shared with the ghosts, only the player marks them as reached
         this.targetsReached.forEach((targetId) => {
@@ -91,6 +115,13 @@ export class PlayerRunner extends BikeRunner {
             if (reachable) {
                 reachable.reached = true;
             }
+        });
+
+        this.runListener?.started({
+            endedAt,
+            time: this.time,
+            checkpoints: snapshot ? this.snapshots.indexOf(snapshot) + 1 : 0,
+            bike: this.bikeClass.bikeName,
         });
     }
 
@@ -121,6 +152,7 @@ export class PlayerRunner extends BikeRunner {
             if (pressed !== this.controls[runnerControl]) {
                 bike.keyLog.get(runnerControl)?.push(this.time);
                 this.controls[runnerControl] = pressed;
+                this.runListener?.toggled(this.time, runnerControl);
             }
         }
 

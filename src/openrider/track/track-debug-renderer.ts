@@ -31,7 +31,11 @@ export abstract class TrackDebugRenderer {
         layers: readonly TrackLayer[],
     ): void {
         const debugOptions = track.debugOptions;
-        const runners = [...track.ghostRunners.values(), track.playerRunner];
+        const runners = [
+            ...track.remoteRunners.values(),
+            ...track.ghostRunners.values(),
+            track.playerRunner,
+        ];
 
         ctx.save();
         ctx.lineWidth = 2;

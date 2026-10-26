@@ -44,7 +44,6 @@
     outline-offset: 2px;
 }
 
-
 .leaderboard__more {
     margin-left: 6px;
     padding: 0 8px;
@@ -52,13 +51,29 @@
 }
 
 .leaderboard__more::after {
-    content: ' \25BE';
+    content: " \25BE";
 }
 
-.leaderboard__more[aria-expanded='true']::after {
-    content: ' \25B4';
+.leaderboard__more[aria-expanded="true"]::after {
+    content: " \25B4";
 }
 
 .leaderboard__other td {
     background: var(--color-surface);
+}
+
+/* Track page: the bar of the live races over the game, and the results of the session */
+
+.live-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    max-width: var(--content-width);
+    margin: 0 auto 12px;
+}
+
+.live-results .leaderboard__mine td {
+    background: var(--color-surface);
+    font-weight: bold;
 }
