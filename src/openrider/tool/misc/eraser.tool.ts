@@ -55,10 +55,7 @@ export class EraserTool extends Tool {
                 this.erasedLayers(),
             );
             if (deleted.length) {
-                this.track.history.push({
-                    undo: () => deleted.forEach((obj) => obj.addToTrack()),
-                    redo: () => deleted.forEach((obj) => obj.removeFromTrack()),
-                });
+                this.track.editor.recordRemoved(deleted);
             }
         }
     }

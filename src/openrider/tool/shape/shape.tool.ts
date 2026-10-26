@@ -49,14 +49,8 @@ export abstract class ShapeTool extends Tool {
             return 0;
         }
 
-        for (const line of lines) {
-            line.layer = layer;
-            line.addToTrack();
-        }
-        this.track.history.push({
-            undo: () => lines.forEach((line) => line.removeFromTrack()),
-            redo: () => lines.forEach((line) => line.addToTrack()),
-        });
+        lines.forEach((line) => (line.layer = layer));
+        this.track.editor.add(lines);
         return lines.length;
     }
 

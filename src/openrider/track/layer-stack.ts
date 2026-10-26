@@ -1,4 +1,3 @@
-import type { TrackObject } from '../item/track-object';
 import type { Track } from './track';
 import { TrackLayer, TrackLayerType } from './track-layer';
 
@@ -44,7 +43,8 @@ export class LayerStack {
     }
 
     /**
-     * Replaces every layer, e.g. with the layers of a parsed track, without history.
+     * Replaces every layer, e.g. with the layers of a parsed track, without history. The layers
+     * are numbered in their order, the same ids on every screen editing the track.
      *
      * @returns The new active layer: the first main layer.
      * @throws When there is no main layer.
@@ -56,6 +56,7 @@ export class LayerStack {
         }
 
         this.list = [...layers];
+        this.list.forEach((layer, index) => (layer.uid = `L${index}`));
         this.active = firstMain;
         return firstMain;
     }
@@ -101,20 +102,17 @@ export class LayerStack {
      * @param name - Name of the layer, numbered after its type by default.
      */
     public add(type: TrackLayerType, name = this.nextName(type)): TrackLayer {
-        const layer = new TrackLayer(type, name);
         const index = this.list.indexOf(this.active) + 1;
-        const previous = this.active;
-
-        this.insert(layer, index);
-        this.track.history.push({
-            undo: () => {
-                this.detach(layer);
-                this.setActive(previous);
-            },
-            redo: () => this.insert(layer, index),
-        });
-
+        const layer = this.track.editor.addLayer(type, name, index);
+        if (!layer) {
+            throw new Error('The layer was not added');
+        }
         return layer;
+    }
+
+    /** Layer with an id, see {@link TrackLayer.uid}. */
+    public byUid(uid: string): TrackLayer | undefined {
+        return this.list.find((layer) => layer.uid === uid);
     }
 
     /**
@@ -128,27 +126,7 @@ export class LayerStack {
             return false;
         }
 
-        // Removed from the track, so that its items no longer count (targets...)
-        const objects = layer.objects();
-        const wasActive = this.active === layer;
-        const remove = () => {
-            objects.forEach((obj) => obj.removeFromTrack());
-            this.detach(layer);
-        };
-
-        remove();
-        this.track.history.push({
-            undo: () => {
-                this.list.splice(index, 0, layer);
-                objects.forEach((obj: TrackObject) => obj.addToTrack());
-                if (wasActive) {
-                    this.active = layer;
-                }
-                this.track.invalidateUI();
-            },
-            redo: remove,
-        });
-
+        this.track.editor.removeLayer(layer);
         return true;
     }
 
@@ -164,41 +142,43 @@ export class LayerStack {
             return;
         }
 
-        const moveTo = (target: number) => {
-            this.list.splice(this.list.indexOf(layer), 1);
-            this.list.splice(target, 0, layer);
-            this.track.invalidateUI();
-        };
+        this.track.editor.moveLayer(layer, to);
+    }
 
-        moveTo(to);
-        this.track.history.push({ undo: () => moveTo(from), redo: () => moveTo(to) });
+    /** Moves a layer to an index of the stack, without history: see {@link LayerStack.move}. */
+    public moveTo(layer: TrackLayer, index: number): void {
+        const from = this.list.indexOf(layer);
+        if (from < 0) {
+            return;
+        }
+        this.list.splice(from, 1);
+        this.list.splice(Math.max(0, Math.min(this.list.length, index)), 0, layer);
+        this.track.invalidateUI();
     }
 
     /** Renames a layer, ignoring blank names. */
     public rename(layer: TrackLayer, name: string): void {
         const newName = name.trim();
-        const oldName = layer.name;
-        if (!newName || newName === oldName) {
-            return;
+        if (newName && newName !== layer.name) {
+            this.track.editor.renameLayer(layer, newName);
         }
-
-        const setName = (value: string) => {
-            layer.name = value;
-            this.track.invalidateUI();
-        };
-
-        setName(newName);
-        this.track.history.push({ undo: () => setName(oldName), redo: () => setName(newName) });
     }
 
-    private insert(layer: TrackLayer, index: number): void {
-        this.list.splice(index, 0, layer);
+    /**
+     * Inserts a layer at an index of the stack and makes it active, without history: see
+     * {@link LayerStack.add}.
+     */
+    public insert(layer: TrackLayer, index: number): void {
+        this.list.splice(Math.max(0, Math.min(this.list.length, index)), 0, layer);
         this.active = layer;
         this.track.invalidateUI();
     }
 
-    /** Takes a layer out of the stack, activating the layer under it (or above it) if needed. */
-    private detach(layer: TrackLayer): void {
+    /**
+     * Takes a layer out of the stack, activating the layer under it (or above it) if needed,
+     * without history: see {@link LayerStack.remove}.
+     */
+    public detach(layer: TrackLayer): void {
         const index = this.list.indexOf(layer);
         this.list.splice(index, 1);
         if (this.active === layer) {

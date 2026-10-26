@@ -34,11 +34,7 @@ export abstract class ItemTool extends Tool {
     protected place(item: Item): void {
         const layers = this.track.layers;
         item.layer = layers.reveal(layers.itemLayer);
-        item.addToTrack();
-        this.track.history.push({
-            undo: () => item.removeFromTrack(),
-            redo: () => item.addToTrack(),
-        });
+        this.track.editor.add([item]);
     }
 
     public override render(ctx: CanvasRenderingContext2D): void {

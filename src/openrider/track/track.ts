@@ -8,6 +8,7 @@ import { PlayerRunner } from '../bike/runner/player-runner';
 import type { Collidable } from '../entity/collidable';
 import { Entity } from '../entity/entity';
 import type { EraserRestriction } from '../grid/cell/physics-cell';
+import { TrackEditor } from '../edit/track-editor';
 import { HistoryManager } from '../history/history-manager';
 import { CommandRegistry } from '../item/command/command-registry';
 import { Line } from '../item/line/line';
@@ -87,7 +88,9 @@ export class Track extends World {
     public onRemoteTick: ((runner: RemoteRunner) => void) | null = null;
     public toolCollection = new ToolCollection();
     public readonly toolManager = new ToolManager(this);
-    public readonly history = new HistoryManager();
+    /** Edits of the track in the editor, kept by its history. */
+    public readonly editor = new TrackEditor(this);
+    public readonly history = new HistoryManager((edit) => this.editor.replay(edit));
 
     public paused = false;
 
@@ -225,6 +228,7 @@ export class Track extends World {
             }
         }
         this.commands.objectChanged(obj);
+        this.editor.added(obj);
     }
 
     /**
@@ -239,6 +243,7 @@ export class Track extends World {
             layer.cache.remove(obj);
         }
         this.commands.objectChanged(obj);
+        this.editor.removed(obj);
     }
 
     private getLayer(obj: TrackObject): TrackLayer {

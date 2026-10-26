@@ -77,12 +77,7 @@ export class LineTool extends Tool {
         }
 
         line.layer = this.track.layers.reveal(this.track.layers.active);
-        line.addToTrack();
-
-        this.track.history.push({
-            undo: () => line.removeFromTrack(),
-            redo: () => line.addToTrack(),
-        });
+        this.track.editor.add([line]);
     }
 
     /** Whether the line being drawn has a valid length, measured on its longest axis. */

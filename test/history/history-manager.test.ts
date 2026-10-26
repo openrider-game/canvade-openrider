@@ -1,16 +1,27 @@
 import { describe, expect, test } from 'vitest';
+import type { TrackEdit } from '../../src/openrider/edit/track-edit';
 import { HistoryManager } from '../../src/openrider/history/history-manager';
 
-/** History of a list of numbers, each action adding one number. */
+/** History of a list of numbers, each edit adding the object of a number. */
 function createHistory() {
     const values: number[] = [];
-    const history = new HistoryManager();
+    const apply = (edit: TrackEdit) => {
+        if (edit.type === 'add') {
+            edit.objects.forEach(({ uid }) => values.push(Number(uid)));
+        } else if (edit.type === 'remove') {
+            edit.objects.forEach(({ uid }) => values.splice(values.lastIndexOf(Number(uid)), 1));
+        } else if (edit.type === 'group') {
+            edit.edits.forEach(apply);
+        }
+    };
+    const history = new HistoryManager(apply);
     const add = (value: number) => {
-        values.push(value);
-        history.push({
-            undo: () => values.splice(values.lastIndexOf(value), 1),
-            redo: () => values.push(value),
-        });
+        const edit: TrackEdit = {
+            type: 'add',
+            objects: [{ uid: String(value), layer: 'L0', kind: 'solid', code: '' }],
+        };
+        apply(edit);
+        history.push(edit);
     };
 
     return { values, history, add };

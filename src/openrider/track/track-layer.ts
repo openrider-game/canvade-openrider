@@ -17,6 +17,8 @@ export type TrackLayerType = 'main' | 'foreground';
  * cache grid, with larger cells, keeps pre-rendered images of the lines.
  */
 export class TrackLayer {
+    /** Id of the layer for the edits of the track, see `TrackEditor`. */
+    public uid = '';
     public readonly grid = new Grid(GRID_CELL_SIZE, PhysicsCell);
     public readonly cache = new Grid(CACHE_CELL_SIZE, RenderCell);
 

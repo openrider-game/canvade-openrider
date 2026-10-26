@@ -54,6 +54,11 @@ export class TrackParser {
 
     private steps: ParserStep[] = [];
     private stepIndex = 0;
+    /**
+     * Objects created so far, numbering them for the edits of the track: the same ids on every
+     * screen parsing the same code (see `TrackEditor`).
+     */
+    private objectCount = 0;
     private readonly sections: ParserData[] = [];
 
     private cacheIndex = 0;
@@ -158,6 +163,7 @@ export class TrackParser {
                             );
 
                             line.layer = layer;
+                            line.uid = `p${this.objectCount++}`;
                             line.addToTrack();
                         }
                     }
@@ -187,6 +193,7 @@ export class TrackParser {
                     if (itemClass) {
                         const item = itemClass.createInstance(itemCode, this.track);
                         item.layer = layer;
+                        item.uid = `p${this.objectCount++}`;
                         item.addToTrack();
                     }
                 }

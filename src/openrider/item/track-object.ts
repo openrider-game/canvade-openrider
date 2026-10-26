@@ -22,6 +22,11 @@ export abstract class TrackObject {
 
     /** Unique id, also used as key in the grid totals and in the runners reached sets. */
     public readonly id: number;
+    /**
+     * Id of the object for the edits of the track, the same on every screen editing it (see
+     * `TrackEditor`); null for the objects never edited, e.g. of the endurance tracks.
+     */
+    public uid: string | null = null;
     public pos: Vector;
     /** End of the object, equal to {@link TrackObject.pos} for objects without length. */
     public endPos: Vector;
