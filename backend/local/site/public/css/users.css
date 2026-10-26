@@ -1,0 +1,24 @@
+/*
+ * Styles of the users page, after site.css.
+ */
+
+/* Users page: search above the list, pages under it */
+
+.users-search {
+    display: flex;
+    gap: 8px;
+    max-width: 400px;
+    margin-bottom: 16px;
+}
+
+.leaderboard__table .users__count {
+    width: 6em;
+    text-align: right;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+}

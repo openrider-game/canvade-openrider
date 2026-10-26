@@ -28,7 +28,9 @@ import {
     UNITS_PER_METER,
 } from './endurance.constants';
 import { EnduranceRider } from './endurance-rider';
-import { Point, SectionItemKind, TerrainGenerator, TrackSection } from './terrain-generator';
+import { TerrainGenerator } from './terrain-generator';
+import { Point, SectionItemKind, TrackSection } from './terrain.types';
+import { LATEST_GENERATOR_VERSION } from './terrain/versions';
 
 /** Course of each track in endurance mode, for the tools only knowing the track. */
 const COURSES = new WeakMap<Track, EnduranceCourse>();
@@ -78,11 +80,22 @@ export class EnduranceCourse {
     private behindX: number;
     private aheadX: number;
 
+    /**
+     * @param seed - Seed of the track.
+     * @param version - Version of the generator of the track, the latest one by default.
+     * @throws When there is no such version.
+     */
     public constructor(
         public readonly track: Track,
         seed: number,
+        version = LATEST_GENERATOR_VERSION,
     ) {
-        this.generator = new TerrainGenerator(seed, track.origin.x, track.origin.y + GROUND_OFFSET);
+        this.generator = new TerrainGenerator(
+            seed,
+            track.origin.x,
+            track.origin.y + GROUND_OFFSET,
+            version,
+        );
         this.behindX = this.aheadX = track.origin.x;
         COURSES.set(track, this);
         // The runners start over: the track too, before the first physics tick of their runs
@@ -97,6 +110,11 @@ export class EnduranceCourse {
 
     public get seed(): number {
         return this.generator.seed;
+    }
+
+    /** Version of the generator of the track: the same seed gives another track in another one. */
+    public get version(): number {
+        return this.generator.version;
     }
 
     /** Distance from the start position to a position, in meters. */
@@ -157,14 +175,16 @@ export class EnduranceCourse {
     }
 
     /**
-     * Replaces the track with the one of another seed, the bikes going back to the start. The
-     * ghosts leave the race: their runs were ridden on the track of another seed.
+     * Replaces the track with the one of another seed, on the latest version of the generator,
+     * the bikes going back to the start. The ghosts leave the race: their runs were ridden on
+     * another track.
      */
     public reset(seed: number): void {
         this.generator = new TerrainGenerator(
             seed,
             this.track.origin.x,
             this.track.origin.y + GROUND_OFFSET,
+            LATEST_GENERATOR_VERSION,
         );
         this.track.ghostRunners.clear();
         this.restart();

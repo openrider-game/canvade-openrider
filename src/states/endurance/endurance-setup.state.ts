@@ -8,7 +8,8 @@ import { STATE_TRACK_ENDURANCE } from '../state-names';
 
 /**
  * First state of the endurance mode, in place of the track fetcher: creates the track, its
- * course from the seed of the host element (a new one by default) and the bike of the player,
+ * course from the seed and the version of the host element (a new track by default) and the bike
+ * of the player,
  * then pushes the endurance state on the next update.
  *
  * The track exists before the endurance state is entered, as its layers use it on entering.
@@ -27,7 +28,12 @@ export class EnduranceSetupState extends OpenRiderState {
 
     private createTrack(): void {
         const track = new Track(null);
-        new EnduranceCourse(track, GameConfig.seed ?? SeededRandom.randomSeed());
+        // A new track is on the latest version of the generator
+        if (GameConfig.seed === null) {
+            new EnduranceCourse(track, SeededRandom.randomSeed());
+        } else {
+            new EnduranceCourse(track, GameConfig.seed, GameConfig.version);
+        }
 
         const runner = track.playerRunner;
         runner.createBike();

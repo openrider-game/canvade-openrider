@@ -1,0 +1,92 @@
+/*
+ * Styles of the track page and of the verification page of a track, after site.css.
+ */
+
+/* Track page: description under the title */
+
+.track-description {
+    max-width: var(--content-width);
+    margin: -8px 0 16px;
+}
+
+/* Track and verification pages: verification under the title, actions side by side */
+
+.track-verification {
+    margin: -8px 0 16px;
+}
+
+.verification__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 16px;
+    margin-bottom: 16px;
+}
+
+.verification__actions form {
+    margin: 0;
+}
+
+.verification__verifier {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.verification__verifier .field__input {
+    width: 12em;
+}
+
+/* Track page: tabs of the leaderboard, and the other ghosts of the top riders */
+
+.tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    border-bottom: var(--border);
+}
+
+.tabs__tab {
+    margin-bottom: -2px;
+    padding: 6px 12px;
+    border: var(--border);
+    background: var(--color-background);
+    color: var(--color-muted);
+    font: inherit;
+    cursor: pointer;
+}
+
+.tabs__tab:hover {
+    background: var(--color-hover);
+}
+
+.tabs__tab[aria-selected='true'] {
+    border-bottom-color: var(--color-background);
+    color: var(--color-text);
+    font-weight: bold;
+}
+
+.tabs__tab:focus-visible,
+.leaderboard__more:focus-visible {
+    outline: 2px solid var(--color-toggled);
+    outline-offset: 2px;
+}
+
+
+.leaderboard__more {
+    margin-left: 6px;
+    padding: 0 8px;
+    font-size: 14px;
+}
+
+.leaderboard__more::after {
+    content: ' \25BE';
+}
+
+.leaderboard__more[aria-expanded='true']::after {
+    content: ' \25B4';
+}
+
+.leaderboard__other td {
+    background: #f6f6f6;
+}

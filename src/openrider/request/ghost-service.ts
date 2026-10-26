@@ -10,12 +10,15 @@ import { Requests } from './requests';
 export abstract class GhostService {
     /**
      * Whether the ghosts of the page can race on the track: always on a published track, and in
-     * endurance mode only on the track of the seed of the page (see `GameConfig.seed`), not on a
-     * track generated since then by the new track tool.
+     * endurance mode only on the track of the page (see `GameConfig.seed` and
+     * `GameConfig.version`), not on a track generated since then by the new track tool.
      */
     public static canRace(track: Track): boolean {
         const course = EnduranceCourse.of(track);
-        return course === null || course.seed === GameConfig.seed;
+        return (
+            course === null ||
+            (course.seed === GameConfig.seed && course.version === GameConfig.version)
+        );
     }
 
     /**
@@ -39,11 +42,11 @@ export abstract class GhostService {
         if (ghostString === undefined) {
             const url = GameConfig.url(GHOSTDATA_PATH);
             // In endurance mode, the backend only gives the runs of the track ridden
-            const seed = EnduranceCourse.of(track)?.seed;
+            const course = EnduranceCourse.of(track);
             const response = await Requests.postJson<{ GHOSTSTRING: string }>(url, {
                 trackId: track.id ?? 0,
                 id: ghostId,
-                ...(seed === undefined ? {} : { seed }),
+                ...(course === null ? {} : { seed: course.seed, version: course.version }),
             });
             // The track may have changed during the download
             if (!GhostService.canRace(track)) {

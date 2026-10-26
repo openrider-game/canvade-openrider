@@ -141,6 +141,7 @@ data attributes (see `src/openrider/config/game-config.ts`):
 | `data-track-url`      | Page opened after uploading a track, `{id}` being its id                   | `?track={id}`          |
 | `data-game-mode`      | `endurance` for the endurance mode                                         | `?mode=`, or tracks    |
 | `data-seed`           | Seed of the endurance track, to ride a given one again                     | `?seed=`, or a new one |
+| `data-version`        | Version of the generator of that track (see below)                         | `?version=`, or latest |
 | `data-endurance-save` | `1` to upload the endurance runs on the track of `data-seed` (see below)   | Not uploaded           |
 | `data-endurance-best` | Best run uploaded on that track, `<meters>,<ticks>`                        | None                   |
 | `data-ghosts`         | Ghosts racing from the start, their ids separated with commas              | `?ghosts=`, or none    |
@@ -180,20 +181,40 @@ harder: the goal is to go as far as possible, then as fast as possible for the s
 - The best run of every track and of each track are kept in the browser (`localStorage`), a run
   beating another by going further in whole meters, or as far and faster.
 
-The generation (`src/openrider/endurance/terrain-generator.ts`) only depends on the seed, and a
-run on a seed always plays the same for the same inputs, whatever the ghosts racing it do: the
-sections are added in order, long before a bike reaches them, and taken off only behind every
-bike riding; a restart starts over from an empty track (see
+The generation (`src/openrider/endurance/terrain-generator.ts`) only depends on the seed and the
+version of the generator, and a run on a track always plays the same for the same inputs,
+whatever the ghosts racing it do: the sections are added in order, long before a bike reaches
+them, and taken off only behind every bike riding; a restart starts over from an empty track (see
 `src/openrider/endurance/endurance-course.ts`). The ghosts follow the same rules as the player,
 so they ride and end their runs as they were ridden, and the backend replays a run from its seed
-(`dist/verify-ghost.cjs`).
+and version (`dist/verify-ghost.cjs`).
+
+#### Obstacles, zones and versions
+
+Each obstacle and each zone is a small object in its own file of
+`src/openrider/endurance/terrain/obstacles/` or `zones/`: its name, its weight at a difficulty,
+and its drawing. A version of the generator (`terrain/versions.ts`) lists the obstacles and zones
+it picks from, in order. A track is a seed on a version: the same seed gives another track in
+another version, and the runs saved on a track replay on its version only. So a released version
+never changes, which the test `generator-versions.test.ts` checks with fingerprints of its
+tracks. To add or change obstacles or zones:
+
+1. Write the new obstacle or zone in its own file. A changed one is a new object, under a new
+   name, the old one staying for the versions using it.
+2. Add a version to `terrain/versions.ts` listing every obstacle and zone it keeps plus the new
+   ones, then set `LATEST_GENERATOR_VERSION` to it: new tracks (`N`, a page without seed) use it.
+3. Deploy the game, then add the version to `SITE_ENDURANCE_VERSIONS` of the sample website with
+   the first day of the tracks of the day generated with it.
+
+The HUD writes the version next to the seed for the tracks of older versions, e.g. `Track 42 (v1)`.
 
 A page can rank the runs on a track: with `data-endurance-save="1"`, the game uploads each run on
 the track of `data-seed` beating `data-endurance-best` to the `enduranceupload` endpoint of its
-base URL (`seed`, `ghostString`, `time` and `distance`), which answers its `ID` and `RANK`,
-shown by the game. It then dispatches the `openrider:endurance-saved` event on the document, for
-the page to show its leaderboard again. The ghosts of the runs race with `toggleGhost`, downloaded
-from the `ghostdata` endpoint. The sample website does it for the track of the day.
+base URL (`seed`, `version`, `ghostString`, `time` and `distance`), which answers its `ID` and
+`RANK`, shown by the game. It then dispatches the `openrider:endurance-saved` event on the
+document, for the page to show its leaderboard again. The ghosts of the runs race with `toggleGhost`, downloaded
+from the `ghostdata` endpoint with the `seed` and `version` of the track. The sample website does
+it for the track of the day.
 
 ### Controls
 

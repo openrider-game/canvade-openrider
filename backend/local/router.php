@@ -69,4 +69,11 @@ if (preg_match('#^/backend/db/([a-z]+)/$#', $path, $match)) {
     }
 }
 
-return false;
+// The files of the project are served as they are. The built-in server would answer the other
+// paths with the index.html of the root, the game: the site answers them with its 404 page
+if (is_file($_SERVER['DOCUMENT_ROOT'] . $path)) {
+    return false;
+}
+site_start_session();
+site_not_found();
+return true;

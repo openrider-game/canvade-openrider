@@ -74,6 +74,14 @@ const api = {
     trackSeed(): number | null {
         return session.hasTrack() ? (EnduranceCourse.of(session.track)?.seed ?? null) : null;
     },
+
+    /**
+     * Version of the generator of the endurance track ridden, see {@link api.trackSeed}; null
+     * outside of the endurance mode, or while no track is created.
+     */
+    trackVersion(): number | null {
+        return session.hasTrack() ? (EnduranceCourse.of(session.track)?.version ?? null) : null;
+    },
 };
 
 declare global {

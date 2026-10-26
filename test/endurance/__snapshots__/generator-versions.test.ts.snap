@@ -1,0 +1,12 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Generator versions > never change the tracks they generate 1`] = `
+{
+  "1": [
+    "8c5f1488",
+    "81c9787c",
+    "6f58b999",
+    "8412d3e6",
+  ],
+}
+`;

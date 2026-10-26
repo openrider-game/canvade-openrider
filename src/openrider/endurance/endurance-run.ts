@@ -79,7 +79,12 @@ export class EnduranceRun {
     }
 
     private end(rider: EnduranceRider): void {
-        this.result = { distance: rider.distance, time: rider.time, seed: this.course.seed };
+        this.result = {
+            distance: rider.distance,
+            time: rider.time,
+            seed: this.course.seed,
+            version: this.course.version,
+        };
         this.beaten = this.records.submit(this.result);
         // The inputs until the last tick alive, as the backend replays them
         this.ghostString = GhostParser.generate(rider.runner, rider.time);

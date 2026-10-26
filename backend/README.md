@@ -24,14 +24,14 @@ POST requests (see `src/openrider/constants/request.constants.ts`). They answer 
 
 The backend and the sample website are configured with environment variables:
 
-| Variable                  | Setting                                              | Default                                          |
-| ------------------------- | ---------------------------------------------------- | ------------------------------------------------ |
-| `OPENRIDER_DB_DSN`        | PDO data source of the database                      | `pgsql:host=localhost;port=5432;dbname=postgres` |
-| `OPENRIDER_DB_USER`       | User of the database                                 | `postgres`                                       |
-| `OPENRIDER_DB_PASSWORD`   | Password of the database                             | `postgres`                                       |
-| `OPENRIDER_NODE`          | Node executable verifying the ghosts                 | `node`                                           |
-| `OPENRIDER_VERIFY_GHOSTS` | `0` to save the ghosts without verifying them        | Verified                                         |
-| `OPENRIDER_ADMINS`        | User names of the admins, separated with commas      | None                                             |
+| Variable                  | Setting                                         | Default                                          |
+| ------------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| `OPENRIDER_DB_DSN`        | PDO data source of the database                 | `pgsql:host=localhost;port=5432;dbname=postgres` |
+| `OPENRIDER_DB_USER`       | User of the database                            | `postgres`                                       |
+| `OPENRIDER_DB_PASSWORD`   | Password of the database                        | `postgres`                                       |
+| `OPENRIDER_NODE`          | Node executable verifying the ghosts            | `node`                                           |
+| `OPENRIDER_VERIFY_GHOSTS` | `0` to save the ghosts without verifying them   | Verified                                         |
+| `OPENRIDER_ADMINS`        | User names of the admins, separated with commas | None                                             |
 
 ## Running locally
 
@@ -61,8 +61,11 @@ an account.
   and best time, marking the unverified ones;
 - `/endurance/` runs the game in endurance mode (`data-game-mode="endurance"`): a new track on
   each load, or the track of its `seed` parameter, the number the game shows (`data-seed`, from 0
-  to 4294967295). The track of the day is the same for everyone, its seed derived from the date
-  in UTC, and has a leaderboard under the game: the 10 best accounts, by their best run of the
+  to 4294967295), on the version of the generator of its `version` parameter (`data-version`),
+  the version of the day by default. The track of the day is the same for everyone, its seed
+  derived from the date in UTC and its version from `SITE_ENDURANCE_VERSIONS`, which tells the
+  first day of each version (see "Endurance mode" in the README of the game), and has a
+  leaderboard under the game: the 10 best accounts, by their best run of the
   day (further, then faster), and the rank of the account logged in. The game saves the runs of
   the account beating its best one (`data-endurance-save`, see "Endurance runs"), the
   leaderboard showing them right away (`public/js/endurance-leaderboard.js`). Clicking a rider
@@ -146,8 +149,10 @@ before the titles holds none: delete `openrider.db` to start over with the sampl
   game, see `src/verify/` of the game), and refuses it unless it reaches every target exactly at
   its time: a forged time or ghost string does not. A ghost of a large track takes a few seconds,
   and the verification gives up after 60 seconds or for runs over two hours.
-- Endurance runs: checked as the ghosts, and replayed on the track of their seed, which measures
-  their distance: the distance claimed by the game is not trusted.
+- Endurance runs: checked as the ghosts, and replayed on their track, their seed on their
+  version of the generator, which measures their distance: the distance claimed by the game is
+  not trusted. Each run is saved with its version (`VERSION`, 1 for the runs saved before the
+  versions), an account keeping one run on each seed and version.
 - Uploads: a track code or editor file holds 16 MB at most (with `post_max_size` large enough in
   the PHP configuration), and its thumbnail must be a 500x300 PNG.
 - Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads and 60 ghosts or endurance runs an hour per

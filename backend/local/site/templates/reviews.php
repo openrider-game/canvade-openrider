@@ -122,7 +122,10 @@ $actions = function (string $kind, int $id): void {
             <?php foreach ($runs as $run): ?>
                 <tr>
                     <td>
-                        <a href="/endurance/?seed=<?= (int) $run['SEED'] ?>">
+                        <?php
+                        $runTrack = site_endurance_url((int) $run['SEED'], (int) $run['VERSION']);
+                        ?>
+                        <a href="<?= h($runTrack) ?>">
                             Track <?= (int) $run['SEED'] ?>
                         </a>
                     </td>

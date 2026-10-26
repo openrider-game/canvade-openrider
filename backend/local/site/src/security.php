@@ -226,21 +226,32 @@ function site_verify_ghost(string $trackCode, string $ghostString, int $time): ?
 }
 
 /**
- * Verifies an endurance run by replaying it on the track of its seed, as site_verify_ghost()
- * does: a forged run does not fall at its time. The replay also measures its distance.
+ * Verifies an endurance run by replaying it on its track, a seed on a version of the generator,
+ * as site_verify_ghost() does: a forged run does not fall at its time. The replay also measures
+ * its distance.
  *
  * @param int $claimed Distance claimed by the game, in whole meters, kept without verification.
  * @return array Why the run is refused, null when it is valid, then its distance in whole
  *   meters.
  * @throws RuntimeException When the verifier cannot run.
  */
-function site_verify_endurance_run(int $seed, string $ghostString, int $time, int $claimed): array
-{
+function site_verify_endurance_run(
+    int $seed,
+    int $version,
+    string $ghostString,
+    int $time,
+    int $claimed
+): array {
     if (getenv('OPENRIDER_VERIFY_GHOSTS') === '0') {
         return [null, $claimed];
     }
 
-    $verdict = site_run_verifier(['seed' => $seed, 'ghostString' => $ghostString, 'time' => $time]);
+    $verdict = site_run_verifier([
+        'seed' => $seed,
+        'version' => $version,
+        'ghostString' => $ghostString,
+        'time' => $time,
+    ]);
     return $verdict['valid']
         ? [null, (int) floor((float) ($verdict['distance'] ?? 0))]
         : [(string) $verdict['reason'], 0];

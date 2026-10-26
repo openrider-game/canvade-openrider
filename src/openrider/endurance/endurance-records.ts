@@ -6,6 +6,8 @@ export interface EnduranceResult {
     time: number;
     /** Seed of the track. */
     seed: number;
+    /** Version of the generator of the track, 1 for the results kept before the versions. */
+    version?: number;
 }
 
 /** Records beaten by a result, see {@link EnduranceRecords.submit}. */
@@ -21,8 +23,16 @@ const STORAGE_KEY = 'openrider.endurance.records';
 
 interface StoredRecords {
     best: EnduranceResult | null;
-    /** Best result of each track, by seed. */
+    /** Best result of each track, see {@link trackKey}. */
     tracks: Record<string, EnduranceResult>;
+}
+
+/**
+ * Key of a track in the records: its seed on the first version of the generator, as the records
+ * kept before the versions, else `<version>:<seed>`.
+ */
+function trackKey(seed: number, version = 1): string {
+    return version === 1 ? String(seed) : `${version}:${seed}`;
 }
 
 /**
@@ -44,9 +54,9 @@ export class EnduranceRecords {
         return this.records.best;
     }
 
-    /** Best result of a track, null before its first run. */
-    public bestOn(seed: number): EnduranceResult | null {
-        return this.records.tracks[seed] ?? null;
+    /** Best result of a track, a seed on a version of the generator, null before its first run. */
+    public bestOn(seed: number, version = 1): EnduranceResult | null {
+        return this.records.tracks[trackKey(seed, version)] ?? null;
     }
 
     /** Whether a result beats another one: further, in whole meters, or as far and faster. */
@@ -62,13 +72,13 @@ export class EnduranceRecords {
     public submit(result: EnduranceResult): BeatenRecords {
         const beaten = {
             overall: EnduranceRecords.beats(result, this.best),
-            track: EnduranceRecords.beats(result, this.bestOn(result.seed)),
+            track: EnduranceRecords.beats(result, this.bestOn(result.seed, result.version)),
         };
         if (beaten.overall) {
             this.records.best = result;
         }
         if (beaten.track) {
-            this.records.tracks[result.seed] = result;
+            this.records.tracks[trackKey(result.seed, result.version)] = result;
         }
         if (beaten.overall || beaten.track) {
             this.save();

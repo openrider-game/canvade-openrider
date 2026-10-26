@@ -19,6 +19,7 @@ export abstract class EnduranceService {
             result !== null &&
             GameConfig.enduranceSave &&
             result.seed === GameConfig.seed &&
+            (result.version ?? 1) === GameConfig.version &&
             EnduranceRecords.beats(result, best && { ...best, seed: result.seed })
         );
     }
@@ -43,6 +44,7 @@ export abstract class EnduranceService {
                 GameConfig.url(ENDURANCEUPLOAD_PATH),
                 {
                     seed: result.seed,
+                    version: result.version ?? 1,
                     ghostString,
                     time: result.time,
                     distance: Math.floor(result.distance),

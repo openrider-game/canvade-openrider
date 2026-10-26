@@ -6,6 +6,7 @@ import { TouchControls } from '../../../openrider/touch/touch-controls';
 import { Time } from '../../../openrider/numeric/time';
 import { HUD_MARGIN, LINE_HEIGHT, TrackHudLayer } from '../../track/layers/track-hud.layer';
 import type { TrackEnduranceState } from '../track-endurance.state';
+import { LATEST_GENERATOR_VERSION } from '../../../openrider/endurance/terrain/versions';
 
 /** Size of the panel shown once a run is over, in UI pixels. */
 const PANEL_WIDTH = 300,
@@ -44,9 +45,13 @@ export class EnduranceHudLayer extends TrackHudLayer {
         }
         left.forEach((text, index) => ctx.fillText(text, HUD_MARGIN, LINE_HEIGHT * (index + 1)));
 
+        const trackBest = run.records.bestOn(course.seed, course.version);
         const right = [
-            `Track ${course.seed}`,
-            `Track best: ${EnduranceHudLayer.result(run.records.bestOn(course.seed))}`,
+            // The tracks of the older versions of the generator tell theirs
+            course.version === LATEST_GENERATOR_VERSION
+                ? `Track ${course.seed}`
+                : `Track ${course.seed} (v${course.version})`,
+            `Track best: ${EnduranceHudLayer.result(trackBest)}`,
             `Best: ${EnduranceHudLayer.result(run.records.best)}`,
         ];
         right.forEach((text, index) =>

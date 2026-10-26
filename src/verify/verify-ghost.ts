@@ -3,8 +3,9 @@
  *
  * Reads a JSON object from its standard input, `{ trackCode, ghostString, time }` (time in
  * physics ticks), and writes the verdict as JSON, `{ valid, reason }`. A run of the endurance
- * mode gives the seed of its track instead of a track code, `{ seed, ghostString, time }`, and
- * gets its distance in meters with the verdict, `{ valid, reason, distance }`. Exits with 0 once
+ * mode gives the seed of its track instead of a track code, `{ seed, version, ghostString, time }`
+ * (the version of its generator, 1 by default), and gets its distance in meters with the verdict,
+ * `{ valid, reason, distance }`; an unknown version is refused. Exits with 0 once
  * the verdict is written, valid or not, and with 1 when the input cannot be read.
  *
  * Gives up after `OPENRIDER_VERIFY_TIMEOUT` seconds (60 by default), and refuses the runs longer
@@ -28,7 +29,8 @@ const MAX_TICKS = 2 * 60 * 60 * GAME_UPS;
 
 /** A ghost on a published track, or a run of the endurance mode on the track of its seed. */
 type VerifyInput = { ghostString: string; time: number } & (
-    { trackCode: string; seed?: undefined } | { seed: number; trackCode?: undefined }
+    | { trackCode: string; seed?: undefined }
+    | { seed: number; version?: number; trackCode?: undefined }
 );
 
 function isVerifyInput(value: unknown): value is VerifyInput {
@@ -69,7 +71,13 @@ async function main(): Promise<void> {
         verdict =
             input.trackCode !== undefined
                 ? GhostVerifier.verify(input.trackCode, input.ghostString, input.time, limits)
-                : GhostVerifier.verifyEndurance(input.seed, input.ghostString, input.time, limits);
+                : GhostVerifier.verifyEndurance(
+                      input.seed,
+                      input.version ?? 1,
+                      input.ghostString,
+                      input.time,
+                      limits,
+                  );
     } catch (e) {
         verdict = { valid: false, reason: e instanceof Error ? e.message : String(e) };
     }

@@ -342,26 +342,14 @@ a {
     font-weight: bold;
 }
 
-/* Track page: description under the title */
+/* Headings of the parts of a leaderboard, e.g. repeating its tabs */
 
-.track-description {
-    max-width: var(--content-width);
-    margin: -8px 0 16px;
+.tabs__heading {
+    margin: 16px 0 8px;
+    font-size: 16px;
 }
 
-/* Upload page: thumbnail of the uploaded track, then the form of its title and description */
-
-.upload {
-    max-width: var(--content-width);
-}
-
-.upload__thumbnail {
-    display: block;
-    width: 100%;
-    max-width: 500px;
-    height: auto;
-    border: var(--border);
-}
+/* Form fields: the label above the input, the error under it */
 
 .field {
     margin-bottom: 16px;
@@ -423,7 +411,7 @@ textarea.field__input {
 }
 
 .leaderboard__table .delete-form {
-    margin: 0;
+    margin: 0 4px 0 0;
 }
 
 /* Main action of a page, e.g. challenging friends to race */
@@ -473,177 +461,6 @@ textarea.field__input {
     color: var(--color-error);
 }
 
-/* Track and verification pages: verification under the title, actions side by side */
-
-.track-verification {
-    margin: -8px 0 16px;
-}
-
-.verification__actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 8px 16px;
-    margin-bottom: 16px;
-}
-
-.verification__actions form {
-    margin: 0;
-}
-
-.verification__verifier {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.verification__verifier .field__input {
-    width: 12em;
-}
-
-.leaderboard__table .delete-form {
-    margin-right: 4px;
-}
-
-/* Users page: search above the list, pages under it */
-
-.users-search {
-    display: flex;
-    gap: 8px;
-    max-width: 400px;
-    margin-bottom: 16px;
-}
-
-.leaderboard__table .users__count {
-    width: 6em;
-    text-align: right;
-}
-
-.pagination {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-top: 16px;
-}
-
-/* Track page: tabs of the leaderboard, and the other ghosts of the top riders */
-
-.tabs {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 12px;
-    border-bottom: var(--border);
-}
-
-.tabs__tab {
-    margin-bottom: -2px;
-    padding: 6px 12px;
-    border: var(--border);
-    background: var(--color-background);
-    color: var(--color-muted);
-    font: inherit;
-    cursor: pointer;
-}
-
-.tabs__tab:hover {
-    background: var(--color-hover);
-}
-
-.tabs__tab[aria-selected='true'] {
-    border-bottom-color: var(--color-background);
-    color: var(--color-text);
-    font-weight: bold;
-}
-
-.tabs__tab:focus-visible,
-.leaderboard__more:focus-visible {
-    outline: 2px solid var(--color-toggled);
-    outline-offset: 2px;
-}
-
-.tabs__heading {
-    margin: 16px 0 8px;
-    font-size: 16px;
-}
-
-.leaderboard__more {
-    margin-left: 6px;
-    padding: 0 8px;
-    font-size: 14px;
-}
-
-.leaderboard__more::after {
-    content: ' \25BE';
-}
-
-.leaderboard__more[aria-expanded='true']::after {
-    content: ' \25B4';
-}
-
-.leaderboard__other td {
-    background: #f6f6f6;
-}
-
-/* Endurance page: the tracks to ride above the game */
-
-.endurance-intro {
-    max-width: var(--content-width);
-    margin: 0 auto 16px;
-}
-
-.endurance-options {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
-    max-width: var(--content-width);
-    margin: 0 auto 16px;
-}
-
-.endurance-options__form {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
-
-.endurance-options__label {
-    font-weight: bold;
-}
-
-.endurance-options .endurance-options__input {
-    width: 8.5em;
-}
-
-/* Front page: the endurance mode above the tracks */
-
-.mode-banner {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 16px;
-    margin-bottom: 24px;
-    padding: 12px 16px;
-    border: var(--border);
-}
-
-.mode-banner__text {
-    flex: 1 1 300px;
-    margin: 0;
-}
-
-/* Endurance page: the run of the account in the leaderboard, under the top when further */
-
-.leaderboard__mine td {
-    background: #f6f6f6;
-    font-weight: bold;
-}
-
-.leaderboard__gap td {
-    color: var(--color-muted);
-    text-align: center;
-}
-
 /* Ghosts of a shared link above the game, and the buttons sharing a link under it */
 
 .endurance-rival,
@@ -663,4 +480,12 @@ textarea.field__input {
 .share-bar {
     max-width: var(--content-width);
     margin: 0 auto 12px;
+}
+
+/* Not found page: the main sections of the site, side by side */
+
+.not-found__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
 }

@@ -1,0 +1,20 @@
+/*
+ * Styles of the front page, after site.css.
+ */
+
+/* Front page: the endurance mode above the tracks */
+
+.mode-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 24px;
+    padding: 12px 16px;
+    border: var(--border);
+}
+
+.mode-banner__text {
+    flex: 1 1 300px;
+    margin: 0;
+}

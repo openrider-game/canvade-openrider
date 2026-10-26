@@ -10,8 +10,7 @@
         <strong>Endurance:</strong> ride an endless generated track that gets harder the further
         you go, and see how far you get.
     </p>
-    <a class="button" href="/endurance/?seed=<?= site_daily_endurance_seed() ?>">Track of the
-        day</a>
+    <a class="button" href="<?= h(site_daily_endurance_url()) ?>">Track of the day</a>
     <a class="button" href="/endurance/">New track</a>
 </section>
 

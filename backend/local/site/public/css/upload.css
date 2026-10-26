@@ -1,0 +1,18 @@
+/*
+ * Styles of the upload page, naming a track before saving it or sending it to
+ * verification, after site.css.
+ */
+
+/* Upload page: thumbnail of the uploaded track, then the form of its title and description */
+
+.upload {
+    max-width: var(--content-width);
+}
+
+.upload__thumbnail {
+    display: block;
+    width: 100%;
+    max-width: 500px;
+    height: auto;
+    border: var(--border);
+}

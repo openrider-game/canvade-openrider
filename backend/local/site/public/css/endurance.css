@@ -1,0 +1,46 @@
+/*
+ * Styles of the endurance page, after site.css.
+ */
+
+/* Endurance page: the tracks to ride above the game */
+
+.endurance-intro {
+    max-width: var(--content-width);
+    margin: 0 auto 16px;
+}
+
+.endurance-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    max-width: var(--content-width);
+    margin: 0 auto 16px;
+}
+
+.endurance-options__form {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.endurance-options__label {
+    font-weight: bold;
+}
+
+.endurance-options .endurance-options__input {
+    width: 8.5em;
+}
+
+/* Endurance page: the run of the account in the leaderboard, under the top when further */
+
+.leaderboard__mine td {
+    background: #f6f6f6;
+    font-weight: bold;
+}
+
+.leaderboard__gap td {
+    color: var(--color-muted);
+    text-align: center;
+}

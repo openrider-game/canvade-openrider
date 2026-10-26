@@ -13,7 +13,9 @@
  * the start for whoever opens it, the page telling whose ghost it is.
  *
  * @var int|null   $seed        Number of the track to ride, null for a new track on each load.
- * @var int        $dailySeed   Number of the track of the day, see site_daily_endurance_seed().
+ * @var int        $version     Version of the generator of the track, see
+ *                              SITE_ENDURANCE_VERSIONS.
+ * @var bool       $daily       Whether the track is the track of the day.
  * @var array      $attributes  Data attributes of the game, see partials/game.php.
  * @var bool       $leaderboard Whether the track has a leaderboard: a track of the day.
  * @var bool       $open        Whether the runs on the track are saved: the track of the day.
@@ -50,10 +52,12 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
         &middot;
         <?php if ($seed === null): ?>
             a new track on each ride
-        <?php elseif ($seed === $dailySeed): ?>
+        <?php elseif ($daily): ?>
             track of the day, <?= $seed ?>
         <?php else: ?>
             track <?= $seed ?>
+            <?php // The tracks of the older versions of the generator tell theirs, as the game ?>
+            <?= $version === site_endurance_version_of_day() ? '' : "(v$version)" ?>
         <?php endif; ?>
     </span>
 </h1>
@@ -65,8 +69,8 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
 </p>
 
 <div class="endurance-options">
-    <a class="button" href="/endurance/?seed=<?= $dailySeed ?>"
-        <?= $seed === $dailySeed ? 'aria-current="page"' : '' ?>>Track of the day</a>
+    <a class="button" href="<?= h(site_daily_endurance_url()) ?>"
+        <?= $daily ? 'aria-current="page"' : '' ?>>Track of the day</a>
     <a class="button" href="/endurance/" <?= $seed === null ? 'aria-current="page"' : '' ?>>New
         track</a>
     <form class="endurance-options__form" method="get" action="/endurance/">
@@ -92,9 +96,9 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
 <div class="share-slot">
     <?php if ($mine !== null && $mine['RANK'] !== null): ?>
         <?php
-        $shareLink = '/endurance/?seed=' . $seed . '&rider=' . rawurlencode($mine['NAME']);
+        $shareLink = site_endurance_url($seed, $version, ['rider' => $mine['NAME']]);
         $result = (int) $mine['DISTANCE'] . ' m in ' . site_duration((int) $mine['TIME']);
-        $shareText = $seed === $dailySeed
+        $shareText = $daily
             ? "I rode $result in the daily endurance of OpenRider! Can you do better?"
             : "I rode $result on the OpenRider endurance track $seed! Can you do better?";
         ?>
@@ -113,18 +117,21 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
 <?php site_render('partials/game', ['attributes' => $attributes]); ?>
 
 <?php if ($leaderboard): ?>
-    <?php // The ghosts only race on the track of the seed, see leaderboard.js ?>
-    <section class="leaderboard" aria-labelledby="leaderboard-title" data-seed="<?= $seed ?>">
+    <?php // The ghosts only race on their track, a seed on a version, see leaderboard.js ?>
+    <section class="leaderboard" aria-labelledby="leaderboard-title" data-seed="<?= $seed ?>"
+        data-version="<?= $version ?>">
         <h2 id="leaderboard-title"><?= $open ? 'Leaderboard of the day' : 'Leaderboard' ?></h2>
         <p class="leaderboard__other-track" hidden>
             You are riding another track: these ghosts only race on track <?= $seed ?>.
-            <a href="/endurance/?seed=<?= $seed ?>">Ride it again</a> to race them.
+            <a href="<?= h(site_endurance_url($seed, $version)) ?>">Ride it again</a> to race
+            them.
         </p>
         <p class="muted">
             <?php if (!$open): ?>
                 The day of this track is over: its leaderboard is closed.
             <?php elseif ($user === null): ?>
-                <a href="/login/?next=<?= rawurlencode('/endurance/?seed=' . $seed) ?>">Log in</a>
+                <a href="/login/?next=<?= rawurlencode(site_endurance_url($seed, $version)) ?>">Log
+                    in</a>
                 to save your best run of the day.
             <?php else: ?>
                 Your best run of the day is saved when you fall, once the server rode it again.
@@ -211,7 +218,7 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
     <p>
         The game shows the number of the track at its top right: ride it again, or share
         <?php if ($seed !== null): ?>
-            <a href="/endurance/?seed=<?= $seed ?>">the link of this track</a>.
+            <a href="<?= h(site_endurance_url($seed, $version)) ?>">the link of this track</a>.
         <?php else: ?>
             its link, <code>/endurance/?seed=&lt;number&gt;</code>.
         <?php endif; ?>

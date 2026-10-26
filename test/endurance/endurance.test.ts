@@ -16,7 +16,8 @@ import {
 import { EnduranceRecords } from '../../src/openrider/endurance/endurance-records';
 import { EnduranceRun } from '../../src/openrider/endurance/endurance-run';
 import { SeededRandom } from '../../src/openrider/endurance/seeded-random';
-import { Point, TerrainGenerator } from '../../src/openrider/endurance/terrain-generator';
+import { TerrainGenerator } from '../../src/openrider/endurance/terrain-generator';
+import { Point } from '../../src/openrider/endurance/terrain.types';
 import { EnduranceService } from '../../src/openrider/request/endurance-service';
 import { GhostService } from '../../src/openrider/request/ghost-service';
 import { NewTrackTool } from '../../src/openrider/tool/misc/new-track.tool';
@@ -414,7 +415,7 @@ describe('Endurance run', () => {
         run.update();
 
         expect(runner.dead).toBe(true);
-        expect(run.result).toEqual({ distance: run.distance, time: 100, seed: 4 });
+        expect(run.result).toEqual({ distance: run.distance, time: 100, seed: 4, version: 1 });
         expect(run.ghostString).toMatch(/,100,BMX$/);
         expect(run.beaten).toEqual({ overall: true, track: true });
         expect(records.best).toEqual(run.result);
@@ -480,15 +481,17 @@ describe('Endurance run', () => {
         const ghostString = run.ghostString ?? '';
         const limits = { maxTicks: 10000, deadline: Number.MAX_SAFE_INTEGER };
 
-        expect(GhostVerifier.verifyEndurance(9, ghostString, run.time, limits)).toEqual({
+        expect(GhostVerifier.verifyEndurance(9, 1, ghostString, run.time, limits)).toEqual({
             valid: true,
             reason: '',
             distance: run.distance,
         });
         // Another track, or a time claimed apart from the run
-        expect(GhostVerifier.verifyEndurance(10, ghostString, run.time, limits).valid).toBe(false);
+        expect(GhostVerifier.verifyEndurance(10, 1, ghostString, run.time, limits).valid).toBe(
+            false,
+        );
         const forged = ghostString.replace(/,[0-9]+,BMX$/, `,${run.time + 50},BMX`);
-        expect(GhostVerifier.verifyEndurance(9, forged, run.time + 50, limits)).toMatchObject({
+        expect(GhostVerifier.verifyEndurance(9, 1, forged, run.time + 50, limits)).toMatchObject({
             valid: false,
             reason: `The rider falls at another time: tick ${run.time}`,
         });

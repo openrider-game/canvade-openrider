@@ -88,12 +88,14 @@ export abstract class GhostVerifier {
      * it, until the rider falls (see `EnduranceRider`).
      *
      * @param seed - Seed of the generated track.
+     * @param version - Version of the generator of the track.
      * @param ghostString - Ghost string of the run, its time being the last tick alive.
      * @param time - Time claimed for the run, in physics ticks.
      * @returns The verdict, with the distance of the run in meters when it is valid.
      */
     public static verifyEndurance(
         seed: number,
+        version: number,
         ghostString: string,
         time: number,
         limits: VerifyLimits,
@@ -109,7 +111,7 @@ export abstract class GhostVerifier {
         }
 
         const track = new Track(null);
-        const course = new EnduranceCourse(track, seed);
+        const course = new EnduranceCourse(track, seed, version);
         const ghost = new GhostRunner(track, ghostString, false);
         ghost.createBike();
         ghost.startFrom();

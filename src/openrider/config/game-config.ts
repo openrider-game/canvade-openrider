@@ -1,3 +1,5 @@
+import { isGeneratorVersion, LATEST_GENERATOR_VERSION } from '../endurance/terrain/versions';
+
 /**
  * Settings given by the page hosting the game, as data attributes of its host element:
  *
@@ -13,6 +15,9 @@
  *   `TrackEnduranceState`; else the `?mode=endurance` parameter of the page URL.
  * - `data-seed`: in endurance mode, seed of the generated track, to ride a given one again; else
  *   the `?seed=<seed>` parameter of the page URL, and without both a new track on each load.
+ * - `data-version`: version of the generator of that track, the same seed giving another track
+ *   in another version; else the `?version=<version>` parameter, and the latest one by default.
+ *   An unknown version rides the latest one, without saving the runs.
  * - `data-endurance-save`: `1` to upload the runs on the track of `data-seed` to its leaderboard,
  *   with the enduranceupload endpoint, each one beating the best of the player so far.
  * - `data-endurance-best`: best run of the player on that track, `<meters>,<ticks>`, uploaded
@@ -37,6 +42,8 @@ export abstract class GameConfig {
     public static mode: 'tracks' | 'endurance' = 'tracks';
     /** Seed of the endurance track, null for a new one. */
     public static seed: number | null = null;
+    /** Version of the generator of the endurance track of {@link seed}. */
+    public static version = LATEST_GENERATOR_VERSION;
     /** Whether the endurance runs on the track of {@link seed} are uploaded to its leaderboard. */
     public static enduranceSave = false;
     /** Best run uploaded on that track, the next uploads beating it, null without any. */
@@ -64,7 +71,12 @@ export abstract class GameConfig {
         const seed = Number(host.dataset.seed ?? params.get('seed') ?? NaN);
         GameConfig.seed = Number.isInteger(seed) && seed >= 0 && seed < 2 ** 32 ? seed : null;
 
-        GameConfig.enduranceSave = host.dataset.enduranceSave === '1' && GameConfig.seed !== null;
+        const version = Number(host.dataset.version ?? params.get('version') ?? NaN);
+        const knownVersion = Number.isNaN(version) || isGeneratorVersion(version);
+        GameConfig.version = isGeneratorVersion(version) ? version : LATEST_GENERATOR_VERSION;
+
+        GameConfig.enduranceSave =
+            host.dataset.enduranceSave === '1' && GameConfig.seed !== null && knownVersion;
         const [distance, time] = (host.dataset.enduranceBest ?? '').split(',').map(Number);
         GameConfig.enduranceBest =
             Number.isFinite(distance) && Number.isInteger(time) ? { distance, time } : null;
