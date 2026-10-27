@@ -86,7 +86,12 @@ $actions = function (string $kind, int $id): void {
             <?php foreach ($ghosts as $ghost): ?>
                 <tr>
                     <td>
-                        <a href="/tracks/<?= (int) $ghost['TRACKID'] ?>/">
+                        <?php // The track racing the ghost, shown to the admins while it waits ?>
+                        <?php
+                        $race = '/tracks/' . (int) $ghost['TRACKID']
+                            . '/?ghosts=' . (int) $ghost['ID'];
+                        ?>
+                        <a href="<?= h($race) ?>">
                             <?= h(site_track_title(['ID' => $ghost['TRACKID']] + $ghost)) ?>
                         </a>
                     </td>
@@ -123,7 +128,12 @@ $actions = function (string $kind, int $id): void {
                 <tr>
                     <td>
                         <?php
-                        $runTrack = site_endurance_url((int) $run['SEED'], (int) $run['VERSION']);
+                        // The track racing the run of its rider, shown to the admins while it waits
+                        $runTrack = site_endurance_url(
+                            (int) $run['SEED'],
+                            (int) $run['VERSION'],
+                            ['rider' => $run['RIDER']]
+                        );
                         ?>
                         <a href="<?= h($runTrack) ?>">
                             Track <?= (int) $run['SEED'] ?>
