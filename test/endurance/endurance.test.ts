@@ -22,7 +22,10 @@ import {
     decorateSection,
 } from '../../src/openrider/endurance/decoration/decorate';
 import { DecorFactory } from '../../src/openrider/endurance/decoration/decor-factory';
-import { generatorVersion } from '../../src/openrider/endurance/terrain/versions';
+import {
+    generatorVersion,
+    LATEST_GENERATOR_VERSION,
+} from '../../src/openrider/endurance/terrain/versions';
 import { TerrainGenerator } from '../../src/openrider/endurance/terrain-generator';
 import { Point, TrackSection } from '../../src/openrider/endurance/terrain.types';
 import { EnduranceService } from '../../src/openrider/request/endurance-service';
@@ -43,11 +46,14 @@ function memoryStorage(): Storage {
     } as Storage;
 }
 
-/** A new endurance track with its course and the bike of the player. */
-function createCourse(seed: number): EnduranceCourse {
+/**
+ * A new endurance track with its course and the bike of the player, on version 1 of the
+ * generator by default: the distances and falls of the tests are those of its tracks.
+ */
+function createCourse(seed: number, version = 1): EnduranceCourse {
     const track = new Track(null);
     track.canvas = createCanvasMock().canvas;
-    const course = new EnduranceCourse(track, seed);
+    const course = new EnduranceCourse(track, seed, version);
     track.playerRunner.createBike();
     return course;
 }
@@ -98,6 +104,7 @@ afterEach(() => {
     vi.unstubAllGlobals();
     GameConfig.mode = 'tracks';
     GameConfig.seed = null;
+    GameConfig.version = LATEST_GENERATOR_VERSION;
     GameConfig.enduranceSave = false;
     GameConfig.enduranceBest = null;
 });
@@ -548,6 +555,7 @@ describe('Endurance ghosts', () => {
 
     test('only race on the track of the page, asked to the backend for it', async () => {
         GameConfig.seed = 4;
+        GameConfig.version = 1;
         const course = createCourse(4);
         const fetch = vi.fn(ghostResponse);
         vi.stubGlobal('fetch', fetch);
@@ -852,6 +860,7 @@ describe('Endurance leaderboard', () => {
     test('gets the runs of its track beating the best one uploaded', () => {
         GameConfig.enduranceSave = true;
         GameConfig.seed = 9;
+        GameConfig.version = 1;
         GameConfig.enduranceBest = { distance: 50.2, time: 800 };
 
         expect(EnduranceService.shouldSave({ distance: 51, time: 2000, seed: 9 })).toBe(true);
@@ -865,6 +874,7 @@ describe('Endurance leaderboard', () => {
     test('uploads a run once over, telling its rank, or why it was refused', async () => {
         GameConfig.enduranceSave = true;
         GameConfig.seed = 9;
+        GameConfig.version = 1;
         const fetch = vi.fn(() => Promise.resolve(response(200, { ID: 7, RANK: 2 })));
         vi.stubGlobal('fetch', fetch);
         const run = rideUntilFall(createCourse(9));

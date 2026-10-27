@@ -8,5 +8,11 @@ exports[`Generator versions > never change the tracks they generate 1`] = `
     "6f58b999",
     "8412d3e6",
   ],
+  "2": [
+    "5bd5407a",
+    "d6d67e9b",
+    "514295c4",
+    "0cc26087",
+  ],
 }
 `;

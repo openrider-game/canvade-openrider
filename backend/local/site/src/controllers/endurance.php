@@ -27,7 +27,7 @@ const SITE_ENDURANCE_GRACE = 600;
  * knowing it is deployed: the tracks of the day switch to it on that day, keeping the
  * leaderboards of the days before on their own version.
  */
-const SITE_ENDURANCE_VERSIONS = [1 => '1970-01-01'];
+const SITE_ENDURANCE_VERSIONS = [1 => '1970-01-01', 2 => '2026-10-28'];
 
 /**
  * Endurance page: the game riding an infinite generated track, the one of the `seed` parameter

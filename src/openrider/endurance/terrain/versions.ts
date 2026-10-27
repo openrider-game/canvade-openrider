@@ -77,8 +77,7 @@ const VERSION_1: GeneratorVersion = {
  * Version 1 in biomes: long stretches of track of a same character, starting with a meadow (see
  * `biome.ts`).
  *
- * In development: ridden with `?version=2`, not the latest yet, so that its biomes can still be
- * tuned. It is released by becoming the latest version, and never changes after.
+ * Released for the tracks of the day from 2026-10-28: it never changes.
  */
 const VERSION_2: GeneratorVersion = {
     ...VERSION_1,
@@ -93,13 +92,13 @@ const VERSIONS = new Map<number, GeneratorVersion>([
 ]);
 
 /** Latest version of the generator, the one of the new tracks. */
-export const LATEST_GENERATOR_VERSION = 1;
+export const LATEST_GENERATOR_VERSION = 2;
 
 /**
  * Version of the generator in development, after the latest one, null when there is none: it
- * can be ridden, but still changes (see `VERSION_2`).
+ * can be ridden with `?version=<version>`, but still changes.
  */
-export const DRAFT_GENERATOR_VERSION: number | null = 2;
+export const DRAFT_GENERATOR_VERSION: number | null = null;
 
 /** Whether a number is a version of the generator. */
 export function isGeneratorVersion(version: number): boolean {

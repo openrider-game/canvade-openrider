@@ -233,7 +233,7 @@ The HUD writes the version next to the seed for the tracks of other versions, e.
 
 #### Biomes
 
-From version 2 (in development), a track goes through biomes: long stretches of 5 to 10 sections
+From version 2, a track goes through biomes: long stretches of 5 to 10 sections
 of a same character, e.g. canyons full of gaps or caves full of tunnels, one per file of
 `terrain/biomes/`. A biome draws nothing itself: it multiplies the weights of the obstacles and
 zones of its version, by name, changes how often zones come, and the size of the obstacles

@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
 import { PLAYER_CONTROL_NAMES } from '../../src/openrider/bike/runner/player-runner';
 import { GameConfig } from '../../src/openrider/config/game-config';
+import { LATEST_GENERATOR_VERSION } from '../../src/openrider/endurance/terrain/versions';
 import { ControlBindings } from '../../src/openrider/controls/control-bindings';
 import { ControlCatalog } from '../../src/openrider/controls/control-catalog';
 import { TouchControls } from '../../src/openrider/touch/touch-controls';
@@ -425,17 +426,17 @@ describe('Endurance mode', () => {
         expect(texts()).toContain('New record!');
     });
 
-    test('rides a new track on the version of the page, e.g. the one in development', async () => {
-        GameConfig.version = 2;
+    test('rides a new track on the version of the page, e.g. an older one', async () => {
+        GameConfig.version = 1;
         manager.push(STATE_ENDURANCE_SETUP);
         await runUntil(STATE_TRACK_ENDURANCE);
         manager.fixedUpdate();
         const { context } = createCanvasMock();
         manager.render(context);
-        GameConfig.version = 1;
+        GameConfig.version = LATEST_GENERATOR_VERSION;
 
         const texts = vi.mocked(context.fillText).mock.calls.map((call) => String(call[0]));
-        expect(texts.some((text) => text.endsWith('(v2)'))).toBe(true);
+        expect(texts.some((text) => text.endsWith('(v1)'))).toBe(true);
     });
 
     test('retires the run with its key, or by restarting while riding, saving it', async () => {

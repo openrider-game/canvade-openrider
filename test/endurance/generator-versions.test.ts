@@ -54,6 +54,7 @@ describe('Generator versions', () => {
         // new version
         expect({
             1: [1, 42, 123456, 4294967295].map((seed) => fingerprint(sections(seed, 1))),
+            2: [1, 42, 123456, 4294967295].map((seed) => fingerprint(sections(seed, 2))),
         }).toMatchSnapshot();
     });
 
