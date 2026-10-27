@@ -312,6 +312,7 @@ a {
     display: block;
     border: var(--border);
     text-decoration: none;
+    height: 100%;
 }
 
 .track-card:hover {
