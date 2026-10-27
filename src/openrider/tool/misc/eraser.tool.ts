@@ -2,7 +2,10 @@ import { Control, KEYE } from 'canvade';
 import type { EraserRestriction } from '../../grid/cell/physics-cell';
 import type { TrackObjectKind } from '../../item/track-object';
 import type { TrackLayer } from '../../track/track-layer';
-import { Tool, ToolOption } from '../tool';
+import { sizeOption, Tool, ToolOption } from '../tool';
+
+/** Eraser sizes the size option steps through: radii, in world units. */
+const ERASER_SIZES = [5, 10, 15, 20, 25, 30, 35, 40];
 
 /** Labels of the object kinds in the options drawer. */
 const KIND_LABELS: Record<TrackObjectKind, string> = {
@@ -14,9 +17,9 @@ const KIND_LABELS: Record<TrackObjectKind, string> = {
 /**
  * Erases the track objects under a circle around the mouse while the button is held.
  *
- * Everything erased during a drag is undone as a whole. Scrolling while holding the tool key
- * changes the eraser size, and the options drawer selects which kinds of objects are erased, and
- * whether on the active layer only or on every visible layer.
+ * Everything erased during a drag is undone as a whole. The options drawer sets the eraser size,
+ * which kinds of objects are erased, and whether on the active layer only or on every visible
+ * layer.
  */
 export class EraserTool extends Tool {
     public static override readonly toolName: string = 'Eraser';
@@ -25,8 +28,6 @@ export class EraserTool extends Tool {
 
     /** Radius of the eraser, in world units. */
     private size = 15;
-    private readonly minSize = 5;
-    private readonly maxSize = 40;
 
     /** Kinds of objects erased. */
     private readonly restrict: EraserRestriction = { solid: true, scenery: true, item: true };
@@ -60,17 +61,6 @@ export class EraserTool extends Tool {
         }
     }
 
-    public override onScroll(e: WheelEvent): void {
-        if (this.isHolding()) {
-            this.size = Math.max(
-                this.minSize,
-                Math.min(this.maxSize, this.size + 5 * -Math.sign(e.deltaY)),
-            );
-        } else {
-            super.onScroll(e);
-        }
-    }
-
     /** Layers erased: the active layer, or every visible layer. */
     private erasedLayers(): readonly TrackLayer[] {
         const layers = this.track.layers;
@@ -81,6 +71,10 @@ export class EraserTool extends Tool {
         const kinds: TrackObjectKind[] = ['solid', 'scenery', 'item'];
 
         return [
+            sizeOption(this.size, ERASER_SIZES, (size) => {
+                this.size = size;
+                this.track.invalidateUI();
+            }),
             {
                 label: this.allLayers ? 'Layers: all visible' : 'Layers: active',
                 action: () => {

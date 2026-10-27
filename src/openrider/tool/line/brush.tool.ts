@@ -1,19 +1,18 @@
 import { Control, KEYA, Vector } from 'canvade';
 import { InterfaceScale } from '../../numeric/interface-scale';
-import { ToolIcon, ToolOption } from '../tool';
+import { sizeOption, ToolIcon, ToolOption } from '../tool';
 import { SCENERY_BRUSH_IMAGE, SOLID_BRUSH_IMAGE } from '../tool.constants';
 import { DrawingLines } from './drawing-lines';
 import { LineTool } from './line.tool';
 
-/** Brush sizes the size option cycles through, in world units. */
+/** Brush sizes the size option steps through, in world units. */
 const BRUSH_SIZES = [4, 10, 20, 40, 80, 160];
 
 /**
  * Draws a line each time the mouse moves further than the brush size from the last line, solid or
  * scenery as chosen in the options (see {@link DrawingLines}).
  *
- * A stroke is undone as a whole. The size option cycles through the brush sizes; scrolling while
- * holding the tool key changes the size too, by smaller steps.
+ * A stroke is undone as a whole. The size is set in the options, see {@link sizeOption}.
  */
 export class BrushTool extends LineTool {
     public static override readonly toolName: string = 'Brush';
@@ -22,8 +21,6 @@ export class BrushTool extends LineTool {
 
     /** Minimum length of the drawn lines, in world units. */
     private size = 20;
-    private readonly minSize = 4;
-    private readonly maxSize = 200;
 
     public override getIcon(): ToolIcon {
         return DrawingLines.isScenery ? SCENERY_BRUSH_IMAGE : SOLID_BRUSH_IMAGE;
@@ -32,28 +29,11 @@ export class BrushTool extends LineTool {
     public override getOptions(): ToolOption[] {
         return [
             DrawingLines.option(this.track),
-            {
-                label: `Size: ${this.size}`,
-                action: () => {
-                    // The next size up, the sizes set by scrolling being between two of them
-                    this.size = BRUSH_SIZES.find((size) => size > this.size) ?? BRUSH_SIZES[0];
-                    this.track.invalidateUI();
-                },
-            },
+            sizeOption(this.size, BRUSH_SIZES, (size) => {
+                this.size = size;
+                this.track.invalidateUI();
+            }),
         ];
-    }
-
-    public override onScroll(e: WheelEvent): void {
-        if (this.isHolding()) {
-            this.size = Math.min(
-                this.maxSize,
-                Math.max(this.minSize, this.size + 8 * -Math.sign(e.deltaY)),
-            );
-            // The size option shows it
-            this.track.invalidateUI();
-        } else {
-            super.onScroll(e);
-        }
     }
 
     public override onMouseDown(): void {

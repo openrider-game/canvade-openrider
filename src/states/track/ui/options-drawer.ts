@@ -1,8 +1,10 @@
 import { UIButton, UIElement, UIStructureDefinition, UIStyleDefinition } from 'canvade';
 import type { Track } from '../../../openrider/track/track';
-import { panelHeight, UI_ROW_HEIGHT } from './ui-theme';
+import { panelHeight, UI_PANEL_PADDING, UI_ROW_HEIGHT } from './ui-theme';
 
 const OPTIONS_WIDTH = 230,
+    /** Width of the `−` and `+` buttons of an option stepping a value. */
+    STEP_WIDTH = 30,
     HANDLE_WIDTH = 90,
     HANDLE_HEIGHT = 20,
     DURATION = 250,
@@ -15,7 +17,7 @@ const OPTIONS_WIDTH = 230,
  *
  * A panel like the layers panel, centered at the top of the canvas: hidden above it, it slides
  * down with its handle button, and back up. It stays open or closed when the current tool
- * changes.
+ * changes. An option stepping a value has `−` and `+` buttons beside its label.
  */
 export class OptionsDrawer {
     private open = false;
@@ -30,9 +32,29 @@ export class OptionsDrawer {
         const height = panelHeight(options.length);
         const offsets = this.offsets(height);
         structure.push({
-            'container.overlay.panel.options': options.map((option, index) => ({
-                [`button.option-${index}`]: { events: { click: () => option.action() } },
-            })),
+            'container.overlay.panel.options': options.map((option, index) => {
+                const button = {
+                    [`button.option-${index}`]: { events: { click: () => option.action() } },
+                };
+                const steps = option.steps;
+                return steps
+                    ? {
+                          [`container.options-row.options-row-${index}`]: [
+                              {
+                                  [`button.options-step.option-down-${index}`]: {
+                                      events: { click: () => steps.down() },
+                                  },
+                              },
+                              button,
+                              {
+                                  [`button.options-step.option-up-${index}`]: {
+                                      events: { click: () => steps.up() },
+                                  },
+                              },
+                          ],
+                      }
+                    : button;
+            }),
         });
         structure.push({
             'button.overlay.options-handle': {
@@ -47,7 +69,12 @@ export class OptionsDrawer {
             y: offsets.options,
             height,
         };
-        styles['.options button'] = { width: '100%', height: UI_ROW_HEIGHT };
+        styles['.options-row'] = {
+            pointerEvents: 'none',
+            flexDirection: 'row',
+            width: '100%',
+            height: UI_ROW_HEIGHT,
+        };
         styles['.options-handle'] = {
             horizontalAlign: 'center',
             width: HANDLE_WIDTH,
@@ -55,8 +82,19 @@ export class OptionsDrawer {
             y: offsets.handle,
             text: this.open ? OPEN_LABEL : CLOSED_LABEL,
         };
+        // Each button with its own width: a rule for all of them would override these ones
+        const labelWidth = OPTIONS_WIDTH - 2 * UI_PANEL_PADDING - 2 * STEP_WIDTH;
         options.forEach((option, index) => {
-            styles[`.option-${index}`] = { text: option.label };
+            const height = UI_ROW_HEIGHT;
+            styles[`.option-${index}`] = {
+                text: option.label,
+                width: option.steps ? labelWidth : '100%',
+                height,
+            };
+            if (option.steps) {
+                styles[`.option-down-${index}`] = { text: '−', width: STEP_WIDTH, height };
+                styles[`.option-up-${index}`] = { text: '+', width: STEP_WIDTH, height };
+            }
         });
     }
 

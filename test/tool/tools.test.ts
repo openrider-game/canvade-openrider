@@ -118,27 +118,30 @@ describe('Line tools', () => {
         expect(select(CircleTool).getOptions()[0].label).toBe('Lines: scenery');
     });
 
-    test('change the brush size from its options, or by scrolling with its key held', () => {
+    test('change the brush size from its options only, stepping it down and up', () => {
         const brush = select(BrushTool);
-        const size = () => brush.getOptions()[1].label;
-        expect(size()).toBe('Size: 20');
+        const option = () => brush.getOptions()[1];
+        expect(option().label).toBe('Size: 20');
 
-        brush.getOptions()[1].action();
-        expect(size()).toBe('Size: 40');
-        brush.getOptions()[1].action();
-        brush.getOptions()[1].action();
-        brush.getOptions()[1].action();
-        // Back to the smallest size after the largest one
-        expect(size()).toBe('Size: 4');
+        option().steps?.down();
+        expect(option().label).toBe('Size: 10');
+        option().steps?.down();
+        option().steps?.down();
+        // The smallest size stays
+        expect(option().label).toBe('Size: 4');
+        option().steps?.up();
+        expect(option().label).toBe('Size: 10');
 
-        Keyboard.onKeyDown(keyEvent('KeyA', 'a'));
-        brush.onScroll({ deltaY: -1 } as WheelEvent);
-        brush.onScroll({ deltaY: -1 } as WheelEvent);
-        expect(size()).toBe('Size: 20');
-        brush.onScroll({ deltaY: -1 } as WheelEvent);
-        // From a size between two of them, the next one up
-        brush.getOptions()[1].action();
-        expect(size()).toBe('Size: 40');
+        // Clicking it goes to the next size, the smallest after the largest one
+        option().action();
+        option().action();
+        option().action();
+        option().action();
+        expect(option().label).toBe('Size: 160');
+        option().steps?.up();
+        expect(option().label).toBe('Size: 160');
+        option().action();
+        expect(option().label).toBe('Size: 4');
     });
 
     test('are grouped, the brush first', () => {
@@ -241,13 +244,16 @@ describe('Eraser', () => {
         const options = tool.getOptions();
 
         expect(options.map((option) => option.label)).toEqual([
+            'Size: 15',
             'Layers: active',
             'Line: active',
             'Scenery: active',
             'Object: active',
         ]);
-        options[1].action();
-        expect(tool.getOptions()[1].label).toBe('Line: inactive');
+        options[2].action();
+        expect(tool.getOptions()[2].label).toBe('Line: inactive');
+        options[0].steps?.down();
+        expect(tool.getOptions()[0].label).toBe('Size: 10');
 
         const line = new SolidLine(new Vector(-50, 0), new Vector(50, 0), track);
         line.layer = track.layers.main[0];
@@ -275,8 +281,8 @@ describe('Tools on layers', () => {
         drag(new Vector(0, 0), new Vector(0, 0), 1);
         expect(lines.map((line) => line.onTrack)).toEqual([true, false, true]);
 
-        tool.getOptions()[0].action();
-        expect(tool.getOptions()[0].label).toBe('Layers: all visible');
+        tool.getOptions()[1].action();
+        expect(tool.getOptions()[1].label).toBe('Layers: all visible');
         drag(new Vector(0, 0), new Vector(0, 0), 1);
         expect(lines.map((line) => line.onTrack)).toEqual([false, false, true]);
     });
@@ -496,21 +502,24 @@ describe('View tools', () => {
         expect(track.zoomFactor).toBeCloseTo(zoom + 0.2);
     });
 
-    test('change the brush and eraser sizes when scrolling with their key held', () => {
-        const brush = select(BrushTool);
-        Keyboard.onKeyDown(keyEvent('KeyA', 'a'));
-        const zoom = track.zoomFactor;
+    test('zoom with the mouse wheel, the brush and eraser sizes being set in their options', () => {
+        const tools: Array<[new (track: Track) => Tool, KeyboardEvent, number]> = [
+            [BrushTool, keyEvent('KeyA', 'a'), 1],
+            [EraserTool, keyEvent('KeyE', 'e'), 0],
+        ];
+        for (const [ToolClass, key, sizeIndex] of tools) {
+            const tool = select(ToolClass);
+            const size = tool.getOptions()[sizeIndex].label;
+            const zoom = track.zoomFactor;
 
-        brush.onScroll({ deltaY: -100 } as WheelEvent);
-        brush.onScroll({ deltaY: -100 } as WheelEvent);
-        Keyboard.onKeyUp(keyEvent('KeyA', 'a'));
+            // Even with the key of the tool held
+            Keyboard.onKeyDown(key);
+            tool.onScroll({ deltaY: -100 } as WheelEvent);
+            Keyboard.onKeyUp(key);
 
-        expect(track.zoomFactor).toBe(zoom);
-        const { context } = createCanvasMock();
-        track.mouseIn = true;
-        track.toolManager.onMouseMove(mouseEvent());
-        track.toolManager.render(context);
-        expect(vi.mocked(context.fillText).mock.calls.map(([text]) => text)).toContain('36');
+            expect(track.zoomFactor).toBeGreaterThan(zoom);
+            expect(tool.getOptions()[sizeIndex].label).toBe(size);
+        }
     });
 
     /** Ghosts racing, by id. */

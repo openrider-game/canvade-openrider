@@ -29,7 +29,35 @@ export interface ToolClass {
 /** Button displayed in the options drawer while its tool is the current tool. */
 export interface ToolOption {
     label: string;
+    /** Called when the option is clicked: e.g. switching it, or its next value. */
     action(): void;
+    /**
+     * Steps the value of the option down and up, e.g. a size, with `−` and `+` buttons beside its
+     * label: the way to set it on every screen, touch screens included.
+     */
+    steps?: { down(): void; up(): void };
+}
+
+/**
+ * The option of a size stepped through a list of sizes: `−` and `+` step down and up, clicking
+ * it goes to the next one, the smallest after the largest.
+ *
+ * @param set - Sets the size, the interface then showing it.
+ */
+export function sizeOption(
+    size: number,
+    sizes: readonly number[],
+    set: (size: number) => void,
+): ToolOption {
+    const next = sizes.find((value) => value > size);
+    return {
+        label: `Size: ${size}`,
+        action: () => set(next ?? sizes[0]),
+        steps: {
+            down: () => set([...sizes].reverse().find((value) => value < size) ?? sizes[0]),
+            up: () => set(next ?? sizes[sizes.length - 1]),
+        },
+    };
 }
 
 /**

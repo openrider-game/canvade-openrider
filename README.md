@@ -299,8 +299,8 @@ Besides the targets, checkpoints and teleporters, the items act on the bikes tou
 - The drawing tools (brush, line and shapes) draw solid or scenery lines, as chosen in the options
   of any of them, the kind being shared by them all and shown by their icons.
 - Holding the line key draws lines connected to the previous one on each click.
-- The size of the brush is chosen in its options; holding the brush or eraser key while scrolling
-  changes its size too.
+- The sizes of the brush and of the eraser are set in their options, with their `−` and `+`
+  buttons; the mouse wheel only zooms, with every tool.
 - The shape tools draw a shape of connected lines: the curve is dragged from its start to its end,
   then bent through the point clicked; the circle is dragged from its center to its radius. A
   shape is undone at once.

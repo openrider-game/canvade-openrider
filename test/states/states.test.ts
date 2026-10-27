@@ -83,6 +83,8 @@ beforeEach(() => {
 afterEach(() => {
     Display.pixelRatio = 1;
     GameConfig.editTrack = false;
+    // Set by any touch pointer event, it would leak into the next tests
+    TouchControls.enabled = false;
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
 });
@@ -212,7 +214,9 @@ describe('Editing a track', () => {
             }
             return vi.mocked(context.fillText).mock.calls.map(([text]) => text);
         };
-        const layerOption = () => tool.getOptions()[0].label;
+        // The size of the eraser in the first row, the layers erased in the second one
+        const sizeOption = () => tool.getOptions()[0].label;
+        const layerOption = () => tool.getOptions()[1].label;
         const click = (x: number, y: number) => {
             state?.dispatch('pointerDown', mouseEvent('pointerDown', x, y));
             state?.dispatch('pointerUp', mouseEvent('pointerUp', x, y));
@@ -220,24 +224,33 @@ describe('Editing a track', () => {
 
         // Closed: only the handle is reachable, at the top of the canvas
         expect(frames(1)).toContain('Options ▼');
-        click(250, 20);
+        click(250, 37);
         expect(layerOption()).toBe('Layers: active');
 
         click(350, 10);
         // Sliding down, the options being still out of reach after one frame
         frames(1);
-        click(250, 20);
+        click(250, 37);
         expect(layerOption()).toBe('Layers: active');
         expect(frames(15)).toContain('Options ▲');
-        click(250, 20);
+        click(250, 37);
         expect(layerOption()).toBe('Layers: all visible');
 
+        // The size stepped up then down with the + and − buttons at the ends of its row, in a
+        // panel of 230 pixels centered on the canvas of 700 pixels
+        expect(frames(1)).toEqual(expect.arrayContaining(['−', 'Size: 15', '+']));
+        click(445, 15);
+        expect(sizeOption()).toBe('Size: 20');
+        click(250, 15);
+        click(250, 15);
+        expect(sizeOption()).toBe('Size: 10');
+
         // Stays open when the options are rebuilt, then closes from the handle under them: a panel
-        // of four rows of 22 pixels, inside a padding of 4 pixels
+        // of five rows of 22 pixels, inside a padding of 4 pixels
         expect(frames(1)).toContain('Layers: all visible');
-        click(350, 2 * 4 + 4 * 22 + 10);
+        click(350, 2 * 4 + 5 * 22 + 10);
         frames(15);
-        click(250, 20);
+        click(250, 37);
         expect(layerOption()).toBe('Layers: all visible');
     });
 
