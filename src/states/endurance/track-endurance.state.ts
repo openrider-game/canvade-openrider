@@ -15,8 +15,9 @@ import { EnduranceHudLayer } from './layers/endurance-hud.layer';
 
 /**
  * Endurance mode: riding an infinite track generated as the bike goes, harder and harder, as far
- * and as fast as possible. A run ends when the rider crashes or falls into a gap, the track having
- * no checkpoints: restarting tries the same track again. Another track is another page.
+ * and as fast as possible. A run ends when the rider crashes or falls into a gap, or when they
+ * retire it, e.g. stuck in a zone without gravity, the track having no checkpoints: restarting
+ * tries the same track again, retiring the run first. Another track is another page.
  *
  * Entered from the endurance setup state, which creates the track and its course. With the live
  * session of the page (see `GameConfig.live`), the player rides with its riders, each run being
@@ -53,6 +54,8 @@ export class TrackEnduranceState extends TrackPlayState {
             throw new Error('The endurance track has no course');
         }
         this.run = new EnduranceRun(course, this.records);
+        // Before the restarts too, so that the run is saved (see `RestartTool`)
+        this.track.retireRun = () => this.retireRun();
         // E.g. the ghost of a link shared to race someone, followed by the camera as when racing
         // a track, until the player rides
         GhostService.raceInitialGhosts(this.track);
@@ -70,9 +73,26 @@ export class TrackEnduranceState extends TrackPlayState {
      */
     private followRun(): void {
         const run = this.run;
-        if (!run?.update()) {
+        if (run?.update()) {
+            this.runEnded(run);
+        }
+    }
+
+    /**
+     * Retires the run of the player while riding, uploading it as when the rider falls, the
+     * other riders of the live session seeing them retire.
+     */
+    private retireRun(): void {
+        const run = this.run;
+        if (!run?.retire()) {
             return;
         }
+        LiveSession.of(this.track)?.retired(run.time);
+        this.runEnded(run);
+    }
+
+    /** Uploads a run just over to the live session if any, and to the leaderboard if asked to. */
+    private runEnded(run: EnduranceRun): void {
         if (run.result && run.ghostString !== null) {
             LiveSession.of(this.track)?.finish(run.ghostString, run.result.time);
         }

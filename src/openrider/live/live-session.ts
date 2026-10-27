@@ -17,9 +17,9 @@ export interface LiveState extends LiveConnectionState {
     results: LiveResult[];
     /**
      * How the verification of the last run finishing the track went, null before any: its time,
-     * and its distance in whole meters on an endurance track.
+     * and its distance in whole meters on an endurance track, retired there or not.
      */
-    finish: { time: number; distance?: number } | { reason: string } | null;
+    finish: { time: number; distance?: number; retired?: true } | { reason: string } | null;
 }
 
 /** Sessions of the tracks, one per track. */
@@ -102,6 +102,11 @@ export class LiveSession extends LiveConnection<LiveState> {
      * @param ghostString - Ghost string of the run.
      * @param time - Time of the run, in physics ticks.
      */
+    /** The player retired their run after the given tick, see `EnduranceRider.retire`. */
+    public retired(time: number): void {
+        this.reporter.retired(time);
+    }
+
     public finish(ghostString: string, time: number): void {
         if (this.isOpen()) {
             this.send({ type: 'finish', ghostString, time });
@@ -164,6 +169,7 @@ export class LiveSession extends LiveConnection<LiveState> {
                     finish: {
                         time: message.time,
                         ...(message.distance === undefined ? {} : { distance: message.distance }),
+                        ...(message.retired ? { retired: true } : {}),
                     },
                 });
                 return;

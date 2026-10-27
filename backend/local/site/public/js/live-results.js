@@ -51,9 +51,10 @@
                 const row = document.createElement("tr");
                 const you = result.id === live.you?.id;
                 const name = you ? `${result.name} (you)` : result.name;
+                const retired = result.retired ? " (retired)" : "";
                 const best =
                     result.distance !== null
-                        ? `${result.distance} m in ${duration(result.best)}`
+                        ? `${result.distance} m in ${duration(result.best)}${retired}`
                         : duration(result.best);
                 const time = result.best !== null ? best : result.riding ? "Riding" : "Left";
                 row.append(

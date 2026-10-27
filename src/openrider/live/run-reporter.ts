@@ -44,6 +44,11 @@ export class RunReporter implements RunListener {
         this.record({ type: 'start', time, checkpoints, bike });
     }
 
+    /** The player retired their run after the given tick, see `EnduranceRider.retire`. */
+    public retired(time: number): void {
+        this.record({ type: 'retire', time });
+    }
+
     /** Events since the last call, up to the time the player reached. */
     public flush(): RunEvent[] {
         const events = this.pending;

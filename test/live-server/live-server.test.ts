@@ -185,7 +185,16 @@ describe('Live server', () => {
             type: 'welcome',
             you: { id: 'ann', name: 'ANN' },
             riders: [],
-            results: [{ id: 'ann', name: 'ANN', best: null, distance: null, riding: true }],
+            results: [
+                {
+                    id: 'ann',
+                    name: 'ANN',
+                    best: null,
+                    distance: null,
+                    retired: false,
+                    riding: true,
+                },
+            ],
         });
         ann.send({ type: 'run', events: RUN });
         // Received once the server answers the next message
@@ -240,8 +249,8 @@ describe('Live server', () => {
         const annTimed = (message: { results: Array<{ best: number | null }> }) =>
             message.results[0].best !== null;
         expect((await bob.next('results', annTimed)).results).toEqual([
-            { id: 'ann', name: 'ANN', best: 300, distance: null, riding: true },
-            { id: 'bob', name: 'BOB', best: null, distance: null, riding: true },
+            { id: 'ann', name: 'ANN', best: 300, distance: null, retired: false, riding: true },
+            { id: 'bob', name: 'BOB', best: null, distance: null, retired: false, riding: true },
         ]);
 
         // A slower run keeps the best time, a faster one beats it
@@ -269,8 +278,8 @@ describe('Live server', () => {
         const bobLeft = (message: { results: Array<{ riding: boolean }> }) =>
             !message.results[0].riding;
         expect((await ann.next('results', bobLeft)).results).toEqual([
-            { id: 'bob', name: 'BOB', best: 250, distance: null, riding: false },
-            { id: 'ann', name: 'ANN', best: 300, distance: null, riding: true },
+            { id: 'bob', name: 'BOB', best: 250, distance: null, retired: false, riding: false },
+            { id: 'ann', name: 'ANN', best: 300, distance: null, retired: false, riding: true },
         ]);
     });
 
@@ -305,8 +314,8 @@ describe('Live server', () => {
         const bobRanked = (message: { results: Array<{ best: number | null }> }) =>
             message.results.every((result) => result.best !== null);
         expect((await ann.next('results', bobRanked)).results).toEqual([
-            { id: 'ann', name: 'ANN', best: 900, distance: 120, riding: true },
-            { id: 'bob', name: 'BOB', best: 500, distance: 95, riding: true },
+            { id: 'ann', name: 'ANN', best: 900, distance: 120, retired: false, riding: true },
+            { id: 'bob', name: 'BOB', best: 500, distance: 95, retired: false, riding: true },
         ]);
         bob.send({ type: 'finish', ghostString: GHOST, time: 800 });
         await bob.next('finished');
@@ -317,6 +326,7 @@ describe('Live server', () => {
             name: 'BOB',
             best: 800,
             distance: 120,
+            retired: false,
             riding: true,
         });
 
@@ -365,7 +375,7 @@ describe('Live server', () => {
         const second = connect(port, token('ann'));
         expect((await first.closed).code).toBe(LIVE_CLOSE_CODES.REPLACED);
         expect((await second.next('welcome')).results).toEqual([
-            { id: 'ann', name: 'ANN', best: 300, distance: null, riding: true },
+            { id: 'ann', name: 'ANN', best: 300, distance: null, retired: false, riding: true },
         ]);
     });
 
@@ -401,7 +411,7 @@ describe('Live server', () => {
         expect(server?.stats).toEqual({ sessions: 0, riders: 0 });
         const again = connect(port, token('ann', { exp: now / 1000 + 60 }));
         expect((await again.next('welcome')).results).toEqual([
-            { id: 'ann', name: 'ANN', best: null, distance: null, riding: true },
+            { id: 'ann', name: 'ANN', best: null, distance: null, retired: false, riding: true },
         ]);
     });
 });

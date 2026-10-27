@@ -22,6 +22,8 @@ interface Attempt {
     keys: Map<ControlName, Set<number>>;
     /** Time before which every input of the attempt was received. */
     until: number;
+    /** Last tick of the attempt when the rider retired it, null otherwise. */
+    retiredAt: number | null;
 }
 
 /**
@@ -61,6 +63,11 @@ export class RemoteRunner extends ReplayRunner {
         return `${this.ghostName} (live)`;
     }
 
+    /** The tick the rider retired the current attempt at, if they did. */
+    public override get lastTick(): number | null {
+        return this.current?.retiredAt ?? null;
+    }
+
     /** Ticks received but not replayed yet. */
     public get lag(): number {
         const current = this.current ? this.current.until - this.time : 0;
@@ -77,6 +84,7 @@ export class RemoteRunner extends ReplayRunner {
                     start: event.time,
                     keys: new Map(CONTROL_NAMES.map((name) => [name, new Set<number>()])),
                     until: event.time,
+                    retiredAt: null,
                 });
                 continue;
             }
@@ -88,6 +96,10 @@ export class RemoteRunner extends ReplayRunner {
             }
             if (event.type === 'toggle') {
                 attempt.keys.get(event.control)?.add(event.time);
+            } else if (event.type === 'retire') {
+                // Replayed one tick further, where the rider retires
+                attempt.retiredAt = event.time;
+                attempt.until = Math.max(attempt.until, event.time + 1);
             } else {
                 attempt.until = Math.max(attempt.until, event.time);
             }

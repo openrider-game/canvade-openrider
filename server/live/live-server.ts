@@ -14,10 +14,14 @@ import type { TrackEdit, TrackSnapshot } from '../../src/openrider/edit/track-ed
 import { LiveToken, LiveTrack, readToken, signPayload, trackKey } from './token';
 import type { Verdict, VerifyInput } from './verifier';
 
-/** Best run of a rider: its time in ticks, and its distance in whole meters in endurance. */
+/**
+ * Best run of a rider: its time in ticks, and its distance in whole meters in endurance, and
+ * whether the rider retired it there.
+ */
 interface BestRun {
     time: number;
     distance: number | null;
+    retired: boolean;
 }
 
 /** Whether a run beats another: further in whole meters, else as far and faster. */
@@ -581,11 +585,13 @@ export class LiveServer {
         const run: BestRun = {
             time,
             distance: verdict.distance === undefined ? null : Math.floor(verdict.distance),
+            retired: verdict.retired === true,
         };
         this.send(socket, {
             type: 'finished',
             time,
             ...(run.distance === null ? {} : { distance: run.distance }),
+            ...(run.retired ? { retired: true } : {}),
         });
         if (beats(run, rider.best)) {
             rider.best = run;
@@ -671,6 +677,7 @@ export class LiveServer {
                 name,
                 best: best?.time ?? null,
                 distance: best?.distance ?? null,
+                retired: best?.retired ?? false,
                 riding: socket !== null,
             }));
     }

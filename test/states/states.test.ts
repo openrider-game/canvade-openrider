@@ -388,8 +388,8 @@ describe('Endurance mode', () => {
             state?.dispatch('pointerUp', mouseEvent('pointerUp', x, y));
             return followed();
         };
-        // Fifth button of the left toolbar, after a gap
-        const focusButton = () => click(13, 4 * 26 + 13);
+        // Sixth button of the left toolbar, after a gap
+        const focusButton = () => click(13, 5 * 26 + 13);
 
         // The ghosts, then the player again
         expect(followed()).toBe(0);
@@ -423,6 +423,56 @@ describe('Endurance mode', () => {
         expect(state.run?.over).toBe(true);
         expect(texts()).toContain('Enter: try again');
         expect(texts()).toContain('New record!');
+    });
+
+    test('retires the run with its key, or by restarting while riding, saving it', async () => {
+        manager.push(STATE_ENDURANCE_SETUP);
+        await runUntil(STATE_TRACK_ENDURANCE);
+        const state = manager.getCurrent() as TrackEnduranceState;
+        // The key of a tool, as the event manager tells it
+        const press = (code: string) => {
+            const key = code === 'Enter' ? 'Restart' : 'Retire';
+            Keyboard.onKeyDown(keyEvent(code, code));
+            state.dispatch(
+                'keyboardDown',
+                EventFactory.createGameEvent({
+                    name: 'keyboardDown',
+                    consumed: false,
+                    keyboardEvent: {} as KeyboardEvent,
+                    key,
+                }),
+            );
+            Keyboard.onKeyUp(keyEvent(code, code));
+        };
+        const ride = () => {
+            for (let frame = 0; frame < 20; frame++) {
+                manager.fixedUpdate();
+            }
+        };
+        const { context } = createCanvasMock();
+        const texts = () => vi.mocked(context.fillText).mock.calls.map((call) => String(call[0]));
+
+        ride();
+        press('Backspace');
+        expect([state.run?.over, state.run?.retired]).toEqual([true, true]);
+        expect(session.track.playerRunner.dead).toBe(true);
+        // Not a record: as far as the first run, and slower
+        press('Enter');
+        ride();
+        ride();
+        press('Backspace');
+        manager.render(context);
+        expect(texts()).toContain('Retired');
+
+        // Restarting while riding retires the run first, before the next one starts
+        press('Enter');
+        ride();
+        expect(state.run?.over).toBe(false);
+        press('Enter');
+        expect([state.run?.over, state.run?.retired]).toEqual([true, true]);
+        manager.fixedUpdate();
+        expect(state.run?.over).toBe(false);
+        expect(session.track.playerRunner.dead).toBe(false);
     });
 });
 

@@ -110,8 +110,14 @@ describe('Control catalog', () => {
         const sections = ControlCatalog.sections();
         const names = sections.flatMap((section) => section.entries.map((entry) => entry.name));
 
-        // The endurance mode has no tool of its own, all of them racing too
-        expect(sections.map((section) => section.title)).toEqual(['Riding', 'Racing', 'Editor']);
+        // The endurance mode has a tool of its own, retiring its runs
+        expect(sections.map((section) => section.title)).toEqual([
+            'Riding',
+            'Racing',
+            'Endurance',
+            'Editor',
+        ]);
+        expect(sections[2].entries.map((entry) => entry.name)).toEqual(['Retire']);
         expect(sections[0].entries.map((entry) => entry.label)).toEqual([
             'Accelerate',
             'Brake',
@@ -125,7 +131,7 @@ describe('Control catalog', () => {
         expect(names).toContain('Command Block');
         expect(names).toContain('Mirror');
         expect(
-            sections[2].entries.find((entry) => entry.name === 'Undo')?.defaultControl.label,
+            sections[3].entries.find((entry) => entry.name === 'Undo')?.defaultControl.label,
         ).toBe('M');
     });
 

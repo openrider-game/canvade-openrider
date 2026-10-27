@@ -8,6 +8,7 @@ import { FullscreenTool } from './misc/fullscreen.tool';
 import { RedoTool, UndoTool } from './misc/history.tool';
 import { PauseTool } from './misc/pause.tool';
 import { RestartTool } from './misc/restart.tool';
+import { RetireTool } from './misc/retire.tool';
 import { StartPositionTool } from './misc/start-position.tool';
 import { SwitchBikeTool } from './misc/switch-bike.tool';
 import { ToolClass } from './tool';
@@ -66,6 +67,7 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
     LEFT_TOOLBAR_ENDURANCE: ToolbarEntries = [
         PauseTool,
         RestartTool,
+        RetireTool,
         null,
         SwitchBikeTool,
         FocusRiderTool,

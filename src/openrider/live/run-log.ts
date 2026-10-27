@@ -23,6 +23,8 @@ export class RunLog {
     private toggles: Toggle[] = [];
     /** Time before which every input of the current attempt was received. */
     private until = 0;
+    /** Last tick of the current attempt when the rider retired it, null otherwise. */
+    private retiredAt: number | null = null;
 
     /** Whether the run started. */
     public get started(): boolean {
@@ -44,10 +46,13 @@ export class RunLog {
                     : [];
                 this.bike = event.bike;
                 this.until = event.time;
+                this.retiredAt = null;
             } else if (this.bike === null) {
                 continue;
             } else if (event.type === 'toggle') {
                 this.toggles.push({ time: event.time, control: event.control });
+            } else if (event.type === 'retire') {
+                this.retiredAt = event.time;
             } else {
                 this.until = Math.max(this.until, event.time);
             }
@@ -74,6 +79,9 @@ export class RunLog {
                 )
                 .map((toggle): RunEvent => ({ type: 'toggle', ...toggle })),
             { type: 'progress', time: until },
+            ...(this.retiredAt === null
+                ? []
+                : [{ type: 'retire', time: this.retiredAt } satisfies RunEvent]),
         ];
     }
 }

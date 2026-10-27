@@ -25,4 +25,9 @@ export type RunEvent =
     /** A control of the attempt toggled, on the given tick. */
     | { type: 'toggle'; time: number; control: ControlName }
     /** Every input of the attempt before the given tick was sent. */
-    | { type: 'progress'; time: number };
+    | { type: 'progress'; time: number }
+    /**
+     * The rider retired the attempt after the given tick: their run ends there, alive (see
+     * `EnduranceRider.retire`).
+     */
+    | { type: 'retire'; time: number };

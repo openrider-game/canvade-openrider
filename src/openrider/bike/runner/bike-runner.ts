@@ -345,6 +345,14 @@ export abstract class BikeRunner {
         this.deadObject?.update(progress, delta);
     }
 
+    /**
+     * Last tick of the run of a replayed rider, null when unknown, e.g. the player riding: a
+     * rider still alive past it retired there (see `EnduranceRider`).
+     */
+    public get lastTick(): number | null {
+        return null;
+    }
+
     /** Draws the bike if alive, then the ragdoll or the explosion if dead. */
     public render(ctx: CanvasRenderingContext2D): void {
         if (this.instance) {

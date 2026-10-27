@@ -15,6 +15,8 @@ export interface Verdict {
     reason: string;
     /** Distance of an endurance run, in meters. */
     distance?: number;
+    /** Whether an endurance run was retired by the rider rather than ended by a crash. */
+    retired?: boolean;
 }
 
 /**
@@ -56,6 +58,7 @@ export function createVerifier(
                             ...(typeof verdict.distance === 'number'
                                 ? { distance: verdict.distance }
                                 : {}),
+                            ...(verdict.retired === true ? { retired: true } : {}),
                         });
                         return;
                     }

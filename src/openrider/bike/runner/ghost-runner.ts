@@ -25,6 +25,11 @@ export class GhostRunner extends ReplayRunner {
         this.finalTime = ghost.time;
     }
 
+    /** The time of the recorded run: the last tick alive. */
+    public override get lastTick(): number {
+        return this.finalTime;
+    }
+
     protected override onHitTarget(): void {
         if (this.targetsReached.size >= this.track.targets.size) {
             this.done = true;

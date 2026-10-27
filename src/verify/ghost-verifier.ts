@@ -15,6 +15,8 @@ export interface GhostVerdict {
 export interface EnduranceVerdict extends GhostVerdict {
     /** Distance of the run in meters, 0 when refused. */
     distance: number;
+    /** Whether the valid run was retired by the rider rather than ended by a crash. */
+    retired?: boolean;
 }
 
 /** Limits of a verification, against tracks and ghosts made to keep the server busy. */
@@ -83,7 +85,8 @@ export abstract class GhostVerifier {
 
     /**
      * Replays a run of the endurance mode on the track of its seed, as the endurance state runs
-     * it, until the rider falls (see `EnduranceRider`).
+     * it, until the rider falls, or retires: a rider alive past the time of the run retired there
+     * (see `EnduranceRider`).
      *
      * @param seed - Seed of the generated track.
      * @param version - Version of the generator of the track.
@@ -140,7 +143,7 @@ export abstract class GhostVerifier {
             };
         }
 
-        return { valid: true, reason: '', distance: rider.distance };
+        return { valid: true, reason: '', distance: rider.distance, retired: rider.retired };
     }
 
     /**

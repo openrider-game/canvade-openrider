@@ -186,10 +186,11 @@ export class TrackHudLayer extends Layer {
         const lines = [`Live: ${riding} ${riding === 1 ? 'rider' : 'riders'}`];
         if (finish && 'time' in finish) {
             const time = Time.format(finish.time * FRAME_DURATION);
+            const retired = finish.retired ? ' (retired)' : '';
             lines.push(
                 finish.distance === undefined
                     ? `Run verified: ${time}`
-                    : `Run verified: ${finish.distance} m in ${time}`,
+                    : `Run verified: ${finish.distance} m in ${time}${retired}`,
             );
         } else if (finish) {
             lines.push(`Run refused: ${finish.reason}`);

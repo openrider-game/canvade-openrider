@@ -66,7 +66,10 @@ export class EnduranceHudLayer extends TrackHudLayer {
         this.drawLiveRiders(ctx, width, right.length + 1, (runner) => {
             const rider = course.riderOf(runner);
             const distance = `${Math.floor(rider?.distance ?? 0)} m`;
-            return rider?.over ? `fell at ${distance}` : distance;
+            if (!rider?.over) {
+                return distance;
+            }
+            return rider.retired ? `retired at ${distance}` : `fell at ${distance}`;
         });
         this.drawLiveState(ctx, left.length + 1);
 
@@ -83,7 +86,8 @@ export class EnduranceHudLayer extends TrackHudLayer {
         result: EnduranceResult,
     ): void {
         const beaten = this.endurance.run?.beaten;
-        const title = beaten?.overall ? 'New record!' : beaten?.track ? 'Track record!' : 'Crashed';
+        const ended = this.endurance.run?.retired ? 'Retired' : 'Crashed';
+        const title = beaten?.overall ? 'New record!' : beaten?.track ? 'Track record!' : ended;
         const x = (width - PANEL_WIDTH) / 2;
         const y = (height - PANEL_HEIGHT) / 2;
 

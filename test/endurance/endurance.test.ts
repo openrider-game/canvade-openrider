@@ -23,6 +23,7 @@ import { EnduranceService } from '../../src/openrider/request/endurance-service'
 import { GhostService } from '../../src/openrider/request/ghost-service';
 import { MODIFIERS } from '../../src/openrider/item/modifiers';
 import { Track } from '../../src/openrider/track/track';
+import { GhostParser } from '../../src/openrider/parser/ghost-parser';
 import { GhostVerifier } from '../../src/verify/ghost-verifier';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 import { pressKey, releaseKey } from '../helpers/track';
@@ -506,6 +507,74 @@ describe('Endurance run', () => {
         expect(ride('0,,,,,4000,MTB')).toEqual(alone);
     });
 
+    test('is retired while riding, its ghost and the verifier retiring where it was ridden', () => {
+        const course = createCourse(9);
+        const run = new EnduranceRun(course, new EnduranceRecords(memoryStorage()));
+        pressKey('up');
+        for (let tick = 0; tick < 150; tick++) {
+            tickRace(course.track);
+            run.update();
+        }
+        releaseKey('up');
+        expect(run.over).toBe(false);
+
+        expect(run.retire()).toBe(true);
+        expect(run.retire()).toBe(false);
+        expect([run.over, run.retired]).toEqual([true, true]);
+        expect(run.distance).toBeGreaterThan(5);
+        expect(run.result).toMatchObject({ distance: run.distance, time: run.time });
+        // The rider falls off, as when crashing
+        expect(course.track.playerRunner.dead).toBe(true);
+
+        // The backend replays the run alive until its end, retired there
+        const ghostString = run.ghostString ?? '';
+        const limits = { maxTicks: 10000, deadline: Number.MAX_SAFE_INTEGER };
+        expect(GhostVerifier.verifyEndurance(9, 1, ghostString, run.time, limits)).toEqual({
+            valid: true,
+            reason: '',
+            distance: run.distance,
+            retired: true,
+        });
+
+        // Its ghost retires where it was ridden
+        const replay = createCourse(9);
+        const ghost = new GhostRunner(replay.track, ghostString, false);
+        ghost.createBike();
+        replay.track.ghostRunners.set(1, ghost);
+        for (let tick = 0; tick < 1000 && !replay.riderOf(ghost)?.over; tick++) {
+            tickRace(replay.track);
+            replay.step();
+        }
+        expect(replay.riderOf(ghost)).toMatchObject({
+            over: true,
+            retired: true,
+            distance: run.distance,
+            time: run.time,
+        });
+
+        // As a rider of a live session, told they retired
+        const live = createCourse(9);
+        const remote = new RemoteRunner(live.track, 'Rider');
+        live.track.remoteRunners.set('rider', remote);
+        const { keys } = GhostParser.parse(ghostString);
+        remote.receive([
+            { type: 'start', time: 0, checkpoints: 0, bike: 'BMX' },
+            ...[...keys].flatMap(([control, times]) =>
+                [...times].map((time) => ({ type: 'toggle' as const, time, control })),
+            ),
+            { type: 'progress', time: run.time },
+            { type: 'retire', time: run.time },
+        ]);
+        for (let tick = 0; tick < 1000 && !live.riderOf(remote)?.over; tick++) {
+            remote.advance();
+        }
+        expect(live.riderOf(remote)).toMatchObject({
+            retired: true,
+            distance: run.distance,
+            time: run.time,
+        });
+    });
+
     test('is replayed by the verifier of the backend from its seed', () => {
         const run = rideUntilFall(createCourse(9));
         const ghostString = run.ghostString ?? '';
@@ -515,6 +584,7 @@ describe('Endurance run', () => {
             valid: true,
             reason: '',
             distance: run.distance,
+            retired: false,
         });
         // Another track, or a time claimed apart from the run
         expect(GhostVerifier.verifyEndurance(10, 1, ghostString, run.time, limits).valid).toBe(

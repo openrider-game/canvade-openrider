@@ -86,6 +86,11 @@ export class Track extends World {
      * (see `RemoteRunner.advance`): e.g. for the endurance course to follow them.
      */
     public onRemoteTick: ((runner: RemoteRunner) => void) | null = null;
+    /**
+     * Retires the run of the player while riding, ending it now as if the rider crashed: set by
+     * the modes saving runs that can get stuck, e.g. the endurance mode (see `RetireTool`).
+     */
+    public retireRun: (() => void) | null = null;
     public toolCollection = new ToolCollection();
     public readonly toolManager = new ToolManager(this);
     /** Edits of the track in the editor, kept by its history. */

@@ -19,6 +19,8 @@ export class EnduranceRider {
     public time = 0;
     /** Whether the run is over: crashed, exploded, fallen into a gap or ridden back too far. */
     public over = false;
+    /** Whether the run was retired: ended by the rider while alive, see {@link retire}. */
+    public retired = false;
 
     public constructor(
         public readonly runner: BikeRunner,
@@ -50,8 +52,28 @@ export class EnduranceRider {
             this.over = this.runner.dead;
             return;
         }
+        // A replayed run still alive past its last tick was retired there: its distance and time
+        // are those of that tick (see `BikeRunner.lastTick`), a run that crashed being dead by now
+        const lastTick = this.runner.lastTick;
+        if (lastTick !== null && this.runner.time > lastTick) {
+            this.retire();
+            return;
+        }
         this.furthestX = Math.max(this.furthestX, pos.x);
         this.distance = this.course.distanceAt(this.furthestX);
         this.time = this.runner.time;
+    }
+
+    /**
+     * Retires the run: it ends as if the rider crashed, keeping its distance and time so far, e.g.
+     * for a rider stuck in a zone without gravity. Nothing happens once the run is over.
+     */
+    public retire(): void {
+        if (this.over || this.runner.dead || !this.runner.instance) {
+            return;
+        }
+        this.retired = true;
+        this.over = true;
+        this.runner.crash(true);
     }
 }

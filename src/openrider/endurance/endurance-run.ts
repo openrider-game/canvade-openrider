@@ -21,6 +21,8 @@ export type RunUpload =
 export class EnduranceRun {
     /** Result of the run once it is over, null while riding. */
     public result: EnduranceResult | null = null;
+    /** Whether the run is over by being retired rather than by a crash. */
+    public retired = false;
     /** Records the result beat. */
     public beaten: BeatenRecords = { overall: false, track: false };
     /** Ghost string of the run once it is over, to upload it. */
@@ -70,9 +72,29 @@ export class EnduranceRun {
         return true;
     }
 
+    /**
+     * Retires the run while riding, ending it now as if the rider crashed (see
+     * {@link EnduranceRider.retire}).
+     *
+     * @returns Whether the run just ended: false before it started or once over.
+     */
+    public retire(): boolean {
+        const rider = this.rider;
+        if (!rider || this.over) {
+            return false;
+        }
+        rider.retire();
+        if (!rider.over) {
+            return false;
+        }
+        this.end(rider);
+        return true;
+    }
+
     private start(rider: EnduranceRider | null): void {
         this.rider = rider;
         this.result = null;
+        this.retired = false;
         this.beaten = { overall: false, track: false };
         this.ghostString = null;
         this.upload = { state: 'none' };
@@ -85,6 +107,7 @@ export class EnduranceRun {
             seed: this.course.seed,
             version: this.course.version,
         };
+        this.retired = rider.retired;
         this.beaten = this.records.submit(this.result);
         // The inputs until the last tick alive, as the backend replays them
         this.ghostString = GhostParser.generate(rider.runner, rider.time);

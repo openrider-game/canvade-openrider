@@ -132,7 +132,7 @@ describe('Live session', () => {
 
         expect(live.state.finish).toEqual({ time });
         expect(live.state.results).toEqual([
-            { id: 'ann', name: 'ann', best: time, distance: null, riding: true },
+            { id: 'ann', name: 'ann', best: time, distance: null, retired: false, riding: true },
         ]);
         expect(dispatchEvent).toHaveBeenLastCalledWith(
             expect.objectContaining({ type: 'openrider:live', detail: live.state }),

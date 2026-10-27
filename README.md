@@ -194,6 +194,10 @@ harder: the goal is to go as far as possible, then as fast as possible for the s
 - There are no checkpoints: the run ends when the rider crashes, explodes on a bomb or falls into
   a gap, even invincible, or rides back more than 40 m from the furthest point reached. The
   distance counts the furthest point reached, 1 m being about the length of a bike.
+- A rider stuck, e.g. in a zone without gravity, retires the run with Backspace: it ends as a
+  crash, its distance and time saved. Restarting while riding retires the run first. A ghost still
+  alive at the end of its run retires there, as the backend replays it, and the riders of a live
+  session see the others retire.
 - The best run of every track and of each track are kept in the browser (`localStorage`), a run
   beating another by going further in whole meters, or as far and faster.
 

@@ -36,6 +36,8 @@ export interface LiveResult extends LiveRider {
     best: number | null;
     /** Distance of the best run in whole meters on an endurance track, else null. */
     distance: number | null;
+    /** Whether the rider retired their best run, on an endurance track. */
+    retired: boolean;
     /** Whether the rider is still in the session. */
     riding: boolean;
 }
@@ -86,7 +88,7 @@ export type ServerMessage =
      * The run of the player finishing the track was verified: its time, and its distance in whole
      * meters on an endurance track; or why it was refused.
      */
-    | { type: 'finished'; time: number; distance?: number }
+    | { type: 'finished'; time: number; distance?: number; retired?: true }
     | { type: 'refused'; reason: string }
     /** Edits of an editor, numbered from `first` on, to apply in that order. */
     | { type: 'edits'; rider: string; first: number; edits: TrackEdit[] }
@@ -180,6 +182,8 @@ export function parseRunEvents(value: unknown): RunEvent[] | null {
             events.push({ type: 'toggle', time, control });
         } else if (item?.type === 'progress') {
             events.push({ type: 'progress', time });
+        } else if (item?.type === 'retire') {
+            events.push({ type: 'retire', time });
         } else {
             return null;
         }
