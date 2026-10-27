@@ -425,6 +425,19 @@ describe('Endurance mode', () => {
         expect(texts()).toContain('New record!');
     });
 
+    test('rides a new track on the version of the page, e.g. the one in development', async () => {
+        GameConfig.version = 2;
+        manager.push(STATE_ENDURANCE_SETUP);
+        await runUntil(STATE_TRACK_ENDURANCE);
+        manager.fixedUpdate();
+        const { context } = createCanvasMock();
+        manager.render(context);
+        GameConfig.version = 1;
+
+        const texts = vi.mocked(context.fillText).mock.calls.map((call) => String(call[0]));
+        expect(texts.some((text) => text.endsWith('(v2)'))).toBe(true);
+    });
+
     test('retires the run with its key, or by restarting while riding, saving it', async () => {
         manager.push(STATE_ENDURANCE_SETUP);
         await runUntil(STATE_TRACK_ENDURANCE);

@@ -28,6 +28,7 @@ import {
     UNITS_PER_METER,
 } from './endurance.constants';
 import { EnduranceRider } from './endurance-rider';
+import { decorateSection } from './decoration/decorate';
 import { TerrainGenerator } from './terrain-generator';
 import { Point, SectionItemKind, TrackSection } from './terrain.types';
 import { LATEST_GENERATOR_VERSION } from './terrain/versions';
@@ -228,8 +229,9 @@ export class EnduranceCourse {
                 [...section.solid, ...section.ceilings],
                 (from, to) => new SolidLine(from, to, this.track),
             ),
+            // The distance posts, then the decoration of the biome
             ...EnduranceCourse.lines(
-                section.scenery,
+                [...section.scenery, ...decorateSection(section, this.seed, this.track.origin.x)],
                 (from, to) => new SceneryLine(from, to, this.track),
             ),
             ...section.items.map((item) =>

@@ -17,8 +17,14 @@ import {
 import { EnduranceRecords } from '../../src/openrider/endurance/endurance-records';
 import { EnduranceRun } from '../../src/openrider/endurance/endurance-run';
 import { SeededRandom } from '../../src/openrider/endurance/seeded-random';
+import {
+    BIOME_DECORATIONS,
+    decorateSection,
+} from '../../src/openrider/endurance/decoration/decorate';
+import { DecorFactory } from '../../src/openrider/endurance/decoration/decor-factory';
+import { generatorVersion } from '../../src/openrider/endurance/terrain/versions';
 import { TerrainGenerator } from '../../src/openrider/endurance/terrain-generator';
-import { Point } from '../../src/openrider/endurance/terrain.types';
+import { Point, TrackSection } from '../../src/openrider/endurance/terrain.types';
 import { EnduranceService } from '../../src/openrider/request/endurance-service';
 import { GhostService } from '../../src/openrider/request/ghost-service';
 import { MODIFIERS } from '../../src/openrider/item/modifiers';
@@ -116,6 +122,147 @@ describe('Seeded random numbers', () => {
         const share = picks.filter((pick) => pick === 'a').length / picks.length;
         expect(share).toBeGreaterThan(0.7);
         expect(share).toBeLessThan(0.8);
+    });
+});
+
+describe('Decoration', () => {
+    test('is made of decors created by name, those of the biomes being all known', () => {
+        const terrain = generatorVersion(2).biomes?.map((biome) => biome.name) ?? [];
+        for (const [biome, decoration] of BIOME_DECORATIONS) {
+            expect(terrain).toContain(biome);
+            const decors = Object.keys(decoration.decors).map((name) => DecorFactory.create(name));
+            // Hanging from the ceilings with a spacing of their own
+            const hanging = decors.some((decor) => decor.placement === 'ceiling');
+            expect(decoration.ceilingSpacing !== undefined).toBe(hanging);
+        }
+        expect(new Set(DecorFactory.names()).size).toBe(DecorFactory.names().length);
+        expect(DecorFactory.create('tree')).toBe(DecorFactory.create('tree'));
+        expect(() => DecorFactory.create('castle')).toThrow('Unknown decor');
+    });
+
+    test('draws each decor within the room it takes', () => {
+        for (const name of DecorFactory.names()) {
+            const decor = DecorFactory.create(name);
+            for (let seed = 0; seed < 50; seed++) {
+                const points = decor.draw(0, 0, new SeededRandom(seed)).flat();
+                expect(points.length).toBeGreaterThan(1);
+                const ys = points.map(([, y]) => y);
+                if (decor.placement === 'ground') {
+                    // Up from the ground, no higher than its height
+                    expect(Math.max(...ys)).toBeLessThanOrEqual(0.01);
+                    expect(-Math.min(...ys)).toBeLessThanOrEqual(decor.height);
+                } else if (decor.placement === 'ceiling') {
+                    expect(Math.min(...ys)).toBeGreaterThanOrEqual(-0.01);
+                    expect(Math.max(...ys)).toBeLessThanOrEqual(decor.height);
+                } else {
+                    // High in the sky, over the tallest decors
+                    expect(-Math.max(...ys)).toBeGreaterThan(150);
+                }
+            }
+        }
+    });
+});
+
+describe('Biomes', () => {
+    /** Biomes of the first sections of the track of a seed, on the version with biomes. */
+    const biomesOf = (seed: number, count = 200) => {
+        const generator = new TerrainGenerator(seed, 0, 50, 2);
+        return Array.from({ length: count }, (_, index) => generator.section(index));
+    };
+    /** Biomes one after another, with their number of sections. */
+    const spans = (sections: TrackSection[]) =>
+        sections.reduce<Array<{ biome: string; length: number }>>((spans, section) => {
+            const last = spans[spans.length - 1];
+            if (last?.biome === section.biome) {
+                last.length++;
+            } else {
+                spans.push({ biome: section.biome ?? '', length: 1 });
+            }
+            return spans;
+        }, []);
+
+    test('follow each other from a meadow, for 5 to 10 sections, the same for a seed', () => {
+        expect(biomesOf(7)).toEqual(biomesOf(7));
+        for (const seed of [1, 2, 3]) {
+            const all = spans(biomesOf(seed));
+            expect(all[0].biome).toBe('Meadow');
+            expect(all.length).toBeGreaterThan(10);
+            // The last one may go on after the sections asked
+            for (const { length } of all.slice(0, -1)) {
+                expect(length).toBeGreaterThanOrEqual(5);
+                expect(length).toBeLessThanOrEqual(10);
+            }
+            expect(new Set(all.map((span) => span.biome)).size).toBeGreaterThan(3);
+        }
+        // The versions without biomes do not tell any
+        expect(new TerrainGenerator(7, 0, 50, 1).section(3).biome).toBeUndefined();
+    });
+
+    test('are decorated after their biome, the same for a seed, apart from the terrain', () => {
+        const sections = biomesOf(3, 150);
+        const decorate = (section: TrackSection) => decorateSection(section, 3, 0);
+        const terrain = JSON.stringify(sections);
+
+        // Each biome, the stalactites of the caves hanging under their ceilings
+        const decorated = new Set(
+            sections
+                .filter((section) => decorate(section).length > 0)
+                .map((section) => section.biome),
+        );
+        expect([...decorated].sort()).toEqual(['Arctic', 'Canyon', 'Caves', 'Meadow', 'Mountains']);
+        const caves = sections.filter((section) => section.biome === 'Caves');
+        const underCeilings = caves
+            .flatMap(decorate)
+            .filter(([start]) =>
+                caves.some((section) =>
+                    section.ceilings.some((points) =>
+                        points.some(
+                            ([x, y]) => Math.abs(x - start[0]) < 50 && Math.abs(y - start[1]) < 5,
+                        ),
+                    ),
+                ),
+            );
+        expect(underCeilings.length).toBeGreaterThan(0);
+
+        for (const section of sections) {
+            expect(decorate(section)).toEqual(decorate(section));
+            // Few enough lines to keep the cells fast to render
+            const segments = decorate(section).reduce((sum, points) => sum + points.length - 1, 0);
+            expect(segments).toBeLessThan(400);
+            // Clear of the items
+            for (const [x, y] of decorate(section).flat()) {
+                for (const item of section.items) {
+                    expect(Math.hypot(x - item.x, y - item.y)).toBeGreaterThan(15);
+                }
+            }
+        }
+        // The terrain stays the same, and the versions without biomes are not decorated
+        expect(JSON.stringify(sections)).toBe(terrain);
+        const plain = new TerrainGenerator(3, 0, 50, 1);
+        expect(decorateSection(plain.section(4), 3, 0)).toEqual([]);
+    });
+
+    test('change the obstacles of the sections: tunnels in caves, gaps in canyons', () => {
+        const sections = [1, 2, 3, 4, 5].flatMap((seed) => biomesOf(seed, 300));
+        /** Share of the obstacles of a biome among the given ones. */
+        const share = (biome: string, kinds: string[]) => {
+            const parts = sections
+                .filter((section) => section.biome === biome)
+                .flatMap((section) => section.parts);
+            return parts.filter((part) => kinds.includes(part.kind)).length / parts.length;
+        };
+        const others = (biome: string, kinds: string[]) =>
+            ['Meadow', 'Mountains', 'Canyon', 'Caves', 'Arctic']
+                .filter((other) => other !== biome)
+                .map((other) => share(other, kinds));
+
+        const caves = ['tunnel', 'ceiling'];
+        expect(share('Caves', caves)).toBeGreaterThan(Math.max(...others('Caves', caves)));
+        const gaps = ['launchGap', 'islands'];
+        expect(share('Canyon', gaps)).toBeGreaterThan(Math.max(...others('Canyon', gaps)));
+        const slopes = ['climb', 'downhill'];
+        expect(share('Mountains', slopes)).toBeGreaterThan(share('Meadow', slopes));
+        expect(share('Arctic', ['ice zone'])).toBeGreaterThan(share('Canyon', ['ice zone']));
     });
 });
 

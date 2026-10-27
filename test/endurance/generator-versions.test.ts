@@ -4,6 +4,7 @@ import { GameConfig } from '../../src/openrider/config/game-config';
 import { EnduranceCourse } from '../../src/openrider/endurance/endurance-course';
 import { EnduranceRecords } from '../../src/openrider/endurance/endurance-records';
 import {
+    DRAFT_GENERATOR_VERSION,
     generatorVersion,
     isGeneratorVersion,
     LATEST_GENERATOR_VERSION,
@@ -56,14 +57,28 @@ describe('Generator versions', () => {
         }).toMatchSnapshot();
     });
 
-    test('list each obstacle and zone once, and are all known to the game', () => {
-        for (let version = 1; version <= LATEST_GENERATOR_VERSION; version++) {
-            const { obstacles, zones } = generatorVersion(version);
+    test('list each obstacle, zone and biome once, and are all known to the game', () => {
+        // The released versions, then the one in development if any
+        const last = DRAFT_GENERATOR_VERSION ?? LATEST_GENERATOR_VERSION;
+        expect(last).toBeGreaterThanOrEqual(LATEST_GENERATOR_VERSION);
+        for (let version = 1; version <= last; version++) {
+            const { obstacles, zones, biomes = [] } = generatorVersion(version);
             const names = [...obstacles, ...zones].map((choice) => choice.name);
             expect(new Set(names).size).toBe(names.length);
+            expect(new Set(biomes.map((biome) => biome.name)).size).toBe(biomes.length);
+
+            // The biomes only change the obstacles and zones of their version
+            for (const biome of biomes) {
+                for (const name of Object.keys(biome.obstacles)) {
+                    expect(obstacles.map((obstacle) => obstacle.name)).toContain(name);
+                }
+                for (const name of Object.keys(biome.zones)) {
+                    expect(zones.map((zone) => zone.name)).toContain(name);
+                }
+            }
         }
         expect(isGeneratorVersion(LATEST_GENERATOR_VERSION)).toBe(true);
-        expect(isGeneratorVersion(LATEST_GENERATOR_VERSION + 1)).toBe(false);
+        expect(isGeneratorVersion(last + 1)).toBe(false);
         expect(() => new TerrainGenerator(1, 0, 0, 999)).toThrow('Unknown version');
     });
 

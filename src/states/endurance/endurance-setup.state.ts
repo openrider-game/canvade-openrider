@@ -28,9 +28,10 @@ export class EnduranceSetupState extends OpenRiderState {
 
     private createTrack(): void {
         const track = new Track(null);
-        // A new track is on the latest version of the generator
+        // A new track is on the version of the page, the latest one by default: e.g. the one in
+        // development, to try it
         if (GameConfig.seed === null) {
-            new EnduranceCourse(track, SeededRandom.randomSeed());
+            new EnduranceCourse(track, SeededRandom.randomSeed(), GameConfig.version);
         } else {
             new EnduranceCourse(track, GameConfig.seed, GameConfig.version);
         }

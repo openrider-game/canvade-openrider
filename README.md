@@ -222,11 +222,36 @@ tracks. To add or change obstacles or zones:
 1. Write the new obstacle or zone in its own file. A changed one is a new object, under a new
    name, the old one staying for the versions using it.
 2. Add a version to `terrain/versions.ts` listing every obstacle and zone it keeps plus the new
-   ones, then set `LATEST_GENERATOR_VERSION` to it: new tracks (a page without seed) use it.
-3. Deploy the game, then add the version to `SITE_ENDURANCE_VERSIONS` of the sample website with
+   ones, as `DRAFT_GENERATOR_VERSION` while trying it: it is ridden with `?version=<version>`,
+   and can still change. Its tracks are fingerprinted once it is released.
+3. Release it by setting `LATEST_GENERATOR_VERSION` to it (and `DRAFT_GENERATOR_VERSION` to
+   `null`): new tracks (a page without seed) use it. Add its fingerprints to the test.
+4. Deploy the game, then add the version to `SITE_ENDURANCE_VERSIONS` of the sample website with
    the first day of the tracks of the day generated with it.
 
-The HUD writes the version next to the seed for the tracks of older versions, e.g. `Track 42 (v1)`.
+The HUD writes the version next to the seed for the tracks of other versions, e.g. `Track 42 (v1)`.
+
+#### Biomes
+
+From version 2 (in development), a track goes through biomes: long stretches of 5 to 10 sections
+of a same character, e.g. canyons full of gaps or caves full of tunnels, one per file of
+`terrain/biomes/`. A biome draws nothing itself: it multiplies the weights of the obstacles and
+zones of its version, by name, changes how often zones come, and the size of the obstacles
+outside the zones. Every track starts with the first biome of its version (the meadow), then
+biomes are picked by weight at the difficulty they start at, never the same twice in a row. Their
+order is drawn from the seed apart from the terrain (see `BiomePlan` in `terrain/biome.ts`), and
+the first section of a biome is halfway between it and the previous one, its decoration telling
+the rider where they are.
+
+Each biome is decorated with scenery lines (`src/openrider/endurance/decoration/`): trees, flowers
+and fences in meadows, pines and boulders in mountains, cacti in canyons, crystals and stalactites
+in caves, snowy pines and snowmen in the arctic. Each decor is a small class in its own file of
+`decoration/decors/` (where it goes, the room it takes, and its drawing), created by name by the
+`DecorFactory`; each biome names its decors with their weights, and their spacing, in its own file
+of `decoration/biomes/`. The decors stand on ground flat enough, clear of the gaps, items and
+distance posts, and fit under the ceilings. Scenery touches no bike, so the
+decoration is no part of a version: it is drawn when a section is added to the track, from its
+own numbers of the seed, and can change from one release of the game to the next.
 
 A page can rank the runs on a track: with `data-endurance-save="1"`, the game uploads each run on
 the track of `data-seed` beating `data-endurance-best` to the `enduranceupload` endpoint of its

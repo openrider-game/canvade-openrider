@@ -6,7 +6,8 @@ import {
 } from './endurance.constants';
 import { GroundPen } from './ground-pen';
 import { SeededRandom } from './seeded-random';
-import { DEFAULT_OPTIONS, drawObstacle, Obstacle } from './terrain/obstacle';
+import { Biome, BiomePlan, blendBiomes, NEUTRAL_BIOME } from './terrain/biome';
+import { drawObstacle, Obstacle } from './terrain/obstacle';
 import { generatorVersion, GeneratorVersion, LATEST_GENERATOR_VERSION } from './terrain/versions';
 import { drawZone, Zone } from './terrain/zone';
 import { TrackSection } from './terrain.types';
@@ -22,10 +23,15 @@ import { TrackSection } from './terrain.types';
  * seed, derived from the seed of the track: the track is always the same for a seed and a
  * version of the generator (see `terrain/versions.ts`), whatever the order the sections are
  * asked in.
+ *
+ * In the versions with biomes, the sections follow the biomes of the track (see `BiomePlan`),
+ * each one changing the weights of the obstacles and zones, and the size of the obstacles.
  */
 export class TerrainGenerator {
     private readonly sections: TrackSection[] = [];
     private readonly generator: GeneratorVersion;
+    /** Biomes of the track, null for the versions without biomes. */
+    private readonly biomes: BiomePlan | null;
     private endX: number;
     private endY: number;
 
@@ -45,6 +51,10 @@ export class TerrainGenerator {
         this.generator = generatorVersion(version);
         this.endX = originX - 200;
         this.endY = groundY;
+        const biomes = this.generator.biomes;
+        this.biomes = biomes?.length
+            ? new BiomePlan(seed, biomes, (x) => this.difficultyAt(x), originX)
+            : null;
     }
 
     /** Difficulty at a position, from 0 at the start, 1 after {@link DIFFICULTY_DISTANCE}. */
@@ -69,8 +79,21 @@ export class TerrainGenerator {
         return index;
     }
 
+    /**
+     * Biome of a section: halfway from the previous one in the first section of a biome, the
+     * neutral biome without biomes.
+     */
+    private biomeOf(index: number): Biome {
+        if (!this.biomes) {
+            return NEUTRAL_BIOME;
+        }
+        const { biome, previous } = this.biomes.at(index);
+        return previous ? blendBiomes(previous, biome) : biome;
+    }
+
     private generate(index: number): TrackSection {
         const random = new SeededRandom(SeededRandom.derive(this.seed, index));
+        const biome = this.biomeOf(index);
         const pen = new GroundPen(this.endX, this.endY, this.originX);
         const startX = this.endX;
         const parts: TrackSection['parts'] = [];
@@ -80,19 +103,23 @@ export class TerrainGenerator {
         }
         while (pen.x < startX + SECTION_LENGTH) {
             const difficulty = this.difficultyAt(pen.x);
-            const zones = TerrainGenerator.weights(this.generator.zones, difficulty);
+            const zones = TerrainGenerator.weights(this.generator.zones, difficulty, biome.zones);
             const zoneShare = Object.values(zones).some((weight) => weight > 0)
-                ? 0.1 + 0.15 * Math.min(1, difficulty)
+                ? (0.1 + 0.15 * Math.min(1, difficulty)) * biome.zoneShare
                 : 0;
             if (random.chance(zoneShare)) {
                 const zone = this.pickIn(this.generator.zones, random.pick(zones));
                 parts.push({ kind: `${zone.name} zone`, startX: pen.x });
                 drawZone(pen, zone, difficulty, random);
             } else {
-                const weights = TerrainGenerator.weights(this.generator.obstacles, difficulty);
+                const weights = TerrainGenerator.weights(
+                    this.generator.obstacles,
+                    difficulty,
+                    biome.obstacles,
+                );
                 const obstacle = this.pickIn(this.generator.obstacles, random.pick(weights));
                 parts.push({ kind: obstacle.name, startX: pen.x });
-                drawObstacle(pen, obstacle, difficulty, random, DEFAULT_OPTIONS);
+                drawObstacle(pen, obstacle, difficulty, random, biome.options);
             }
         }
 
@@ -110,12 +137,28 @@ export class TerrainGenerator {
             items: pen.items,
             parts,
             lowestY: pen.lowestY,
+            // Only with biomes, the sections of the other versions staying as they are
+            ...(this.biomes ? { biome: biome.name } : {}),
         };
     }
 
-    /** Weights of the obstacles or zones of the version at a difficulty, by name, in order. */
-    private static weights(choices: readonly (Obstacle | Zone)[], d: number) {
-        return Object.fromEntries(choices.map((choice) => [choice.name, choice.weight(d)]));
+    /**
+     * Weights of the obstacles or zones of the version at a difficulty, by name, in order, times
+     * the factors of a biome. Without any left by the biome, the weights of the version.
+     */
+    private static weights(
+        choices: readonly (Obstacle | Zone)[],
+        d: number,
+        factors: Readonly<Record<string, number>>,
+    ) {
+        const weights = choices.map((choice): [string, number] => [
+            choice.name,
+            choice.weight(d) * (factors[choice.name] ?? 1),
+        ]);
+        if (weights.every(([, weight]) => weight <= 0)) {
+            return Object.fromEntries(choices.map((choice) => [choice.name, choice.weight(d)]));
+        }
+        return Object.fromEntries(weights);
     }
 
     /** An obstacle or zone of the version, by the name picked. */

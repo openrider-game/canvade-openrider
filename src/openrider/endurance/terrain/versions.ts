@@ -1,3 +1,9 @@
+import { Biome } from './biome';
+import { arctic } from './biomes/arctic';
+import { canyon } from './biomes/canyon';
+import { caves } from './biomes/caves';
+import { meadow } from './biomes/meadow';
+import { mountains } from './biomes/mountains';
 import { Obstacle } from './obstacle';
 import { boostClimb } from './obstacles/boost-climb';
 import { bumps } from './obstacles/bumps';
@@ -28,17 +34,19 @@ import { space } from './zones/space';
 import { turbo } from './zones/turbo';
 
 /**
- * Obstacles and zones of a version of the generator, in the order they are picked in.
+ * Obstacles, zones and biomes of a version of the generator, in the order they are picked in.
  *
  * A track is the same for a seed and a version, which the runs saved on it depend on: once
- * released, a version never changes, nor the order of its obstacles and zones, nor the obstacles
- * and zones themselves. New or changed obstacles and zones go into a new version, listing every
- * obstacle and zone it keeps. Every version stays, for the runs ridden on it.
+ * released, a version never changes, nor the order of its obstacles, zones and biomes, nor
+ * themselves. New or changed ones go into a new version, listing every one it keeps. Every
+ * version stays, for the runs ridden on it.
  */
 export interface GeneratorVersion {
     readonly version: number;
     readonly obstacles: readonly Obstacle[];
     readonly zones: readonly Zone[];
+    /** Biomes of the tracks, the first one starting them; none for a terrain without biomes. */
+    readonly biomes?: readonly Biome[];
 }
 
 const VERSION_1: GeneratorVersion = {
@@ -65,11 +73,33 @@ const VERSION_1: GeneratorVersion = {
     zones: [moon, turbo, ice, coast, heavy, space, shield, noSteer, mirror],
 };
 
+/**
+ * Version 1 in biomes: long stretches of track of a same character, starting with a meadow (see
+ * `biome.ts`).
+ *
+ * In development: ridden with `?version=2`, not the latest yet, so that its biomes can still be
+ * tuned. It is released by becoming the latest version, and never changes after.
+ */
+const VERSION_2: GeneratorVersion = {
+    ...VERSION_1,
+    version: 2,
+    biomes: [meadow, mountains, canyon, caves, arctic],
+};
+
 /** Every version of the generator, by number. */
-const VERSIONS = new Map<number, GeneratorVersion>([[1, VERSION_1]]);
+const VERSIONS = new Map<number, GeneratorVersion>([
+    [1, VERSION_1],
+    [2, VERSION_2],
+]);
 
 /** Latest version of the generator, the one of the new tracks. */
 export const LATEST_GENERATOR_VERSION = 1;
+
+/**
+ * Version of the generator in development, after the latest one, null when there is none: it
+ * can be ridden, but still changes (see `VERSION_2`).
+ */
+export const DRAFT_GENERATOR_VERSION: number | null = 2;
 
 /** Whether a number is a version of the generator. */
 export function isGeneratorVersion(version: number): boolean {

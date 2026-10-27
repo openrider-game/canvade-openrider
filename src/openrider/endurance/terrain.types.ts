@@ -45,6 +45,8 @@ export interface TrackSection {
     items: SectionItem[];
     /** Obstacles and zones of the section, in order, with where they start. */
     parts: Array<{ kind: string; startX: number }>;
+    /** Name of the biome of the section, for the versions of the generator with biomes. */
+    biome?: string;
     /** Lowest point of the ground of the section, the largest y. */
     lowestY: number;
 }
