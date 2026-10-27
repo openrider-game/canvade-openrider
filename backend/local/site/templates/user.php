@@ -37,45 +37,47 @@ $viewer = site_user();
 <?php if (!$ghosts): ?>
     <p class="muted">No ghost saved yet.</p>
 <?php else: ?>
-    <table class="leaderboard__table">
-        <thead>
-            <tr>
-                <th scope="col">Track</th>
-                <th scope="col">Rank</th>
-                <th scope="col" class="leaderboard__time">Time</th>
-                <th scope="col">Thumbs up</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($ghosts as $ghost): ?>
+    <div class="table-scroll">
+        <table class="leaderboard__table">
+            <thead>
                 <tr>
-                    <td>
-                        <?php // The track racing the ghost from the start, as a shared link ?>
-                        <?php
-                        $race = '/tracks/' . (int) $ghost['TRACKID'] . '/?ghosts=' . (int) $ghost['ID'];
-                        ?>
-                        <a href="<?= h($race) ?>">
-                            <?= h(site_track_title(['ID' => $ghost['TRACKID']] + $ghost)) ?>
-                        </a>
-                    </td>
-                    <?php if ($ghost['REVIEW'] === null): ?>
-                        <td><?= (int) $ghost['RANK'] ?></td>
-                    <?php else: ?>
-                        <td><span class="badge badge--review">checked by an admin</span></td>
-                    <?php endif; ?>
-                    <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
-                    <td>
-                        <?php site_render('partials/thumbs', [
-                            'kind' => 'ghosts',
-                            'id' => (int) $ghost['ID'],
-                            'count' => (int) $ghost['THUMBS'],
-                            'thumbed' => isset($thumbed[(int) $ghost['ID']]),
-                            // The ghosts of the page are all of its account
-                            'can' => site_can_thumb($viewer, ['USERID' => $userId] + $ghost),
-                        ]); ?>
-                    </td>
+                    <th scope="col">Track</th>
+                    <th scope="col">Rank</th>
+                    <th scope="col" class="leaderboard__time">Time</th>
+                    <th scope="col">Likes</th>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php foreach ($ghosts as $ghost): ?>
+                    <tr>
+                        <td>
+                            <?php // The track racing the ghost from the start, as a shared link ?>
+                            <?php
+                            $race = '/tracks/' . (int) $ghost['TRACKID'] . '/?ghosts=' . (int) $ghost['ID'];
+                            ?>
+                            <a href="<?= h($race) ?>">
+                                <?= h(site_track_title(['ID' => $ghost['TRACKID']] + $ghost)) ?>
+                            </a>
+                        </td>
+                        <?php if ($ghost['REVIEW'] === null): ?>
+                            <td><?= (int) $ghost['RANK'] ?></td>
+                        <?php else: ?>
+                            <td><span class="badge badge--review">checked by an admin</span></td>
+                        <?php endif; ?>
+                        <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
+                        <td>
+                            <?php site_render('partials/thumbs', [
+                                'kind' => 'ghosts',
+                                'id' => (int) $ghost['ID'],
+                                'count' => (int) $ghost['THUMBS'],
+                                'thumbed' => isset($thumbed[(int) $ghost['ID']]),
+                                // The ghosts of the page are all of its account
+                                'can' => site_can_thumb($viewer, ['USERID' => $userId] + $ghost),
+                            ]); ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 <?php endif; ?>

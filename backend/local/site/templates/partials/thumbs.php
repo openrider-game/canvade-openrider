@@ -12,7 +12,7 @@
  * @var bool   $can     Whether the account can give one.
  */
 
-$label = $count === 1 ? '1 thumb up' : "$count thumbs up";
+$label = $count === 1 ? '1 like' : "$count likes";
 // Back to the page of the button once done, without the script
 $action = "/$kind/$id/thumb/?next=" . rawurlencode($_SERVER['REQUEST_URI'] ?? '/');
 ?>
@@ -21,16 +21,16 @@ $action = "/$kind/$id/thumb/?next=" . rawurlencode($_SERVER['REQUEST_URI'] ?? '/
         <input type="hidden" name="csrf" value="<?= h(site_csrf_token()) ?>" />
         <button class="button thumbs__button" type="submit"
             aria-pressed="<?= $thumbed ? 'true' : 'false' ?>"
-            title="<?= $thumbed ? 'Take back your thumb up' : 'Give a thumb up' ?>">
+            title="<?= $thumbed ? 'Take back your like' : 'Like' ?>">
             <span aria-hidden="true">👍</span>
             <span class="thumbs__count"><?= $count ?></span>
-            <span class="visually-hidden">thumbs up</span>
+            <span class="visually-hidden">likes</span>
         </button>
     </form>
 <?php else: ?>
     <span class="thumbs thumbs--count muted" title="<?= h($label) ?>">
         <span aria-hidden="true">👍</span>
         <span class="thumbs__count"><?= $count ?></span>
-        <span class="visually-hidden">thumbs up</span>
+        <span class="visually-hidden">likes</span>
     </span>
 <?php endif; ?>

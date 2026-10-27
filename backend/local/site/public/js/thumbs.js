@@ -27,7 +27,7 @@
 
             form.querySelector(".thumbs__count").textContent = String(body.THUMBS);
             button.setAttribute("aria-pressed", String(body.THUMBED));
-            button.title = body.THUMBED ? "Take back your thumb up" : "Give a thumb up";
+            button.title = body.THUMBED ? "Take back your like" : "Like";
         } catch {
             button.title = "Try again later";
         } finally {

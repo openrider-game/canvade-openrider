@@ -48,6 +48,13 @@
     margin-left: 6px;
     padding: 0 8px;
     font-size: 14px;
+    white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+    .leaderboard__more {
+        min-height: 36px;
+    }
 }
 
 .leaderboard__more::after {

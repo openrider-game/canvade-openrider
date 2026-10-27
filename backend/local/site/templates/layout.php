@@ -56,7 +56,7 @@
                 <?php endforeach; ?>
             </nav>
             <div class="site-header__account">
-                <a class="button" href="/create/">Create a track</a>
+                <a class="button" href="/create/">New track</a>
                 <?php if ($user !== null): ?>
                     <details class="account-menu">
                         <summary class="button account-menu__toggle"><?= h($user['NAME']) ?></summary>

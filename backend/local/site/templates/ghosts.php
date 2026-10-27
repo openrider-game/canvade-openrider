@@ -43,53 +43,55 @@ $pageUrl = function (int $page) use ($mostLiked): string {
     <p class="muted">
         <?= site_ghost_count($count) ?>. Click a track to race its ghost.
     </p>
-    <table class="leaderboard__table">
-        <thead>
-            <tr>
-                <th scope="col">Track</th>
-                <th scope="col">Rider</th>
-                <th scope="col">Rank</th>
-                <th scope="col" class="leaderboard__time">Time</th>
-                <th scope="col">Thumbs up</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($ghosts as $ghost): ?>
-                <?php
-                // The track racing the ghost from the start, as a shared link
-                $race = '/tracks/' . (int) $ghost['TRACKID'] . '/?ghosts=' . (int) $ghost['ID'];
-                ?>
+    <div class="table-scroll">
+        <table class="leaderboard__table">
+            <thead>
                 <tr>
-                    <td>
-                        <a href="<?= h($race) ?>">
-                            <?= h(site_track_title(['ID' => $ghost['TRACKID']] + $ghost)) ?>
-                        </a>
-                    </td>
-                    <td>
-                        <?php if ($ghost['RIDER'] !== null): ?>
-                            <a href="/users/<?= rawurlencode($ghost['RIDER']) ?>/">
-                                <?= h($ghost['RIDER']) ?>
-                            </a>
-                        <?php else: ?>
-                            <?php // Saved without the site: the name of its ghost string ?>
-                            <?= h(site_ghost_name($ghost['GHOSTSTRING'])) ?>
-                        <?php endif; ?>
-                    </td>
-                    <td><?= (int) $ghost['RANK'] ?></td>
-                    <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
-                    <td>
-                        <?php site_render('partials/thumbs', [
-                            'kind' => 'ghosts',
-                            'id' => (int) $ghost['ID'],
-                            'count' => (int) $ghost['THUMBS'],
-                            'thumbed' => isset($thumbed[(int) $ghost['ID']]),
-                            'can' => site_can_thumb($viewer, $ghost),
-                        ]); ?>
-                    </td>
+                    <th scope="col">Track</th>
+                    <th scope="col">Rider</th>
+                    <th scope="col">Rank</th>
+                    <th scope="col" class="leaderboard__time">Time</th>
+                    <th scope="col">Likes</th>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php foreach ($ghosts as $ghost): ?>
+                    <?php
+                    // The track racing the ghost from the start, as a shared link
+                    $race = '/tracks/' . (int) $ghost['TRACKID'] . '/?ghosts=' . (int) $ghost['ID'];
+                    ?>
+                    <tr>
+                        <td>
+                            <a href="<?= h($race) ?>">
+                                <?= h(site_track_title(['ID' => $ghost['TRACKID']] + $ghost)) ?>
+                            </a>
+                        </td>
+                        <td>
+                            <?php if ($ghost['RIDER'] !== null): ?>
+                                <a href="/users/<?= rawurlencode($ghost['RIDER']) ?>/">
+                                    <?= h($ghost['RIDER']) ?>
+                                </a>
+                            <?php else: ?>
+                                <?php // Saved without the site: the name of its ghost string ?>
+                                <?= h(site_ghost_name($ghost['GHOSTSTRING'])) ?>
+                            <?php endif; ?>
+                        </td>
+                        <td><?= (int) $ghost['RANK'] ?></td>
+                        <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
+                        <td>
+                            <?php site_render('partials/thumbs', [
+                                'kind' => 'ghosts',
+                                'id' => (int) $ghost['ID'],
+                                'count' => (int) $ghost['THUMBS'],
+                                'thumbed' => isset($thumbed[(int) $ghost['ID']]),
+                                'can' => site_can_thumb($viewer, $ghost),
+                            ]); ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 
     <?php if ($pages > 1): ?>
         <nav class="pagination" aria-label="Pages of the ghosts">

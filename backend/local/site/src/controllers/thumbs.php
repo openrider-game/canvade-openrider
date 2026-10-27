@@ -38,7 +38,7 @@ function site_thumb(string $kind, int $subjectId): void
     $user = $json ? site_user() : site_require_user();
     if ($user === null) {
         if ($json) {
-            openrider_respond(401, ['error' => 'Log in to give a thumb up']);
+            openrider_respond(401, ['error' => 'Log in to like']);
         }
         return;
     }
@@ -55,10 +55,10 @@ function site_thumb(string $kind, int $subjectId): void
     }
     if (!site_take_rate_limit($db, 'thumb', (string) $user['ID'])) {
         if ($json) {
-            openrider_respond(429, ['error' => 'Too many thumbs up, try again later']);
+            openrider_respond(429, ['error' => 'Too many likes, try again later']);
         }
         http_response_code(429);
-        site_render_message('Too many thumbs up', 'Try again later.');
+        site_render_message('Too many likes', 'Try again later.');
         return;
     }
 

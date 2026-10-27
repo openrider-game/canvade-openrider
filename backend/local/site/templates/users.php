@@ -36,28 +36,30 @@ $pageUrl = function (int $page) use ($search): string {
             holding "<?= h($search) ?>" &middot; <a href="/users/">all the accounts</a>
         <?php endif; ?>
     </p>
-    <table class="leaderboard__table">
-        <thead>
-            <tr>
-                <th scope="col">User</th>
-                <th scope="col" class="users__count">Tracks</th>
-                <th scope="col" class="users__count">Ghosts</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($users as $listed): ?>
+    <div class="table-scroll">
+        <table class="leaderboard__table">
+            <thead>
                 <tr>
-                    <td>
-                        <a href="/users/<?= rawurlencode($listed['NAME']) ?>/">
-                            <?= h($listed['NAME']) ?>
-                        </a>
-                    </td>
-                    <td class="users__count"><?= (int) $listed['TRACKS'] ?></td>
-                    <td class="users__count"><?= (int) $listed['GHOSTS'] ?></td>
+                    <th scope="col">User</th>
+                    <th scope="col" class="users__count">Tracks</th>
+                    <th scope="col" class="users__count">Ghosts</th>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php foreach ($users as $listed): ?>
+                    <tr>
+                        <td>
+                            <a href="/users/<?= rawurlencode($listed['NAME']) ?>/">
+                                <?= h($listed['NAME']) ?>
+                            </a>
+                        </td>
+                        <td class="users__count"><?= (int) $listed['TRACKS'] ?></td>
+                        <td class="users__count"><?= (int) $listed['GHOSTS'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 
     <?php if ($pages > 1): ?>
         <nav class="pagination" aria-label="Pages of the users">

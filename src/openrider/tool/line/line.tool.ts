@@ -4,7 +4,7 @@ import { InterfaceScale } from '../../numeric/interface-scale';
 import { LinePath } from '../../numeric/line-path';
 import { MAX_LINE_LENGTH, MIN_LINE_LENGTH } from '../../track/track.constants';
 import { Tool, ToolIcon, ToolOption } from '../tool';
-import { SCENERY_LINE_IMAGE, SOLID_LINE_IMAGE } from '../tool.constants';
+import { SCENERY_LINE_ICON, SOLID_LINE_ICON } from '../tool-icons';
 import { DrawingLines } from './drawing-lines';
 
 /** Distance to the canvas border under which the camera scrolls while drawing, in pixels. */
@@ -20,7 +20,7 @@ const EDGE_SCROLL_MARGIN = 50;
 export class LineTool extends Tool {
     public static override readonly toolName: string = 'Line';
     public static override readonly key = new Control(KEYQ);
-    public static override readonly icon = SOLID_LINE_IMAGE;
+    public static override readonly icon = SOLID_LINE_ICON;
 
     /** Class of the drawn lines, solid or scenery. */
     protected get lineClass(): LineClass {
@@ -28,7 +28,7 @@ export class LineTool extends Tool {
     }
 
     public override getIcon(): ToolIcon {
-        return DrawingLines.isScenery ? SCENERY_LINE_IMAGE : SOLID_LINE_IMAGE;
+        return DrawingLines.isScenery ? SCENERY_LINE_ICON : SOLID_LINE_ICON;
     }
 
     public override getOptions(): ToolOption[] {

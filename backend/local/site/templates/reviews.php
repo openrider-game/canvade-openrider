@@ -38,71 +38,75 @@ $actions = function (string $kind, int $id): void {
 <?php if (!$verifications): ?>
     <p class="muted">No verification to check.</p>
 <?php else: ?>
-    <table class="leaderboard__table">
-        <thead>
-            <tr>
-                <th scope="col">Track</th>
-                <th scope="col">Verifier</th>
-                <th scope="col" class="leaderboard__time">Time</th>
-                <th scope="col">Why</th>
-                <th scope="col"><span class="visually-hidden">Actions</span></th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($verifications as $verification): ?>
+    <div class="table-scroll">
+        <table class="leaderboard__table">
+            <thead>
                 <tr>
-                    <td>
-                        <a href="/verify/<?= (int) $verification['ID'] ?>/">
-                            <?= h($verification['TITLE']) ?>
-                        </a>
-                    </td>
-                    <td><?= h($verification['VERIFIER'] ?? '') ?></td>
-                    <td class="leaderboard__time">
-                        <?= site_duration((int) $verification['VERIFICATIONTIME']) ?>
-                    </td>
-                    <td><?= h($verification['REVIEW']) ?></td>
-                    <td><?php $actions('tracks', (int) $verification['ID']); ?></td>
+                    <th scope="col">Track</th>
+                    <th scope="col">Verifier</th>
+                    <th scope="col" class="leaderboard__time">Time</th>
+                    <th scope="col">Why</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php foreach ($verifications as $verification): ?>
+                    <tr>
+                        <td>
+                            <a href="/verify/<?= (int) $verification['ID'] ?>/">
+                                <?= h($verification['TITLE']) ?>
+                            </a>
+                        </td>
+                        <td><?= h($verification['VERIFIER'] ?? '') ?></td>
+                        <td class="leaderboard__time">
+                            <?= site_duration((int) $verification['VERIFICATIONTIME']) ?>
+                        </td>
+                        <td><?= h($verification['REVIEW']) ?></td>
+                        <td><?php $actions('tracks', (int) $verification['ID']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 <?php endif; ?>
 
 <h2>Ghosts</h2>
 <?php if (!$ghosts): ?>
     <p class="muted">No ghost to check.</p>
 <?php else: ?>
-    <table class="leaderboard__table">
-        <thead>
-            <tr>
-                <th scope="col">Track</th>
-                <th scope="col">Rider</th>
-                <th scope="col" class="leaderboard__time">Time</th>
-                <th scope="col">Why</th>
-                <th scope="col"><span class="visually-hidden">Actions</span></th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($ghosts as $ghost): ?>
+    <div class="table-scroll">
+        <table class="leaderboard__table">
+            <thead>
                 <tr>
-                    <td>
-                        <?php // The track racing the ghost, shown to the admins while it waits ?>
-                        <?php
-                        $race = '/tracks/' . (int) $ghost['TRACKID']
-                            . '/?ghosts=' . (int) $ghost['ID'];
-                        ?>
-                        <a href="<?= h($race) ?>">
-                            <?= h(site_track_title(['ID' => $ghost['TRACKID']] + $ghost)) ?>
-                        </a>
-                    </td>
-                    <td><?= h($ghost['RIDER'] ?? '') ?></td>
-                    <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
-                    <td><?= h($ghost['REVIEW']) ?></td>
-                    <td><?php $actions('ghosts', (int) $ghost['ID']); ?></td>
+                    <th scope="col">Track</th>
+                    <th scope="col">Rider</th>
+                    <th scope="col" class="leaderboard__time">Time</th>
+                    <th scope="col">Why</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php foreach ($ghosts as $ghost): ?>
+                    <tr>
+                        <td>
+                            <?php // The track racing the ghost, shown to the admins while it waits ?>
+                            <?php
+                            $race = '/tracks/' . (int) $ghost['TRACKID']
+                                . '/?ghosts=' . (int) $ghost['ID'];
+                            ?>
+                            <a href="<?= h($race) ?>">
+                                <?= h(site_track_title(['ID' => $ghost['TRACKID']] + $ghost)) ?>
+                            </a>
+                        </td>
+                        <td><?= h($ghost['RIDER'] ?? '') ?></td>
+                        <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
+                        <td><?= h($ghost['REVIEW']) ?></td>
+                        <td><?php $actions('ghosts', (int) $ghost['ID']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 <?php endif; ?>
 
 <h2>Endurance runs</h2>
@@ -112,40 +116,42 @@ $actions = function (string $kind, int $id): void {
     <p class="muted">
         The page of each track lists its runs waiting for an admin, to race them as ghosts.
     </p>
-    <table class="leaderboard__table">
-        <thead>
-            <tr>
-                <th scope="col">Track</th>
-                <th scope="col">Rider</th>
-                <th scope="col" class="leaderboard__time">Distance</th>
-                <th scope="col" class="leaderboard__time">Time</th>
-                <th scope="col">Why</th>
-                <th scope="col"><span class="visually-hidden">Actions</span></th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($runs as $run): ?>
+    <div class="table-scroll">
+        <table class="leaderboard__table">
+            <thead>
                 <tr>
-                    <td>
-                        <?php
-                        // The track racing the run of its rider, shown to the admins while it waits
-                        $runTrack = site_endurance_url(
-                            (int) $run['SEED'],
-                            (int) $run['VERSION'],
-                            ['rider' => $run['RIDER']]
-                        );
-                        ?>
-                        <a href="<?= h($runTrack) ?>">
-                            Track <?= (int) $run['SEED'] ?>
-                        </a>
-                    </td>
-                    <td><?= h($run['RIDER']) ?></td>
-                    <td class="leaderboard__time"><?= (int) $run['DISTANCE'] ?> m</td>
-                    <td class="leaderboard__time"><?= site_duration((int) $run['TIME']) ?></td>
-                    <td><?= h($run['REVIEW']) ?></td>
-                    <td><?php $actions('runs', (int) $run['ID']); ?></td>
+                    <th scope="col">Track</th>
+                    <th scope="col">Rider</th>
+                    <th scope="col" class="leaderboard__time">Distance</th>
+                    <th scope="col" class="leaderboard__time">Time</th>
+                    <th scope="col">Why</th>
+                    <th scope="col"><span class="visually-hidden">Actions</span></th>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php foreach ($runs as $run): ?>
+                    <tr>
+                        <td>
+                            <?php
+                            // The track racing the run of its rider, shown to the admins while it waits
+                            $runTrack = site_endurance_url(
+                                (int) $run['SEED'],
+                                (int) $run['VERSION'],
+                                ['rider' => $run['RIDER']]
+                            );
+                            ?>
+                            <a href="<?= h($runTrack) ?>">
+                                Track <?= (int) $run['SEED'] ?>
+                            </a>
+                        </td>
+                        <td><?= h($run['RIDER']) ?></td>
+                        <td class="leaderboard__time"><?= (int) $run['DISTANCE'] ?> m</td>
+                        <td class="leaderboard__time"><?= site_duration((int) $run['TIME']) ?></td>
+                        <td><?= h($run['REVIEW']) ?></td>
+                        <td><?php $actions('runs', (int) $run['ID']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 <?php endif; ?>

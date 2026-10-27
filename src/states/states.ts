@@ -1,5 +1,6 @@
 import { EnduranceSetupState } from './endurance/endurance-setup.state';
 import { TrackEnduranceState } from './endurance/track-endurance.state';
+import { RotateHintState } from './rotate-hint/rotate-hint.state';
 import { TrackEditingState } from './track/track-editing.state';
 import { TrackRacingState } from './track/track-racing.state';
 import { TrackFetcherState } from './track-fetcher/track-fetcher.state';
@@ -8,6 +9,7 @@ import { TrackParserState } from './track-parser/track-parser.state';
 import { TrackUploadState } from './track-upload/track-upload.state';
 import {
     STATE_ENDURANCE_SETUP,
+    STATE_ROTATE_HINT,
     STATE_TRACK_EDITING,
     STATE_TRACK_ENDURANCE,
     STATE_TRACK_FETCHER,
@@ -28,6 +30,9 @@ import {
  *
  * In endurance mode (see GameConfig), the endurance setup state creates the track in place of the
  * fetcher and the parser, and pushes the endurance state.
+ *
+ * On touch screens held upright, the rotate hint state comes first, asking to turn the device
+ * sideways before pushing the fetcher or the endurance setup.
  */
 export default {
     TrackFetcher: {
@@ -61,5 +66,9 @@ export default {
     TrackEndurance: {
         name: STATE_TRACK_ENDURANCE,
         state: TrackEnduranceState,
+    },
+    RotateHint: {
+        name: STATE_ROTATE_HINT,
+        state: RotateHintState,
     },
 };

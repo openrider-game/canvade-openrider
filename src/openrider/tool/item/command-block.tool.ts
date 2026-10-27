@@ -10,7 +10,7 @@ import {
 } from '../../item/command/command-block';
 import type { Item } from '../../item/item';
 import { ToolOption } from '../tool';
-import { COMMAND_BLOCK_IMAGE } from '../tool.constants';
+import { COMMAND_BLOCK_ICON } from '../tool-icons';
 import { ItemTool } from './item.tool';
 
 /** Labels of the commands in the options. */
@@ -41,7 +41,7 @@ type Step = 'block' | 'area' | 'target';
 export class CommandBlockTool extends ItemTool {
     public static override readonly toolName: string = 'Command Block';
     public static override readonly key = new Control(KEYA, SHIFT);
-    public static override readonly icon = COMMAND_BLOCK_IMAGE;
+    public static override readonly icon = COMMAND_BLOCK_ICON;
 
     /** Settings of the next block. */
     private settings = defaultCommandSettings();

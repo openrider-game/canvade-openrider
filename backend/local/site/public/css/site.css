@@ -262,9 +262,12 @@ a {
     outline-offset: 2px;
 }
 
-/* Narrow screens: the sections on their own row under the name of the site and the account */
+/*
+ * Narrow screens, phones held sideways included: the sections on their own row under the name of
+ * the site and the account, which do not fit side by side under about 800 pixels
+ */
 
-@media (max-width: 640px) {
+@media (max-width: 820px) {
     .site-header__inner {
         flex-wrap: wrap;
     }
@@ -376,6 +379,12 @@ a {
     margin-inline: auto;
 }
 
+/* A table wider than the screen scrolls by itself, rather than the whole page */
+.table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
 .leaderboard__table {
     width: 100%;
     border-collapse: collapse;
@@ -396,6 +405,23 @@ a {
 .leaderboard__rider {
     min-width: 8em;
     text-align: left;
+}
+
+/* Phones held upright: smaller text in tighter cells, so that the tables fit the screen */
+
+@media (max-width: 480px) {
+    .leaderboard__table {
+        font-size: 14px;
+    }
+
+    .leaderboard__table th,
+    .leaderboard__table td {
+        padding: 4px 6px;
+    }
+
+    .leaderboard__rider {
+        min-width: 5em;
+    }
 }
 
 .leaderboard__status:empty {
@@ -547,6 +573,12 @@ textarea.field__input {
 
 .thumbs--count {
     padding: 2px 0;
+}
+
+@media (pointer: coarse) {
+    .thumbs__button {
+        min-height: 36px;
+    }
 }
 
 /* Track page: the title, then the thumbs up on its right */

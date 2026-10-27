@@ -27,6 +27,7 @@ import {
     STATE_TRACK_RACING,
     STATE_ENDURANCE_SETUP,
     STATE_TRACK_ENDURANCE,
+    STATE_ROTATE_HINT,
 } from '../../src/states/state-names';
 import { TrackEnduranceState } from '../../src/states/endurance/track-endurance.state';
 import { EnduranceCourse } from '../../src/openrider/endurance/endurance-course';
@@ -35,6 +36,7 @@ import { EraserTool } from '../../src/openrider/tool/misc/eraser.tool';
 import { TrackEditingState } from '../../src/states/track/track-editing.state';
 import { ToolIcons } from '../../src/states/track/ui/tool-icons';
 import { UIToolButton } from '../../src/states/track/ui/ui-tool-button';
+import { RotateHintState } from '../../src/states/rotate-hint/rotate-hint.state';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 import { keyEvent, pressKey, releaseKey } from '../helpers/track';
 
@@ -657,6 +659,29 @@ describe('Touch screens', () => {
         const up = byClass(after, 'touch-up');
         expect(up.y).toBeGreaterThan(upBefore);
         expect(up.y + up.height).toBeLessThanOrEqual(panel.getBounds().y);
+    });
+
+    test('ask to turn a device held upright before loading, until turned', async () => {
+        let portrait = true;
+        vi.stubGlobal('matchMedia', (query: string) => ({
+            matches: query.includes('portrait') ? portrait : query.includes('coarse'),
+        }));
+        expect(RotateHintState.isNeeded()).toBe(true);
+
+        // Held upright: nothing loads, the hint having no button going on anyway
+        manager.push(STATE_ROTATE_HINT);
+        for (let frame = 0; frame < 5; frame++) {
+            manager.update(0.5, 20);
+        }
+        manager.render(createCanvasMock(330, 400).context);
+        await runUntil(STATE_ROTATE_HINT, 0);
+        const root = manager.getCurrent()?.layers.get('main')?.uiRenderer.getRootElement();
+        const panel = root?.children[0];
+        expect(panel?.children.map((element) => element.type)).toEqual(['image', 'text']);
+
+        // Turned sideways: the game goes on
+        portrait = false;
+        await runUntil(STATE_TRACK_EDITING);
     });
 
     test('drag the view with two fingers and zoom by pinching them', async () => {

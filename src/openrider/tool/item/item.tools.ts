@@ -25,17 +25,17 @@ import { SlowMo } from '../../item/misc/slow-mo';
 import { Checkpoint } from '../../item/reachable/checkpoint';
 import { Target } from '../../item/reachable/target';
 import {
-    BOMB_IMAGE,
-    BOOST_IMAGE,
-    CHECKPOINT_IMAGE,
-    GRAVITY_IMAGE,
-    LAUNCHER_IMAGE,
-    LINKED_CHECKPOINT_IMAGE,
-    MUD_IMAGE,
-    SLOWMO_IMAGE,
-    TARGET_IMAGE,
-    TELEPORTER_IMAGE,
-} from '../tool.constants';
+    BOMB_ICON,
+    BOOST_ICON,
+    CHECKPOINT_ICON,
+    GRAVITY_ICON,
+    LAUNCHER_ICON,
+    LINKED_CHECKPOINT_ICON,
+    MUD_ICON,
+    SLOWMO_ICON,
+    TARGET_ICON,
+    TELEPORTER_ICON,
+} from '../tool-icons';
 import { DirectionalItemTool } from './directional-item.tool';
 import { PlaceableItemClass, SimpleItemTool } from './item.tool';
 import { LinkedItemTool } from './linked-item.tool';
@@ -44,7 +44,7 @@ import { LinkedItemTool } from './linked-item.tool';
 export class TargetTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Target';
     public static override readonly key = new Control(KEYT, SHIFT);
-    public static override readonly icon = TARGET_IMAGE;
+    public static override readonly icon = TARGET_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Target;
@@ -55,7 +55,7 @@ export class TargetTool extends SimpleItemTool {
 export class CheckpointTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Checkpoint';
     public static override readonly key = new Control(KEYC, SHIFT);
-    public static override readonly icon = CHECKPOINT_IMAGE;
+    public static override readonly icon = CHECKPOINT_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Checkpoint;
@@ -66,7 +66,7 @@ export class CheckpointTool extends SimpleItemTool {
 export class BombTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Bomb';
     public static override readonly key = new Control(KEYO, SHIFT);
-    public static override readonly icon = BOMB_IMAGE;
+    public static override readonly icon = BOMB_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Bomb;
@@ -77,7 +77,7 @@ export class BombTool extends SimpleItemTool {
 export class SlowMoTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Slow-Motion';
     public static override readonly key = new Control(KEYS, SHIFT);
-    public static override readonly icon = SLOWMO_IMAGE;
+    public static override readonly icon = SLOWMO_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return SlowMo;
@@ -88,7 +88,7 @@ export class SlowMoTool extends SimpleItemTool {
 export class BoostTool extends DirectionalItemTool {
     public static override readonly toolName: string = 'Boost';
     public static override readonly key = new Control(KEYB, SHIFT);
-    public static override readonly icon = BOOST_IMAGE;
+    public static override readonly icon = BOOST_ICON;
 
     protected get itemClass(): DirectionalItemClass {
         return Boost;
@@ -99,7 +99,7 @@ export class BoostTool extends DirectionalItemTool {
 export class GravityTool extends DirectionalItemTool {
     public static override readonly toolName: string = 'Gravity';
     public static override readonly key = new Control(KEYG, SHIFT);
-    public static override readonly icon = GRAVITY_IMAGE;
+    public static override readonly icon = GRAVITY_ICON;
 
     protected get itemClass(): DirectionalItemClass {
         return Gravity;
@@ -110,7 +110,7 @@ export class GravityTool extends DirectionalItemTool {
 export class TeleporterTool extends LinkedItemTool {
     public static override readonly toolName: string = 'Teleporter';
     public static override readonly key = new Control(KEYW, SHIFT);
-    public static override readonly icon = TELEPORTER_IMAGE;
+    public static override readonly icon = TELEPORTER_ICON;
 
     protected get itemClass(): LinkedItemClass {
         return Teleporter;
@@ -121,7 +121,7 @@ export class TeleporterTool extends LinkedItemTool {
 export class LinkedCheckpointTool extends LinkedItemTool {
     public static override readonly toolName: string = 'Linked Checkpoint';
     public static override readonly key = new Control(KEYL, SHIFT);
-    public static override readonly icon = LINKED_CHECKPOINT_IMAGE;
+    public static override readonly icon = LINKED_CHECKPOINT_ICON;
 
     protected get itemClass(): LinkedItemClass {
         return LinkedCheckpoint;
@@ -132,7 +132,7 @@ export class LinkedCheckpointTool extends LinkedItemTool {
 export class LauncherTool extends DirectionalItemTool {
     public static override readonly toolName: string = 'Launcher';
     public static override readonly key = new Control(KEYX, SHIFT);
-    public static override readonly icon = LAUNCHER_IMAGE;
+    public static override readonly icon = LAUNCHER_ICON;
 
     protected get itemClass(): DirectionalItemClass {
         return Launcher;
@@ -143,7 +143,7 @@ export class LauncherTool extends DirectionalItemTool {
 export class MudTool extends SimpleItemTool {
     public static override readonly toolName: string = 'Mud';
     public static override readonly key = new Control(KEYD, SHIFT);
-    public static override readonly icon = MUD_IMAGE;
+    public static override readonly icon = MUD_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Mud;

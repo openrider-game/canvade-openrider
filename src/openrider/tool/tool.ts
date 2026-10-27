@@ -3,8 +3,24 @@ import { ControlBindings } from '../controls/control-bindings';
 import type { Track } from '../track/track';
 import type { ToolGroupTool } from './group/tool-group.tool';
 
-/** Name of an svg icon in `media/icon`, or an inline base64 image (data URL). */
-export type ToolIcon = string | { type: 'b64'; data: string };
+/**
+ * Icon drawn by code at the size it is displayed, sharp at any size, e.g. an item drawn by itself
+ * (see `tool-icons.ts`).
+ */
+export interface DrawnIcon {
+    type: 'drawn';
+    /** Identifies the icon among the drawn ones. */
+    key: string;
+    /**
+     * Draws the icon in a square of the context from its origin.
+     *
+     * @param size - Side of the square, in canvas pixels.
+     */
+    draw(ctx: CanvasRenderingContext2D, size: number): void;
+}
+
+/** Name of an svg icon in `media/icon`, or an icon drawn by code. */
+export type ToolIcon = string | DrawnIcon;
 
 /**
  * Constructor of a concrete {@link Tool}, with the static metadata used to build its toolbar button

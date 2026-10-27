@@ -12,6 +12,6 @@
         data-<?= h($name) ?>="<?= h((string) $value) ?>"
     <?php endforeach; ?>></div>
 <p class="game-rotate-hint">
-    Turn your device sideways or use the fullscreen button for a larger view. Ride with the buttons
-    at the bottom corners, drag with two fingers to look around and pinch to zoom.
+    Turn your device sideways to play. Ride with the buttons at the bottom corners,
+    drag with two fingers to look around and pinch to zoom.
 </p>

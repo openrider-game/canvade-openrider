@@ -23,17 +23,17 @@ import { Slippery } from '../../item/status/slippery';
 import { Turbo } from '../../item/status/turbo';
 import { ZeroGravity } from '../../item/status/zero-gravity';
 import {
-    ENGINE_OFF_IMAGE,
-    HEAVY_IMAGE,
-    INVINCIBILITY_IMAGE,
-    LOW_GRAVITY_IMAGE,
-    MIRROR_IMAGE,
-    NOSTEER_IMAGE,
-    RESET_IMAGE,
-    SLIPPERY_IMAGE,
-    TURBO_IMAGE,
-    ZERO_GRAVITY_IMAGE,
-} from '../tool.constants';
+    ENGINE_OFF_ICON,
+    HEAVY_ICON,
+    INVINCIBILITY_ICON,
+    LOW_GRAVITY_ICON,
+    MIRROR_ICON,
+    NOSTEER_ICON,
+    RESET_ICON,
+    SLIPPERY_ICON,
+    TURBO_ICON,
+    ZERO_GRAVITY_ICON,
+} from '../tool-icons';
 import { PlaceableItemClass } from './item.tool';
 import { StatusTool } from './status.tool';
 
@@ -41,7 +41,7 @@ import { StatusTool } from './status.tool';
 export class ResetTool extends StatusTool {
     public static override readonly toolName: string = 'Reset';
     public static override readonly key = new Control(KEYR, SHIFT);
-    public static override readonly icon = RESET_IMAGE;
+    public static override readonly icon = RESET_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Reset;
@@ -52,7 +52,7 @@ export class ResetTool extends StatusTool {
 export class InvincibilityTool extends StatusTool {
     public static override readonly toolName: string = 'Invincibility';
     public static override readonly key = new Control(KEYI, SHIFT);
-    public static override readonly icon = INVINCIBILITY_IMAGE;
+    public static override readonly icon = INVINCIBILITY_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Invincibility;
@@ -63,7 +63,7 @@ export class InvincibilityTool extends StatusTool {
 export class SlipperyTool extends StatusTool {
     public static override readonly toolName: string = 'Slippery';
     public static override readonly key = new Control(KEYH, SHIFT);
-    public static override readonly icon = SLIPPERY_IMAGE;
+    public static override readonly icon = SLIPPERY_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Slippery;
@@ -74,7 +74,7 @@ export class SlipperyTool extends StatusTool {
 export class NoSteerTool extends StatusTool {
     public static override readonly toolName: string = 'No Steer';
     public static override readonly key = new Control(KEYN, SHIFT);
-    public static override readonly icon = NOSTEER_IMAGE;
+    public static override readonly icon = NOSTEER_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return NoSteer;
@@ -85,7 +85,7 @@ export class NoSteerTool extends StatusTool {
 export class EngineOffTool extends StatusTool {
     public static override readonly toolName: string = 'Engine Off';
     public static override readonly key = new Control(KEYE, SHIFT);
-    public static override readonly icon = ENGINE_OFF_IMAGE;
+    public static override readonly icon = ENGINE_OFF_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return EngineOff;
@@ -96,7 +96,7 @@ export class EngineOffTool extends StatusTool {
 export class ZeroGravityTool extends StatusTool {
     public static override readonly toolName: string = 'Zero Gravity';
     public static override readonly key = new Control(KEYZ, SHIFT);
-    public static override readonly icon = ZERO_GRAVITY_IMAGE;
+    public static override readonly icon = ZERO_GRAVITY_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return ZeroGravity;
@@ -107,7 +107,7 @@ export class ZeroGravityTool extends StatusTool {
 export class HeavyTool extends StatusTool {
     public static override readonly toolName: string = 'Heavy';
     public static override readonly key = new Control(KEYK, SHIFT);
-    public static override readonly icon = HEAVY_IMAGE;
+    public static override readonly icon = HEAVY_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Heavy;
@@ -118,7 +118,7 @@ export class HeavyTool extends StatusTool {
 export class LowGravityTool extends StatusTool {
     public static override readonly toolName: string = 'Low Gravity';
     public static override readonly key = new Control(KEYF, SHIFT);
-    public static override readonly icon = LOW_GRAVITY_IMAGE;
+    public static override readonly icon = LOW_GRAVITY_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return LowGravity;
@@ -129,7 +129,7 @@ export class LowGravityTool extends StatusTool {
 export class MirrorTool extends StatusTool {
     public static override readonly toolName: string = 'Mirror';
     public static override readonly key = new Control(KEYM, SHIFT);
-    public static override readonly icon = MIRROR_IMAGE;
+    public static override readonly icon = MIRROR_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Mirror;
@@ -140,7 +140,7 @@ export class MirrorTool extends StatusTool {
 export class TurboTool extends StatusTool {
     public static override readonly toolName: string = 'Turbo';
     public static override readonly key = new Control(KEYU, SHIFT);
-    public static override readonly icon = TURBO_IMAGE;
+    public static override readonly icon = TURBO_ICON;
 
     protected get itemClass(): PlaceableItemClass {
         return Turbo;

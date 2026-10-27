@@ -1,5 +1,12 @@
 import { Control, KEYC, KEYV, Vector } from 'canvade';
-import { ToolOption } from '../tool';
+import { DrawingLines } from '../line/drawing-lines';
+import { ToolIcon, ToolOption } from '../tool';
+import {
+    SCENERY_CIRCLE_ICON,
+    SCENERY_CURVE_ICON,
+    SOLID_CIRCLE_ICON,
+    SOLID_CURVE_ICON,
+} from '../tool-icons';
 import { ShapeTool } from './shape.tool';
 
 /** Smallest radius of a circle, in world units: a click without dragging draws nothing. */
@@ -15,7 +22,11 @@ const MIN_CURVE_LENGTH = 10;
 export class CircleTool extends ShapeTool {
     public static override readonly toolName: string = 'Circle';
     public static override readonly key = new Control(KEYC);
-    public static override readonly icon = 'circle';
+    public static override readonly icon = SOLID_CIRCLE_ICON;
+
+    public override getIcon(): ToolIcon {
+        return DrawingLines.isScenery ? SCENERY_CIRCLE_ICON : SOLID_CIRCLE_ICON;
+    }
 
     public override onMouseDown(): void {
         this.mouseDown = true;
@@ -70,7 +81,11 @@ export class CircleTool extends ShapeTool {
 export class CurveTool extends ShapeTool {
     public static override readonly toolName: string = 'Curve';
     public static override readonly key = new Control(KEYV);
-    public static override readonly icon = 'curve';
+    public static override readonly icon = SOLID_CURVE_ICON;
+
+    public override getIcon(): ToolIcon {
+        return DrawingLines.isScenery ? SCENERY_CURVE_ICON : SOLID_CURVE_ICON;
+    }
 
     /** Start and end of the curve, set once dragged, until it is bent. */
     private ends: { start: Vector; end: Vector } | null = null;

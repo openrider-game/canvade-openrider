@@ -145,16 +145,18 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
     <section class="live-results" aria-labelledby="live-results-title">
         <h2 id="live-results-title">Live results</h2>
         <p class="live-results__status muted" role="status">Connecting to the session...</p>
-        <table class="leaderboard__table" hidden>
-            <thead>
-                <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Rider</th>
-                    <th scope="col" class="leaderboard__time">Best run</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div class="table-scroll">
+            <table class="leaderboard__table" hidden>
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Rider</th>
+                        <th scope="col" class="leaderboard__time">Best run</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
         <p class="muted">
             The furthest run of each rider of the session, verified as the leaderboard runs are.
         </p>
@@ -187,42 +189,44 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
         <?php if (!$top): ?>
             <p class="muted">No run yet: be the first one on the leaderboard.</p>
         <?php else: ?>
-            <table class="leaderboard__table">
-                <thead>
-                    <tr>
-                        <th scope="col">#</th>
-                        <th scope="col">Rider</th>
-                        <th scope="col" class="leaderboard__time">Distance</th>
-                        <th scope="col" class="leaderboard__time">Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($top as $index => $run): ?>
-                        <?php $row(
-                            (string) ($index + 1),
-                            (int) $run['ID'],
-                            $run['NAME'],
-                            (int) $run['DISTANCE'],
-                            (int) $run['TIME'],
-                            (int) $run['USERID'] === ($user['ID'] ?? null)
-                        ); ?>
-                    <?php endforeach; ?>
-                    <?php // The run of the account, under the top when it ranks further ?>
-                    <?php if ($mine !== null && $mine['RANK'] !== null && $mine['RANK'] > count($top)): ?>
-                        <tr class="leaderboard__gap">
-                            <td colspan="4">&hellip;</td>
+            <div class="table-scroll">
+                <table class="leaderboard__table">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Rider</th>
+                            <th scope="col" class="leaderboard__time">Distance</th>
+                            <th scope="col" class="leaderboard__time">Time</th>
                         </tr>
-                        <?php $row(
-                            (string) $mine['RANK'],
-                            (int) $mine['ID'],
-                            $mine['NAME'],
-                            (int) $mine['DISTANCE'],
-                            (int) $mine['TIME'],
-                            true
-                        ); ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($top as $index => $run): ?>
+                            <?php $row(
+                                (string) ($index + 1),
+                                (int) $run['ID'],
+                                $run['NAME'],
+                                (int) $run['DISTANCE'],
+                                (int) $run['TIME'],
+                                (int) $run['USERID'] === ($user['ID'] ?? null)
+                            ); ?>
+                        <?php endforeach; ?>
+                        <?php // The run of the account, under the top when it ranks further ?>
+                        <?php if ($mine !== null && $mine['RANK'] !== null && $mine['RANK'] > count($top)): ?>
+                            <tr class="leaderboard__gap">
+                                <td colspan="4">&hellip;</td>
+                            </tr>
+                            <?php $row(
+                                (string) $mine['RANK'],
+                                (int) $mine['ID'],
+                                $mine['NAME'],
+                                (int) $mine['DISTANCE'],
+                                (int) $mine['TIME'],
+                                true
+                            ); ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
             <p class="muted">
                 The <?= count($top) ?> best of <?= $riderCount ?>
                 <?= $riderCount === 1 ? 'rider' : 'riders' ?>, by their best run.
@@ -238,20 +242,22 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
 
         <?php if ($reviews): ?>
             <h3 class="tabs__heading">Waiting for an admin</h3>
-            <table class="leaderboard__table">
-                <tbody>
-                    <?php foreach ($reviews as $run): ?>
-                        <?php $row(
-                            '',
-                            (int) $run['ID'],
-                            $run['RIDER'],
-                            (int) $run['DISTANCE'],
-                            (int) $run['TIME'],
-                            false
-                        ); ?>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+            <div class="table-scroll">
+                <table class="leaderboard__table">
+                    <tbody>
+                        <?php foreach ($reviews as $run): ?>
+                            <?php $row(
+                                '',
+                                (int) $run['ID'],
+                                $run['RIDER'],
+                                (int) $run['DISTANCE'],
+                                (int) $run['TIME'],
+                                false
+                            ); ?>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
             <p class="muted"><a href="/reviews/">Approve or reject them</a> after watching them.</p>
         <?php endif; ?>
 
@@ -267,13 +273,7 @@ $row = function (string $rank, int $runId, string $name, int $distance, int $tim
         <?php else: ?>
             its link, <code>/endurance/?seed=&lt;number&gt;</code>.
         <?php endif; ?>
-        After a crash or a fall, <kbd>Enter</kbd> rides the same track again and <kbd>N</kbd> a
-        new one. Your best rides, overall and on each track, are also kept in this browser.
-    </p>
-    <p>
-        Besides boosts and slow motions, the track has launchers kicking the bike over wide gaps,
-        and mud slowing it down. Its zones start with a status effect, lasting until the reset items
-        ending the zone: low gravity, turbo, slippery wheels, heavy bike, no steering, mirrored
-        leaning, invincibility over harsher bumps and bombs, engine off, or zero gravity.
+        After a crash or a fall, <kbd>Enter</kbd> rides the same track again.
+        Your best rides, overall and on each track, are also kept in this browser.
     </p>
 </div>

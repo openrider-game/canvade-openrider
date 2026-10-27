@@ -5,6 +5,8 @@ import { GAME_UPS } from './openrider/constants/game.constants';
 import { LiveEditSession, LiveEditState } from './openrider/live/live-edit-session';
 import { LiveSession, LiveState } from './openrider/live/live-session';
 import { GhostService } from './openrider/request/ghost-service';
+import { firstStateName } from './states/first-state';
+import { RotateHintState } from './states/rotate-hint/rotate-hint.state';
 import { Session } from './states/session';
 import States from './states/states';
 
@@ -28,10 +30,9 @@ game.addStates(
         Object.values(States).map(({ name, state }) => [name, state]),
     ),
 );
-// The endurance mode generates its own track, the other modes fetch or edit one
-game.pushState(
-    GameConfig.mode === 'endurance' ? States.EnduranceSetup.name : States.TrackFetcher.name,
-);
+// The endurance mode generates its own track, the other modes fetch or edit one, after asking to
+// turn the touch screens held upright sideways
+game.pushState(RotateHintState.isNeeded() ? States.RotateHint.name : firstStateName());
 
 game.run();
 

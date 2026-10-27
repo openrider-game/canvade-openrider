@@ -16,10 +16,14 @@ import { DrawingLines } from '../../src/openrider/tool/line/drawing-lines';
 import { LineTool } from '../../src/openrider/tool/line/line.tool';
 import { LineGroupTool } from '../../src/openrider/tool/group/group.tools';
 import {
-    SCENERY_LINE_IMAGE,
-    SOLID_BRUSH_IMAGE,
-    SOLID_LINE_IMAGE,
-} from '../../src/openrider/tool/tool.constants';
+    SCENERY_CIRCLE_ICON,
+    SCENERY_CURVE_ICON,
+    SCENERY_LINE_ICON,
+    SOLID_CIRCLE_ICON,
+    SOLID_CURVE_ICON,
+    SOLID_BRUSH_ICON,
+    SOLID_LINE_ICON,
+} from '../../src/openrider/tool/tool-icons';
 import { CircleTool, CurveTool } from '../../src/openrider/tool/shape/shape.tools';
 import { CameraTool } from '../../src/openrider/tool/misc/camera.tool';
 import { CancelCheckpointTool } from '../../src/openrider/tool/misc/cancel-checkpoint.tool';
@@ -105,17 +109,23 @@ describe('Line tools', () => {
         const line = select(LineTool);
         const sceneryLines = () => [...track.layers.main[0].grid.totalSceneryLines.values()];
         expect(line.getOptions()[0].label).toBe('Lines: solid');
-        expect(line.getIcon()).toBe(SOLID_LINE_IMAGE);
+        expect(line.getIcon()).toBe(SOLID_LINE_ICON);
 
         line.getOptions()[0].action();
         drag(new Vector(0, 0), new Vector(100, 0));
         expect(solidLines()).toHaveLength(0);
         expect(sceneryLines()).toHaveLength(1);
-        expect(line.getIcon()).toBe(SCENERY_LINE_IMAGE);
+        expect(line.getIcon()).toBe(SCENERY_LINE_ICON);
 
         // The same for the brush and the shapes
         expect(select(BrushTool).getOptions()[0].label).toBe('Lines: scenery');
         expect(select(CircleTool).getOptions()[0].label).toBe('Lines: scenery');
+        // Their icons drawn with the color of the lines
+        expect(select(CircleTool).getIcon()).toBe(SCENERY_CIRCLE_ICON);
+        expect(select(CurveTool).getIcon()).toBe(SCENERY_CURVE_ICON);
+        select(CurveTool).getOptions()[0].action();
+        expect(select(CurveTool).getIcon()).toBe(SOLID_CURVE_ICON);
+        expect(select(CircleTool).getIcon()).toBe(SOLID_CIRCLE_ICON);
     });
 
     test('change the brush size from its options only, stepping it down and up', () => {
@@ -147,7 +157,7 @@ describe('Line tools', () => {
     test('are grouped, the brush first', () => {
         const group = new LineGroupTool(track);
         expect(group.instances.map((tool) => tool.toolClass.toolName)).toEqual(['Brush', 'Line']);
-        expect(group.getIcon()).toBe(SOLID_BRUSH_IMAGE);
+        expect(group.getIcon()).toBe(SOLID_BRUSH_ICON);
     });
 
     test('draw a line from the click to the release position, undone at once', () => {

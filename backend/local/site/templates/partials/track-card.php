@@ -17,7 +17,7 @@
         <?php // Thumbs up, on the top right corner of the thumbnail ?>
         <span class="track-card__thumbs">
             <span aria-hidden="true">👍</span> <?= (int) $track['THUMBS'] ?>
-            <span class="visually-hidden">thumbs up</span>
+            <span class="visually-hidden">likes</span>
         </span>
     </span>
     <span class="track-card__info">

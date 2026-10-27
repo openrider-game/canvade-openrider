@@ -161,16 +161,18 @@ $challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRid
             aria-labelledby="leaderboard-tab-live">
             <h3 class="tabs__heading">Live results</h3>
             <p class="live-results__status muted" role="status">Connecting to the session...</p>
-            <table class="leaderboard__table" hidden>
-                <thead>
-                    <tr>
-                        <th scope="col">#</th>
-                        <th scope="col">Rider</th>
-                        <th scope="col" class="leaderboard__time">Best time</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+            <div class="table-scroll">
+                <table class="leaderboard__table" hidden>
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Rider</th>
+                            <th scope="col" class="leaderboard__time">Best time</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
             <p class="muted">
                 The best times of the session, verified as the ghosts are. Save your run to
                 put it on the leaderboard too.
@@ -190,39 +192,41 @@ $challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRid
                 The <?= count($top) ?> best of <?= $riderCount ?>
                 <?= $riderCount === 1 ? 'rider' : 'riders' ?>, by their best time.
             </p>
-            <table class="leaderboard__table">
-                <?php site_render('partials/ghost-head', ['user' => $user]); ?>
-                <tbody>
-                    <?php foreach ($top as $rank => $rider): ?>
-                        <?php
-                        $group = 'rider-' . ($rank + 1);
-                        $others = array_slice($rider['GHOSTS'], 1);
-                        ?>
-                        <?php site_render('partials/ghost-row', [
-                            'track' => $track,
-                            'ghost' => $rider['GHOSTS'][0],
-                            'name' => $rider['NAME'],
-                            'rank' => (string) ($rank + 1),
-                            'user' => $user,
-                            'thumbed' => $thumbed,
-                            'group' => null,
-                            'more' => $others ? ['group' => $group, 'count' => count($others)] : [],
-                        ]); ?>
-                        <?php foreach ($others as $ghost): ?>
+            <div class="table-scroll">
+                <table class="leaderboard__table">
+                    <?php site_render('partials/ghost-head', ['user' => $user]); ?>
+                    <tbody>
+                        <?php foreach ($top as $rank => $rider): ?>
+                            <?php
+                            $group = 'rider-' . ($rank + 1);
+                            $others = array_slice($rider['GHOSTS'], 1);
+                            ?>
                             <?php site_render('partials/ghost-row', [
                                 'track' => $track,
-                                'ghost' => $ghost,
+                                'ghost' => $rider['GHOSTS'][0],
                                 'name' => $rider['NAME'],
-                                'rank' => '',
+                                'rank' => (string) ($rank + 1),
                                 'user' => $user,
                                 'thumbed' => $thumbed,
-                                'group' => $group,
-                                'more' => [],
+                                'group' => null,
+                                'more' => $others ? ['group' => $group, 'count' => count($others)] : [],
                             ]); ?>
+                            <?php foreach ($others as $ghost): ?>
+                                <?php site_render('partials/ghost-row', [
+                                    'track' => $track,
+                                    'ghost' => $ghost,
+                                    'name' => $rider['NAME'],
+                                    'rank' => '',
+                                    'user' => $user,
+                                    'thumbed' => $thumbed,
+                                    'group' => $group,
+                                    'more' => [],
+                                ]); ?>
+                            <?php endforeach; ?>
                         <?php endforeach; ?>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         <?php endif; ?>
     </div>
 
@@ -246,29 +250,31 @@ $challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRid
                     Your ghosts are checked by an admin before they rank.
                 <?php endif; ?>
             </p>
-            <table class="leaderboard__table">
-                <?php site_render('partials/ghost-head', ['user' => $user]); ?>
-                <tbody>
-                    <?php $rankShown = false; ?>
-                    <?php foreach ($mine as $ghost): ?>
-                        <?php
-                        // The rank of the account shows on its best ghost out of review
-                        $ranked = !$rankShown && $myRank !== null && $ghost['REVIEW'] === null;
-                        $rankShown = $rankShown || $ranked;
-                        ?>
-                        <?php site_render('partials/ghost-row', [
-                            'track' => $track,
-                            'ghost' => $ghost,
-                            'name' => $user['NAME'],
-                            'rank' => $ranked ? (string) $myRank : '',
-                            'user' => $user,
-                            'thumbed' => $thumbed,
-                            'group' => null,
-                            'more' => [],
-                        ]); ?>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+            <div class="table-scroll">
+                <table class="leaderboard__table">
+                    <?php site_render('partials/ghost-head', ['user' => $user]); ?>
+                    <tbody>
+                        <?php $rankShown = false; ?>
+                        <?php foreach ($mine as $ghost): ?>
+                            <?php
+                            // The rank of the account shows on its best ghost out of review
+                            $ranked = !$rankShown && $myRank !== null && $ghost['REVIEW'] === null;
+                            $rankShown = $rankShown || $ranked;
+                            ?>
+                            <?php site_render('partials/ghost-row', [
+                                'track' => $track,
+                                'ghost' => $ghost,
+                                'name' => $user['NAME'],
+                                'rank' => $ranked ? (string) $myRank : '',
+                                'user' => $user,
+                                'thumbed' => $thumbed,
+                                'group' => null,
+                                'more' => [],
+                            ]); ?>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         <?php endif; ?>
     </div>
 

@@ -29,14 +29,14 @@ import { BrushTool } from '../line/brush.tool';
 import { LineTool } from '../line/line.tool';
 import { CircleTool, CurveTool } from '../shape/shape.tools';
 import type { ToolClass } from '../tool';
-import { SOLID_BRUSH_IMAGE, TARGET_IMAGE } from '../tool.constants';
+import { SOLID_BRUSH_ICON, SOLID_CURVE_ICON, TARGET_ICON } from '../tool-icons';
 import { ToolGroupTool } from './tool-group.tool';
 
 /** Group of the item tools. */
 export class ItemGroupTool extends ToolGroupTool {
     public static override readonly toolName: string = 'Item Group';
     public static override readonly key = new Control(KEYI);
-    public static override readonly icon = TARGET_IMAGE;
+    public static override readonly icon = TARGET_ICON;
     /** Tools of the group, in display order. */
     public static readonly toolClasses: ToolClass[] = [
         TargetTool,
@@ -61,7 +61,7 @@ export class ItemGroupTool extends ToolGroupTool {
 export class StatusGroupTool extends ToolGroupTool {
     public static override readonly toolName: string = 'Status Effect Group';
     public static override readonly key = new Control(KEYJ);
-    public static override readonly icon = TARGET_IMAGE;
+    public static override readonly icon = TARGET_ICON;
     /** Tools of the group, in display order. */
     public static readonly toolClasses: ToolClass[] = [
         ResetTool,
@@ -85,7 +85,7 @@ export class StatusGroupTool extends ToolGroupTool {
 export class ShapeGroupTool extends ToolGroupTool {
     public static override readonly toolName: string = 'Shape Group';
     public static override readonly key = new Control(KEYO);
-    public static override readonly icon = 'curve';
+    public static override readonly icon = SOLID_CURVE_ICON;
     /** Tools of the group, in display order. */
     public static readonly toolClasses: ToolClass[] = [CurveTool, CircleTool];
 
@@ -98,7 +98,7 @@ export class ShapeGroupTool extends ToolGroupTool {
 export class LineGroupTool extends ToolGroupTool {
     public static override readonly toolName: string = 'Line Group';
     public static override readonly key = new Control(KEYD);
-    public static override readonly icon = SOLID_BRUSH_IMAGE;
+    public static override readonly icon = SOLID_BRUSH_ICON;
     /** Tools of the group, in display order. */
     public static readonly toolClasses: ToolClass[] = [BrushTool, LineTool];
 

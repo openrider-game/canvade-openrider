@@ -1,7 +1,7 @@
 import { Control, KEYA, Vector } from 'canvade';
 import { InterfaceScale } from '../../numeric/interface-scale';
 import { sizeOption, ToolIcon, ToolOption } from '../tool';
-import { SCENERY_BRUSH_IMAGE, SOLID_BRUSH_IMAGE } from '../tool.constants';
+import { SCENERY_BRUSH_ICON, SOLID_BRUSH_ICON } from '../tool-icons';
 import { DrawingLines } from './drawing-lines';
 import { LineTool } from './line.tool';
 
@@ -17,13 +17,13 @@ const BRUSH_SIZES = [4, 10, 20, 40, 80, 160];
 export class BrushTool extends LineTool {
     public static override readonly toolName: string = 'Brush';
     public static override readonly key = new Control(KEYA);
-    public static override readonly icon = SOLID_BRUSH_IMAGE;
+    public static override readonly icon = SOLID_BRUSH_ICON;
 
     /** Minimum length of the drawn lines, in world units. */
     private size = 20;
 
     public override getIcon(): ToolIcon {
-        return DrawingLines.isScenery ? SCENERY_BRUSH_IMAGE : SOLID_BRUSH_IMAGE;
+        return DrawingLines.isScenery ? SCENERY_BRUSH_ICON : SOLID_BRUSH_ICON;
     }
 
     public override getOptions(): ToolOption[] {

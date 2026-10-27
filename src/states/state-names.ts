@@ -9,4 +9,5 @@ export const STATE_TRACK_FETCHER = 'trackFetcher',
     STATE_TRACK_GENERATOR = 'trackGenerator',
     STATE_TRACK_UPLOAD = 'trackUpload',
     STATE_ENDURANCE_SETUP = 'enduranceSetup',
-    STATE_TRACK_ENDURANCE = 'trackEndurance';
+    STATE_TRACK_ENDURANCE = 'trackEndurance',
+    STATE_ROTATE_HINT = 'rotateHint';
