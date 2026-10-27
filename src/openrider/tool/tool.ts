@@ -24,6 +24,8 @@ export interface ToolClass {
     readonly key: Control | null;
     /** Icon of the toolbar button, `null` if the tool has no button. */
     readonly icon: ToolIcon | null;
+    /** Whether the tool is only of use with a keyboard, its button being hidden on touch screens. */
+    readonly keyboardOnly: boolean;
 }
 
 /** Button displayed in the options drawer while its tool is the current tool. */
@@ -74,6 +76,8 @@ export abstract class Tool {
     public static readonly key: Control | null = null;
     /** See {@link ToolClass.icon}. */
     public static readonly icon: ToolIcon | null = null;
+    /** See {@link ToolClass.keyboardOnly}. */
+    public static readonly keyboardOnly: boolean = false;
 
     /** Whether a mouse button pressed on the canvas is held down. */
     public mouseDown = false;

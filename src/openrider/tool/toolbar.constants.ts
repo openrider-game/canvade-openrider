@@ -29,8 +29,23 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
         FullscreenTool,
         ControlsTool,
     ],
-    /** Left toolbar in the editor, adding the history buttons. */
-    LEFT_TOOLBAR_EDITING: ToolbarEntries = [...LEFT_TOOLBAR_VIEWING, null, UndoTool, RedoTool],
+    /**
+     * Left toolbar in the editor, adding the history buttons: without the focus on the other
+     * riders, the editor having no ghosts nor riders of a live session.
+     */
+    LEFT_TOOLBAR_EDITING: ToolbarEntries = [
+        PauseTool,
+        RestartTool,
+        CancelCheckpointTool,
+        null,
+        SwitchBikeTool,
+        CameraTool,
+        FullscreenTool,
+        ControlsTool,
+        null,
+        UndoTool,
+        RedoTool,
+    ],
     /** Right toolbar in the editor, with the drawing tools. */
     RIGHT_TOOLBAR: ToolbarEntries = [
         LineGroupTool,

@@ -264,8 +264,14 @@ and New Track in endurance mode but not two tools of the editor. Each control, o
 their default keys back. The keys are kept in the browser (`localStorage`), the tooltips showing
 the current ones (see `src/openrider/controls/`).
 
-On touch screens (phones and tablets), the game shows riding buttons from the first touch, at the
-bottom corners: lean back and forward at the left, brake and accelerate at the right, and turn
+On touch screens (phones and tablets), the game switches to a touch mode: from the start when the
+main pointer is coarse, and with the last pointer pressed, a finger or a mouse. It enlarges the
+interface (buttons and rows of 40 to 44 pixels, wider scrollbars, see `uiMetrics`), hides the
+keyboard tools (Controls, Toggle Debug), leaves the toolbar tools that do not fit the canvas height to a `⋯`
+button, gathers the buttons of the editor (Import, Export, Upload) in an Actions menu, and starts
+with the layers panel closed. Holding a tool shows its name instead of running it, and a finger
+dragging a scrolling list scrolls it. It also shows riding buttons at the bottom corners, styled
+like the toolbar: lean back and forward at the left, brake and accelerate at the right, and turn
 around above them. They are buttons of the interface, each one holding down its player control
 while pressed (`Keyboard.press` of canvade), a finger sliding from a button to the next one, so the
 runs and ghosts are the same as with a keyboard. Canvade handles the touches: one finger elsewhere

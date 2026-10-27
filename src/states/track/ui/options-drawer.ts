@@ -1,13 +1,8 @@
 import { UIButton, UIElement, UIStructureDefinition, UIStyleDefinition } from 'canvade';
 import type { Track } from '../../../openrider/track/track';
-import { panelHeight, UI_PANEL_PADDING, UI_ROW_HEIGHT } from './ui-theme';
+import { panelHeight, UI_PANEL_PADDING, uiMetrics } from './ui-theme';
 
-const OPTIONS_WIDTH = 230,
-    /** Width of the `−` and `+` buttons of an option stepping a value. */
-    STEP_WIDTH = 30,
-    HANDLE_WIDTH = 90,
-    HANDLE_HEIGHT = 20,
-    DURATION = 250,
+const DURATION = 250,
     OPEN_LABEL = 'Options ▲',
     CLOSED_LABEL = 'Options ▼';
 
@@ -29,6 +24,7 @@ export class OptionsDrawer {
             return;
         }
 
+        const metrics = uiMetrics();
         const height = panelHeight(options.length);
         const offsets = this.offsets(height);
         structure.push({
@@ -65,7 +61,7 @@ export class OptionsDrawer {
         // A panel like the layers panel, flush with the top edge of the canvas when open
         styles['.options'] = {
             horizontalAlign: 'center',
-            width: OPTIONS_WIDTH,
+            width: metrics.panelWidth,
             y: offsets.options,
             height,
         };
@@ -73,27 +69,31 @@ export class OptionsDrawer {
             pointerEvents: 'none',
             flexDirection: 'row',
             width: '100%',
-            height: UI_ROW_HEIGHT,
+            height: metrics.rowHeight,
         };
         styles['.options-handle'] = {
             horizontalAlign: 'center',
-            width: HANDLE_WIDTH,
-            height: HANDLE_HEIGHT,
+            width: metrics.handleWidth,
+            height: metrics.handleHeight,
             y: offsets.handle,
             text: this.open ? OPEN_LABEL : CLOSED_LABEL,
         };
         // Each button with its own width: a rule for all of them would override these ones
-        const labelWidth = OPTIONS_WIDTH - 2 * UI_PANEL_PADDING - 2 * STEP_WIDTH;
+        const { stepWidth, rowHeight } = metrics;
+        const labelWidth = metrics.panelWidth - 2 * UI_PANEL_PADDING - 2 * stepWidth;
         options.forEach((option, index) => {
-            const height = UI_ROW_HEIGHT;
             styles[`.option-${index}`] = {
                 text: option.label,
                 width: option.steps ? labelWidth : '100%',
-                height,
+                height: rowHeight,
             };
             if (option.steps) {
-                styles[`.option-down-${index}`] = { text: '−', width: STEP_WIDTH, height };
-                styles[`.option-up-${index}`] = { text: '+', width: STEP_WIDTH, height };
+                styles[`.option-down-${index}`] = {
+                    text: '−',
+                    width: stepWidth,
+                    height: rowHeight,
+                };
+                styles[`.option-up-${index}`] = { text: '+', width: stepWidth, height: rowHeight };
             }
         });
     }

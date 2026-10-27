@@ -29,11 +29,15 @@ export class GridSnapTool extends ToggleTool {
     }
 }
 
-/** Enables or disables the debug mode, whose overlays are chosen in the debug panel. */
+/**
+ * Enables or disables the debug mode, whose overlays are chosen in the debug panel. Hidden on
+ * touch screens, the panel being laid out for a mouse.
+ */
 export class ToggleDebugTool extends ToggleTool {
     public static override readonly toolName: string = 'Toggle Debug';
     public static override readonly key = new Control(KEYD, CTRL);
     public static override readonly icon = 'debug';
+    public static override readonly keyboardOnly = true;
 
     protected toggle(): void {
         this.track.debug = !this.track.debug;

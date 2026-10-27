@@ -7,9 +7,8 @@ import {
     UI_BORDER_COLOR,
     UI_BORDER_WIDTH,
     UI_DISABLED_TEXT_COLOR,
+    DESKTOP_METRICS,
     UI_PANEL_PADDING,
-    UI_ROW_HEIGHT,
-    UI_SCROLLBAR_WIDTH,
     UI_SELECTED_BACKGROUND_COLOR,
     UI_SELECTED_TEXT_COLOR,
 } from './ui-theme';
@@ -22,7 +21,10 @@ const PANEL_WIDTH = 360,
     RESET_WIDTH = 30,
     /** Text of a key bound to another control of a same screen. */
     CONFLICT_TEXT_COLOR = '#b00',
-    SECTION_TEXT_COLOR = '#666';
+    SECTION_TEXT_COLOR = '#666',
+    /** Desktop sizes: the panel binds keyboard keys, its tool being hidden on touch screens. */
+    UI_ROW_HEIGHT = DESKTOP_METRICS.rowHeight,
+    UI_SCROLLBAR_WIDTH = DESKTOP_METRICS.scrollbarWidth;
 
 /**
  * Controls panel of the track states, opened by the controls tool: lists the controls of the game
@@ -250,7 +252,7 @@ export class ControlsPanel {
                 verticalAlign: 'middle',
                 width: PANEL_WIDTH,
             },
-            '.controls button': { height: UI_ROW_HEIGHT },
+            '.controls button': { height: UI_ROW_HEIGHT, fontSize: DESKTOP_METRICS.fontSize },
             // Texts centered in their row
             '.controls text': { y: 4, height: UI_ROW_HEIGHT - 4 },
             '.controls-title': { width: rowWidth, text: 'Controls', textAlign: 'center' },

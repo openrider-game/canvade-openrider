@@ -2,20 +2,27 @@ import { UIStructureDefinition, UIStyleDefinition } from 'canvade';
 import { DEBUG_OPTION_LABELS, DebugOptions } from '../../../openrider/track/debug-options';
 import type { Track } from '../../../openrider/track/track';
 import {
+    DESKTOP_METRICS,
     panelHeight,
-    UI_ROW_HEIGHT,
+    uiMetrics,
     UI_SELECTED_BACKGROUND_COLOR,
     UI_SELECTED_TEXT_COLOR,
 } from './ui-theme';
 
-const OPTIONS = Object.keys(DEBUG_OPTION_LABELS) as Array<keyof DebugOptions>;
+const OPTIONS = Object.keys(DEBUG_OPTION_LABELS) as Array<keyof DebugOptions>,
+    /** Rows of the desktop height, the panel staying above the stats overlay on touch screens. */
+    ROW_HEIGHT = DESKTOP_METRICS.rowHeight;
 
-/** Position of the debug panel, right of the left toolbar, under the race time. */
-export const DEBUG_PANEL_X = 34,
-    DEBUG_PANEL_Y = 40,
+/** Position of the debug panel, under the race time. */
+export const DEBUG_PANEL_Y = 40,
     DEBUG_PANEL_WIDTH = 140,
     /** Bottom of the debug panel, under which the stats overlay is drawn, in UI pixels. */
-    DEBUG_PANEL_BOTTOM = DEBUG_PANEL_Y + panelHeight(OPTIONS.length + 1);
+    DEBUG_PANEL_BOTTOM = DEBUG_PANEL_Y + panelHeight(OPTIONS.length + 1, ROW_HEIGHT);
+
+/** Left of the debug panel, right of the left toolbar, in UI pixels. */
+export function debugPanelX(): number {
+    return uiMetrics().toolSize + 8;
+}
 
 /**
  * Debug panel of the track states, displayed while the debug mode is enabled: one toggle per
@@ -48,12 +55,16 @@ export abstract class DebugPanel {
         });
 
         styles['.debug'] = {
-            x: DEBUG_PANEL_X,
+            x: debugPanelX(),
             y: DEBUG_PANEL_Y,
             width: DEBUG_PANEL_WIDTH,
-            height: panelHeight(OPTIONS.length + 1),
+            height: panelHeight(OPTIONS.length + 1, ROW_HEIGHT),
         };
-        styles['.debug button'] = { width: '100%', height: UI_ROW_HEIGHT };
+        styles['.debug button'] = {
+            width: '100%',
+            height: ROW_HEIGHT,
+            fontSize: DESKTOP_METRICS.fontSize,
+        };
         for (const option of OPTIONS) {
             styles[`.debug-${option}`] = {
                 text: DEBUG_OPTION_LABELS[option],

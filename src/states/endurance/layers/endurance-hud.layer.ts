@@ -4,7 +4,7 @@ import type { RunUpload } from '../../../openrider/endurance/endurance-run';
 import { modifierNames } from '../../../openrider/item/modifiers';
 import { TouchControls } from '../../../openrider/touch/touch-controls';
 import { Time } from '../../../openrider/numeric/time';
-import { HUD_MARGIN, LINE_HEIGHT, TrackHudLayer } from '../../track/layers/track-hud.layer';
+import { hudMargin, LINE_HEIGHT, TrackHudLayer } from '../../track/layers/track-hud.layer';
 import type { TrackEnduranceState } from '../track-endurance.state';
 import { LATEST_GENERATOR_VERSION } from '../../../openrider/endurance/terrain/versions';
 
@@ -44,7 +44,7 @@ export class EnduranceHudLayer extends TrackHudLayer {
         if (effects.length > 0) {
             left.push(effects.join(', '));
         }
-        left.forEach((text, index) => ctx.fillText(text, HUD_MARGIN, LINE_HEIGHT * (index + 1)));
+        left.forEach((text, index) => ctx.fillText(text, hudMargin(), LINE_HEIGHT * (index + 1)));
 
         const trackBest = run.records.bestOn(course.seed, course.version);
         const right = [
@@ -58,7 +58,7 @@ export class EnduranceHudLayer extends TrackHudLayer {
         right.forEach((text, index) =>
             ctx.fillText(
                 text,
-                width - HUD_MARGIN - ctx.measureText(text).width,
+                width - hudMargin() - ctx.measureText(text).width,
                 LINE_HEIGHT * (index + 1),
             ),
         );

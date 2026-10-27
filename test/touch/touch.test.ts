@@ -2,17 +2,19 @@ import { Keyboard } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { PLAYER_CONTROL_NAMES } from '../../src/openrider/bike/runner/player-runner';
 import { FullscreenTool } from '../../src/openrider/tool/misc/fullscreen.tool';
-import { TouchControls } from '../../src/openrider/touch/touch-controls';
+import { TOUCH_ELEMENT_TYPE, TouchControls } from '../../src/openrider/touch/touch-controls';
 import { Track } from '../../src/openrider/track/track';
 import { stubBrowser } from '../helpers/canvas';
 
 /** Definition of a touch button, by class name. */
 function button(definitions: ReturnType<typeof TouchControls.ui>, className: string) {
+    const key = `${TOUCH_ELEMENT_TYPE}.overlay.touch.${className}`;
     const entry = definitions.structure.find(
-        (element) => typeof element === 'object' && `button.overlay.touch.${className}` in element,
-    ) as Record<string, { events: { press(): void; release(): void } }>;
+        (element) => typeof element === 'object' && key in element,
+    ) as Record<string, { data: { icon: string }; events: { press(): void; release(): void } }>;
     return {
-        events: entry[`button.overlay.touch.${className}`].events,
+        icon: entry[key].data.icon,
+        events: entry[key].events,
         style: definitions.styles[`.${className}`] as Record<string, unknown>,
     };
 }
@@ -31,7 +33,7 @@ afterEach(() => {
 describe('Touch controls', () => {
     const insets = { left: 26, right: 26, bottomLeft: 36, bottomRight: 120 };
 
-    test('are UI buttons at the bottom corners, clear of the interface', () => {
+    test('are UI buttons at the bottom corners, clear of the interface, sharing their borders', () => {
         const definitions = TouchControls.ui(400, insets);
         const left = button(definitions, 'touch-left').style;
         const right = button(definitions, 'touch-right').style;
@@ -42,12 +44,13 @@ describe('Touch controls', () => {
         expect([left.horizontalAlign, left.verticalAlign]).toEqual(['left', 'bottom']);
         expect(left.x).toBeGreaterThan(26);
         expect(left.y).toBeGreaterThanOrEqual(36);
-        expect(right.x).toBeGreaterThan(Number(left.x) + Number(left.width));
-        expect([up.horizontalAlign, up.text]).toEqual(['right', '▲']);
+        expect(right.x).toBe(Number(left.x) + Number(left.width));
+        expect(up.horizontalAlign).toBe('right');
+        expect(button(definitions, 'touch-up').icon).toBe('accelerate');
         expect(up.x).toBeGreaterThan(26);
-        expect(down.x).toBeGreaterThan(Number(up.x) + Number(up.width));
+        expect(down.x).toBe(Number(up.x) + Number(up.width));
         expect(up.y).toBeGreaterThanOrEqual(120);
-        expect(turn.y).toBeGreaterThan(Number(up.y) + Number(up.height));
+        expect(turn.y).toBe(Number(up.y) + Number(up.height));
     });
 
     test('stay under the heads-up display on low canvases', () => {

@@ -1,12 +1,14 @@
 import { UIElement } from 'canvade';
+import { TouchControls } from '../../../openrider/touch/touch-controls';
 import { UIToolButton } from './ui-tool-button';
-import { UI_BACKGROUND_COLOR, UI_BORDER_COLOR, UI_BORDER_WIDTH } from './ui-theme';
+import { UI_BACKGROUND_COLOR, UI_BORDER_COLOR, UI_BORDER_WIDTH, uiMetrics } from './ui-theme';
 
 const MARGIN = 4;
 
 /**
  * Tooltip of the hovered tool button: the name of the tool and its shortcut, next to the button,
- * on the left of it for the buttons of the right half of the canvas.
+ * on the left of it for the buttons of the right half of the canvas. On touch screens, the tooltip
+ * of a button held long, without the shortcut.
  */
 export abstract class ToolTooltip {
     /**
@@ -22,10 +24,13 @@ export abstract class ToolTooltip {
         }
 
         const { x, y, width, height } = hovered.getBounds();
-        const keyLabel = tool.getKeyLabel();
+        const keyLabel = TouchControls.enabled ? null : tool.getKeyLabel();
         const label = keyLabel ? `${tool.getLabel()} (${keyLabel})` : tool.getLabel();
 
         ctx.save();
+        if (TouchControls.enabled) {
+            ctx.font = `${uiMetrics().fontSize}px monospace`;
+        }
         const metrics = ctx.measureText(label);
         const labelHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
 
@@ -42,12 +47,13 @@ export abstract class ToolTooltip {
         ctx.fill();
         ctx.stroke();
         ctx.fillStyle = UI_BORDER_COLOR;
-        ctx.fillText(label, rectX + MARGIN / 2, y + labelHeight + 5);
+        // Centered vertically in the height of the button
+        ctx.fillText(label, rectX + MARGIN / 2, y + (height + labelHeight) / 2);
         ctx.restore();
     }
 
     private static findHoveredTool(element: UIElement): UIToolButton | null {
-        if (element instanceof UIToolButton && element.isHovered()) {
+        if (element instanceof UIToolButton && (element.isHovered() || element.isHeldLong())) {
             return element;
         }
 

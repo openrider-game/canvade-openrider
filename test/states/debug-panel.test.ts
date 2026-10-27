@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { Session } from '../../src/states/session';
 import { STATE_TRACK_EDITING, STATE_TRACK_FETCHER } from '../../src/states/state-names';
 import States from '../../src/states/states';
-import { DEBUG_PANEL_X, DEBUG_PANEL_Y } from '../../src/states/track/ui/debug-panel';
+import { debugPanelX, DEBUG_PANEL_Y } from '../../src/states/track/ui/debug-panel';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 
 let manager: StateManager;
@@ -45,7 +45,7 @@ function click(x: number, y: number): void {
 }
 
 /** Center of a row of the debug panel. */
-const row = (index: number) => ({ x: DEBUG_PANEL_X + 50, y: DEBUG_PANEL_Y + 4 + 22 * index + 11 });
+const row = (index: number) => ({ x: debugPanelX() + 50, y: DEBUG_PANEL_Y + 4 + 22 * index + 11 });
 
 beforeEach(() => {
     stubBrowser();

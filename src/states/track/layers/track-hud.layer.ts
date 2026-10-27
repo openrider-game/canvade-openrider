@@ -6,13 +6,18 @@ import { LiveSession } from '../../../openrider/live/live-session';
 import { InterfaceScale } from '../../../openrider/numeric/interface-scale';
 import { Time } from '../../../openrider/numeric/time';
 import { debugStats } from '../../../openrider/track/debug-stats';
-import { DEBUG_PANEL_BOTTOM, DEBUG_PANEL_X } from '../ui/debug-panel';
+import { DEBUG_PANEL_BOTTOM, debugPanelX } from '../ui/debug-panel';
+import { uiMetrics } from '../ui/ui-theme';
 import type { TrackViewState } from '../track-view.state';
 
-export const HUD_MARGIN = 30,
-    LINE_HEIGHT = 15,
+export const LINE_HEIGHT = 15,
     /** Weight of the last frame in the smoothed frame rate. */
     FPS_SMOOTHING = 0.1;
+
+/** Space between the side edges of the canvas and the text, clear of the toolbars, in UI pixels. */
+export function hudMargin(): number {
+    return uiMetrics().toolSize + 4;
+}
 
 /**
  * Heads-up display of the track states: race time and reached targets of the player at the top
@@ -64,14 +69,14 @@ export class TrackHudLayer extends Layer {
         // Readable over the track and the debug overlays
         ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         ctx.fillRect(
-            DEBUG_PANEL_X - 2,
+            debugPanelX() - 2,
             DEBUG_PANEL_BOTTOM + 2,
             width + 4,
             LINE_HEIGHT * lines.length + 4,
         );
         ctx.fillStyle = '#000';
         lines.forEach((line, index) => {
-            ctx.fillText(line, DEBUG_PANEL_X, DEBUG_PANEL_BOTTOM + LINE_HEIGHT * (index + 1));
+            ctx.fillText(line, debugPanelX(), DEBUG_PANEL_BOTTOM + LINE_HEIGHT * (index + 1));
         });
     }
 
@@ -88,10 +93,10 @@ export class TrackHudLayer extends Layer {
         ctx.lineWidth = 0.5;
         ctx.fillStyle = '#000';
         // Track times are counted in physics ticks
-        ctx.fillText(Time.format(track.time * FRAME_DURATION), HUD_MARGIN, LINE_HEIGHT);
+        ctx.fillText(Time.format(track.time * FRAME_DURATION), hudMargin(), LINE_HEIGHT);
         ctx.fillText(
             `${track.playerRunner.targetsReached.size}/${targets}`,
-            HUD_MARGIN,
+            hudMargin(),
             2 * LINE_HEIGHT,
         );
 
@@ -106,7 +111,7 @@ export class TrackHudLayer extends Layer {
             ctx.fillStyle = runner.color;
             ctx.fillText(
                 text,
-                width - HUD_MARGIN - ctx.measureText(text).width,
+                width - hudMargin() - ctx.measureText(text).width,
                 LINE_HEIGHT * (1 + index++),
             );
         });
@@ -138,7 +143,7 @@ export class TrackHudLayer extends Layer {
             ctx.fillStyle = runner.color;
             ctx.fillText(
                 text,
-                width - HUD_MARGIN - ctx.measureText(text).width,
+                width - hudMargin() - ctx.measureText(text).width,
                 LINE_HEIGHT * index++,
             );
         });
@@ -159,7 +164,7 @@ export class TrackHudLayer extends Layer {
                 editing.state === 'open' && editing.loaded
                     ? `Live: ${editors} ${editors === 1 ? 'editor' : 'editors'}`
                     : `Live: ${editing.message}`,
-                HUD_MARGIN,
+                hudMargin(),
                 LINE_HEIGHT * line,
             );
         }
@@ -167,7 +172,7 @@ export class TrackHudLayer extends Layer {
         if (live) {
             ctx.fillStyle = '#000';
             TrackHudLayer.liveLines(live).forEach((text, i) =>
-                ctx.fillText(text, HUD_MARGIN, LINE_HEIGHT * (line + i)),
+                ctx.fillText(text, hudMargin(), LINE_HEIGHT * (line + i)),
             );
         }
     }

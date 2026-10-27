@@ -1,31 +1,43 @@
 import { UIButton, UIElement, UIStructureDefinition, UIStyleDefinition } from 'canvade';
 import type { Track } from '../../../openrider/track/track';
+import { TouchControls } from '../../../openrider/touch/touch-controls';
 import type { TrackLayer } from '../../../openrider/track/track-layer';
 import {
     UI_DISABLED_TEXT_COLOR,
     UI_PANEL_GAP,
     UI_PANEL_PADDING,
-    UI_ROW_HEIGHT,
-    UI_SCROLLBAR_WIDTH,
     UI_SELECTED_BACKGROUND_COLOR,
     UI_SELECTED_TEXT_COLOR,
+    uiMetrics,
 } from './ui-theme';
 
-const PANEL_WIDTH = 230,
-    // Offset from the right edge, clear of the right toolbar and of its open groups
-    PANEL_RIGHT = 64,
-    PANEL_BOTTOM = 10,
+const PANEL_BOTTOM = 10,
     PADDING = UI_PANEL_PADDING,
     GAP = UI_PANEL_GAP,
-    ROW_HEIGHT = UI_ROW_HEIGHT,
-    /** Number of layer rows displayed at once, the others being reached by scrolling. */
-    VISIBLE_ROWS = 6,
     /** Longest layer name displayed in a row, longer names being cut. */
     NAME_LENGTH = 12,
-    /** Width of the layer name buttons, beside the other buttons of a row. */
-    SELECT_WIDTH = 126,
     /** Duration of the opening and closing of the panel, in milliseconds. */
     TOGGLE_DURATION = 200;
+
+/** Sizes of the panel for the current metrics, in UI pixels. */
+function panelLayout() {
+    const { toolSize, rowHeight, panelWidth, scrollbarWidth } = uiMetrics();
+    const visibilityWidth = rowHeight + 8;
+    return {
+        width: panelWidth,
+        // Offset from the right edge, clear of the right toolbar and of its open groups
+        right: 2 * toolSize + 12,
+        rowHeight,
+        scrollbarWidth,
+        /** Number of layer rows displayed at once, the others being reached by scrolling. */
+        visibleRows: TouchControls.enabled ? 4 : 6,
+        visibilityWidth,
+        iconWidth: rowHeight,
+        /** Width of the layer name buttons, beside the other buttons of a row. */
+        selectWidth: panelWidth - 2 * PADDING - visibilityWidth - 3 * rowHeight,
+        addWidth: (panelWidth - 2 * PADDING) / 2,
+    };
+}
 
 /**
  * Layers panel of the editor, at the bottom right of the canvas, built into the interface of the
@@ -44,7 +56,8 @@ export class LayersPanel {
      * to move the elements above it along with it.
      */
     public onToggle: ((duration: number) => void) | null = null;
-    private open = true;
+    /** Whether the panel is open, `null` until it is first built: closed on touch screens. */
+    private open: boolean | null = null;
     /** Scroll position of the list of layers, kept when the interface is rebuilt. */
     private scrollTop = 0;
 
@@ -52,7 +65,10 @@ export class LayersPanel {
     public build(track: Track, structure: UIStructureDefinition, styles: UIStyleDefinition): void {
         const stack = track.layers;
         const layers = [...stack.all].reverse();
-        const listHeight = Math.min(layers.length, VISIBLE_ROWS) * ROW_HEIGHT;
+        const layout = panelLayout();
+        const listHeight = Math.min(layers.length, layout.visibleRows) * layout.rowHeight;
+        // Leaves the room of the canvas to the track on small screens
+        this.open ??= !TouchControls.enabled;
         // The rules of the elements, added below, override these ones of the same specificity
         Object.assign(styles, LayersPanel.baseStyles());
 
@@ -96,8 +112,8 @@ export class LayersPanel {
             scrollTop: this.scrollTop,
         };
         // The name buttons leave room for the scrollbar
-        if (layers.length > VISIBLE_ROWS) {
-            styles['.layers-select'] = { width: SELECT_WIDTH - UI_SCROLLBAR_WIDTH };
+        if (layers.length > layout.visibleRows) {
+            styles['.layers-select'] = { width: layout.selectWidth - layout.scrollbarWidth };
         }
 
         structure.push({ 'container.overlay.panel.layers': content });
@@ -108,17 +124,19 @@ export class LayersPanel {
     }
 
     /** Height of the panel, open with its rows or closed to its title, in pixels. */
-    private static height(open: boolean, layerCount: number): number {
+    private static height(open: boolean | null, layerCount: number): number {
+        const { rowHeight, visibleRows } = panelLayout();
         if (!open) {
-            return 2 * PADDING + ROW_HEIGHT;
+            return 2 * PADDING + rowHeight;
         }
-        const listHeight = Math.min(layerCount, VISIBLE_ROWS) * ROW_HEIGHT;
-        return 2 * PADDING + 3 * ROW_HEIGHT + listHeight + 3 * GAP;
+        const listHeight = Math.min(layerCount, visibleRows) * rowHeight;
+        return 2 * PADDING + 3 * rowHeight + listHeight + 3 * GAP;
     }
 
     /** Height the panel takes from the bottom of the canvas, open or closed, in UI pixels. */
     public bottomHeight(track: Track): number {
-        return PANEL_BOTTOM + LayersPanel.height(this.open, track.layers.all.length);
+        const open = this.open ?? !TouchControls.enabled;
+        return PANEL_BOTTOM + LayersPanel.height(open, track.layers.all.length);
     }
 
     private toggleLabel(layerCount: number): string {
@@ -203,35 +221,36 @@ export class LayersPanel {
     }
 
     private static baseStyles(): UIStyleDefinition {
+        const layout = panelLayout();
         return {
             '.layers': {
                 horizontalAlign: 'right',
                 verticalAlign: 'bottom',
-                x: PANEL_RIGHT,
+                x: layout.right,
                 y: PANEL_BOTTOM,
-                width: PANEL_WIDTH,
+                width: layout.width,
             },
-            '.layers button': { height: ROW_HEIGHT },
+            '.layers button': { height: layout.rowHeight },
             '.layers-toggle': { width: '100%' },
-            '.layers-name': { width: '100%', height: ROW_HEIGHT, placeholder: 'Layer name' },
+            '.layers-name': { width: '100%', height: layout.rowHeight, placeholder: 'Layer name' },
             '.layers-list': {
                 width: '100%',
                 gap: GAP,
                 overflow: 'auto',
-                scrollbarWidth: UI_SCROLLBAR_WIDTH,
+                scrollbarWidth: layout.scrollbarWidth,
             },
             '.layers-row': {
                 pointerEvents: 'none',
                 flexDirection: 'row',
                 gap: GAP,
                 width: '100%',
-                height: ROW_HEIGHT,
+                height: layout.rowHeight,
             },
-            '.layers-visibility': { width: 30 },
-            '.layers-select': { width: SELECT_WIDTH },
-            '.layers-icon': { width: 22 },
-            '.layers-add-main': { width: 111, text: '+ Main' },
-            '.layers-add-foreground': { width: 111, text: '+ Foreground' },
+            '.layers-visibility': { width: layout.visibilityWidth },
+            '.layers-select': { width: layout.selectWidth },
+            '.layers-icon': { width: layout.iconWidth },
+            '.layers-add-main': { width: layout.addWidth, text: '+ Main' },
+            '.layers-add-foreground': { width: layout.addWidth, text: '+ Foreground' },
         };
     }
 }
