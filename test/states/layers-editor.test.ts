@@ -47,15 +47,16 @@ function frame(): string[] {
 }
 
 function click(x: number, y: number): void {
-    for (const name of ['mouseDown', 'mouseUp']) {
+    for (const name of ['pointerDown', 'pointerUp']) {
         Mouse.worldPos.set(new Vector(x, y));
         manager.getCurrent()?.dispatch(
-            name as 'mouseDown',
+            name as 'pointerDown',
             EventFactory.createGameEvent({
                 name,
                 consumed: false,
                 position: new Vector(x, y),
-                mouseEvent: { button: 0 } as MouseEvent,
+                pointerEvent: { pointerId: 1, pointerType: 'mouse', button: 0 } as PointerEvent,
+                primary: true,
             }),
         );
     }

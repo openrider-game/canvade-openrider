@@ -70,7 +70,8 @@ function mouseEvent(name: string, x: number, y: number) {
         name,
         consumed: false,
         position: new Vector(x, y),
-        mouseEvent: { button: 0 } as MouseEvent,
+        pointerEvent: { pointerId: 1, pointerType: 'mouse', button: 0 } as PointerEvent,
+        primary: true,
     });
 }
 
@@ -158,15 +159,43 @@ describe('Editing a track', () => {
         const lines = session.track.layers.main[0].grid.totalSolidLines;
         const before = lines.size;
 
-        state?.dispatch('mouseDown', mouseEvent('mouseDown', 300, 200));
-        state?.dispatch('mouseMove', mouseEvent('mouseMove', 400, 250));
-        state?.dispatch('mouseUp', mouseEvent('mouseUp', 400, 250));
+        state?.dispatch('pointerDown', mouseEvent('pointerDown', 300, 200));
+        state?.dispatch('pointerMove', mouseEvent('pointerMove', 400, 250));
+        state?.dispatch('pointerUp', mouseEvent('pointerUp', 400, 250));
 
         expect(lines.size).toBe(before + 1);
         const line = [...lines.values()].pop();
         expect(line?.pos).toEqual(new Vector(300, 200));
         expect(line?.endPos).toEqual(new Vector(400, 250));
         expect(session.track.uiHovered).toBe(false);
+    });
+
+    test('draws with the primary pointer only, not with a finger that is not', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        manager.render(createCanvasMock().context);
+        const state = manager.getCurrent();
+        session.track.toolCollection.getByToolName('Line')?.run();
+        const lines = session.track.layers.main[0].grid.totalSolidLines;
+        const before = lines.size;
+        /** A finger joining another one, e.g. to pinch. */
+        const secondFinger = (name: string, x: number, y: number) => {
+            const event = mouseEvent(name, x, y);
+            event.detail.pointerEvent = {
+                pointerId: 9,
+                pointerType: 'touch',
+                button: 0,
+            } as PointerEvent;
+            event.detail.primary = false;
+            return event;
+        };
+
+        state?.dispatch('pointerDown', secondFinger('pointerDown', 300, 200));
+        state?.dispatch('pointerMove', secondFinger('pointerMove', 400, 250));
+        state?.dispatch('pointerUp', secondFinger('pointerUp', 400, 250));
+
+        expect(lines.size).toBe(before);
+        expect(session.track.toolManager.tool?.mouseDown).toBe(false);
     });
 
     test('keeps the tool options in a drawer, opened and closed with its handle', async () => {
@@ -185,8 +214,8 @@ describe('Editing a track', () => {
         };
         const layerOption = () => tool.getOptions()[0].label;
         const click = (x: number, y: number) => {
-            state?.dispatch('mouseDown', mouseEvent('mouseDown', x, y));
-            state?.dispatch('mouseUp', mouseEvent('mouseUp', x, y));
+            state?.dispatch('pointerDown', mouseEvent('pointerDown', x, y));
+            state?.dispatch('pointerUp', mouseEvent('pointerUp', x, y));
         };
 
         // Closed: only the handle is reachable, at the top of the canvas
@@ -228,8 +257,11 @@ describe('Editing a track', () => {
 
         // Third button of the right toolbar, the eraser, 26 UI pixels wide, in canvas pixels
         const state = manager.getCurrent();
-        state?.dispatch('mouseDown', mouseEvent('mouseDown', 2 * (700 - 13), 2 * (2 * 26 + 13)));
-        state?.dispatch('mouseUp', mouseEvent('mouseUp', 2 * (700 - 13), 2 * (2 * 26 + 13)));
+        state?.dispatch(
+            'pointerDown',
+            mouseEvent('pointerDown', 2 * (700 - 13), 2 * (2 * 26 + 13)),
+        );
+        state?.dispatch('pointerUp', mouseEvent('pointerUp', 2 * (700 - 13), 2 * (2 * 26 + 13)));
         expect(session.track.toolManager.tool?.toolClass.toolName).toBe('Eraser');
     });
 
@@ -336,8 +368,8 @@ describe('Endurance mode', () => {
                 (runner) => runner.instance?.hitbox === track.focalPoint,
             );
         const click = (x: number, y: number) => {
-            state?.dispatch('mouseDown', mouseEvent('mouseDown', x, y));
-            state?.dispatch('mouseUp', mouseEvent('mouseUp', x, y));
+            state?.dispatch('pointerDown', mouseEvent('pointerDown', x, y));
+            state?.dispatch('pointerUp', mouseEvent('pointerUp', x, y));
             return followed();
         };
         // Fifth button of the left toolbar, after a gap
@@ -379,14 +411,14 @@ describe('Endurance mode', () => {
 });
 
 describe('Touch screens', () => {
-    /** Touch event of the game, at a position in canvas pixels. */
+    /** Pointer event of the game of a finger acting alone, at a position in canvas pixels. */
     const touch = (name: string, id: number, x: number, y: number) =>
         EventFactory.createGameEvent({
             name,
             consumed: false,
-            id,
             position: new Vector(x, y),
-            touchEvent: {} as TouchEvent,
+            pointerEvent: { pointerId: id, pointerType: 'touch', button: 0 } as PointerEvent,
+            primary: true,
         });
     /** Elements of the interface, laid out on a frame. */
     const interfaceElements = () => {
@@ -415,19 +447,19 @@ describe('Touch screens', () => {
         expect(touchButtons()).toEqual([]);
 
         // The first touch shows them from the next frame
-        state?.dispatch('touchStart', touch('touchStart', 1, 350, 200));
-        state?.dispatch('touchEnd', touch('touchEnd', 1, 350, 200));
+        state?.dispatch('pointerDown', touch('pointerDown', 1, 350, 200));
+        state?.dispatch('pointerUp', touch('pointerUp', 1, 350, 200));
         const buttons = touchButtons();
         expect(buttons.map((element) => element.v('text'))).toEqual(['◀', '▶', '▼', '▲', '⇄']);
 
         const up = byClass(buttons, 'touch-up');
         const [x, y] = [up.x + up.width / 2, up.y + up.height / 2];
-        const press = touch('touchStart', 2, x, y);
-        state?.dispatch('touchStart', press);
+        const press = touch('pointerDown', 2, x, y);
+        state?.dispatch('pointerDown', press);
         expect(press.detail.consumed).toBe(true);
         expect(Keyboard.isDown(PLAYER_CONTROL_NAMES.up)).toBe(true);
 
-        state?.dispatch('touchEnd', touch('touchEnd', 2, x, y));
+        state?.dispatch('pointerUp', touch('pointerUp', 2, x, y));
         expect(Keyboard.isDown(PLAYER_CONTROL_NAMES.up)).toBe(false);
     });
 

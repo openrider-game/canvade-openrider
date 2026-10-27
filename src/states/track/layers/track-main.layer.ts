@@ -1,7 +1,7 @@
 import {
     Display,
-    GameMouseEvent,
     GamePinchEvent,
+    GamePointerEvent,
     GameRenderEvent,
     GameWheelEvent,
     Layer,
@@ -16,8 +16,8 @@ const PINCH_STEP = 1.25;
 
 /**
  * Bottom layer of the track states: renders the track and the current tool, forwards to the tool
- * the mouse events the layers above did not consume, and moves the view with two fingers on touch
- * screens: dragging it, and pinching to zoom.
+ * the primary pointer (the mouse, or a single finger) when the layers above did not consume it,
+ * and moves the view with two fingers on touch screens: dragging it, and pinching to zoom.
  */
 export class TrackMainLayer extends Layer {
     /** Center of the pinch, in canvas pixels, and its scale at the last zoom step. */
@@ -30,13 +30,13 @@ export class TrackMainLayer extends Layer {
 
     public initLayer(): void {
         this.subscribe('render', this.renderTrack);
-        this.subscribe('mouseDown', this.onToolMouseDown);
-        this.subscribe('mouseUp', this.onToolMouseUp);
-        this.subscribe('mouseMove', this.onToolMouseMove);
+        this.subscribe('pointerDown', this.onToolPointerDown);
+        this.subscribe('pointerUp', this.onToolPointerUp);
+        this.subscribe('pointerMove', this.onToolPointerMove);
         this.subscribe('scroll', this.onToolScroll);
         this.subscribe('contextMenu', this.onToolContextMenu);
-        this.subscribe('mouseEnter', this.onMouseIn);
-        this.subscribe('mouseOut', this.onMouseLeave);
+        this.subscribe('pointerEnter', this.onPointerIn);
+        this.subscribe('pointerLeave', this.onPointerLeave);
         this.subscribe('pinchStart', this.onPinchStart);
         this.subscribe('pinchMove', this.onPinchMove);
         this.subscribe('pinchEnd', this.onPinchEnd);
@@ -66,16 +66,22 @@ export class TrackMainLayer extends Layer {
         ctx.canvas.style.cursor = track.uiHovered ? 'pointer' : track.cursor;
     }
 
-    private onToolMouseDown(e: CustomEvent<GameMouseEvent>): void {
-        this.state.track.toolManager.onMouseDown(e.detail.mouseEvent);
+    private onToolPointerDown(e: CustomEvent<GamePointerEvent>): void {
+        if (e.detail.primary) {
+            this.state.track.toolManager.onMouseDown(e.detail.pointerEvent);
+        }
     }
 
-    private onToolMouseUp(e: CustomEvent<GameMouseEvent>): void {
-        this.state.track.toolManager.onMouseUp(e.detail.mouseEvent);
+    private onToolPointerUp(e: CustomEvent<GamePointerEvent>): void {
+        if (e.detail.primary) {
+            this.state.track.toolManager.onMouseUp(e.detail.pointerEvent);
+        }
     }
 
-    private onToolMouseMove(e: CustomEvent<GameMouseEvent>): void {
-        this.state.track.toolManager.onMouseMove(e.detail.mouseEvent);
+    private onToolPointerMove(e: CustomEvent<GamePointerEvent>): void {
+        if (e.detail.primary) {
+            this.state.track.toolManager.onMouseMove(e.detail.pointerEvent);
+        }
     }
 
     private onToolScroll(e: CustomEvent<GameWheelEvent>): void {
@@ -121,11 +127,12 @@ export class TrackMainLayer extends Layer {
         this.pinch = null;
     }
 
-    private onMouseIn(): void {
+    /** The primary pointer entering the canvas, the only one entering and leaving it. */
+    private onPointerIn(): void {
         this.state.track.mouseIn = true;
     }
 
-    private onMouseLeave(): void {
+    private onPointerLeave(): void {
         this.state.track.mouseIn = false;
     }
 }

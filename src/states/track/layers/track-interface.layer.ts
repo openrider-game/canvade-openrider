@@ -1,6 +1,7 @@
 import {
     Display,
     GameKeyboardEvent,
+    GamePointerEvent,
     Layer,
     Mouse,
     UIElement,
@@ -117,12 +118,14 @@ export class TrackInterfaceLayer extends Layer {
 
         // Handlers subscribed after `super()` run after the canvade UI handlers, so `consumed`
         // tells whether the interface caught the mouse
-        this.subscribe('mouseMove', (e) => {
-            this.state.track.uiHovered = e.detail.consumed;
+        this.subscribe('pointerMove', (e) => {
+            if (e.detail.primary) {
+                this.state.track.uiHovered = e.detail.consumed;
+            }
         });
         // Clicking the track stops following the bike, not clicking a button, e.g. the one
         // focusing the next ghost
-        this.subscribe('mouseDown', (e) => {
+        this.subscribe('pointerDown', (e) => {
             if (!e.detail.consumed) {
                 this.state.track.focalPoint = null;
             }
@@ -134,11 +137,10 @@ export class TrackInterfaceLayer extends Layer {
         // handlers run before the canvade UI handlers.
         this.subscribe('enter', this.createTools);
         this.subscribe('update', this.refreshInterface);
-        this.subscribe('mouseDown', this.syncMouseDown);
-        this.subscribe('mouseMove', this.syncMouse);
-        this.subscribe('mouseUp', this.syncMouse);
-        this.subscribe('mouseOut', this.clearHover);
-        this.subscribe('touchStart', this.revealTouchControls);
+        this.subscribe('pointerDown', this.syncPointerDown);
+        this.subscribe('pointerMove', this.syncPointer);
+        this.subscribe('pointerUp', this.syncPointer);
+        this.subscribe('pointerLeave', this.clearHover);
         this.subscribe('keyDown', this.handlePanelKey);
     }
 
@@ -150,11 +152,6 @@ export class TrackInterfaceLayer extends Layer {
         if (this.controlsPanel.handleKey(this.state.track, e.detail.keyboardEvent)) {
             e.detail.consumed = true;
         }
-    }
-
-    /** Shows the touch controls from the first touch of the screen, see `TouchControls`. */
-    private revealTouchControls(): void {
-        TouchControls.enabled = true;
     }
 
     /** Creates the tools of the state toolbars, the camera being the default tool. */
@@ -381,14 +378,26 @@ export class TrackInterfaceLayer extends Layer {
         return { data: { tool }, events: { click: () => tool.run() } };
     }
 
-    private syncMouse(): void {
-        this.state.track.setMousePosition(Mouse.worldPos);
+    /** Follows the primary pointer, the one `Mouse` follows. */
+    private syncPointer(e: CustomEvent<GamePointerEvent>): void {
+        if (e.detail.primary) {
+            this.state.track.setMousePosition(Mouse.worldPos);
+        }
     }
 
-    private syncMouseDown(): void {
-        const track = this.state.track;
-        track.setMousePosition(Mouse.worldPos);
-        track.lastClick.set(track.mousePos);
+    /**
+     * Records the click of the primary pointer, and shows the touch controls from the first touch
+     * of the screen, see `TouchControls`.
+     */
+    private syncPointerDown(e: CustomEvent<GamePointerEvent>): void {
+        if (e.detail.pointerEvent.pointerType === 'touch') {
+            TouchControls.enabled = true;
+        }
+        if (e.detail.primary) {
+            const track = this.state.track;
+            track.setMousePosition(Mouse.worldPos);
+            track.lastClick.set(track.mousePos);
+        }
     }
 
     private clearHover(): void {
