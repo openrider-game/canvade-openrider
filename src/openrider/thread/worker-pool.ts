@@ -1,4 +1,5 @@
 import type { RenderCell } from '../grid/cell/render-cell';
+import { drawItemSprites } from '../item/item-sprite';
 import { RenderCellTask } from './render-cell-task';
 import { renderCellWorker } from './render-cell-worker';
 
@@ -65,7 +66,14 @@ export abstract class WorkerPool {
 
     private static createWorkers(): void {
         const source = URL.createObjectURL(
-            new Blob([`(${renderCellWorker.toString()})()`], { type: 'text/javascript' }),
+            new Blob(
+                [
+                    // The sprites are drawn by the same function as on the main thread
+                    `self.drawItemSprites = (${drawItemSprites.toString()});`,
+                    `(${renderCellWorker.toString()})()`,
+                ],
+                { type: 'text/javascript' },
+            ),
         );
         // Keeps a core for the main thread, but always has at least one worker
         WorkerPool.workerCount = Math.max(1, navigator.hardwareConcurrency - 1);

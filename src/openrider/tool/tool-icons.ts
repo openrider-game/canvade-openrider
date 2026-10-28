@@ -71,7 +71,6 @@ function itemIcon(
             const item = Object.assign(Object.create(prototype) as Item, {
                 pos: center,
                 track,
-                reached: false,
                 group: null,
                 ...fields,
             });

@@ -5,6 +5,7 @@ import { Grid } from '../../grid/grid';
 import { CACHE_CELL_SIZE } from '../../grid/grid.constants';
 import type { Track } from '../../track/track';
 import type { Item } from '../item';
+import { ITEM_SPRITE_MARGIN } from '../item-sprite';
 import { Line } from '../line/line';
 import type { TrackObject } from '../track-object';
 import type { CommandArea } from './command-block';
@@ -24,15 +25,16 @@ export interface GroupRenderOptions {
 /**
  * Objects bound to a command block, see `CommandRegistry`.
  *
- * The lines are kept in a render grid of their own, cut in tiles like the render cache of the
- * layers: a group is drawn from the cached images of its visible tiles, shifted by its offset, so
- * that drawing a moving door costs a few images whatever its number of lines. The items are drawn
- * one by one, as in the cells of the layers.
+ * The lines and item sprites are kept in a render grid of their own, cut in tiles like the render
+ * cache of the layers: a group is drawn from the cached images of its visible tiles, shifted by
+ * its offset, so that drawing a moving door costs a few images whatever its number of objects.
+ * The items drawn on every frame are drawn over them, as in the cells of the layers (see
+ * `Item.drawnLive`).
  */
 export class CommandGroup {
     public readonly objects = new Set<TrackObject>();
     private readonly items = new Set<Item>();
-    private readonly tiles = new Grid(CACHE_CELL_SIZE, RenderCell);
+    private readonly tiles = new Grid(CACHE_CELL_SIZE, RenderCell, ITEM_SPRITE_MARGIN);
     /** Physics cells storing a moved object along its way, besides its own cells. */
     private readonly extraCells = new Map<TrackObject, PhysicsCell[]>();
     /** Rectangle around the objects, computed again on demand once objects are removed. */
@@ -49,6 +51,9 @@ export class CommandGroup {
             this.tiles.add(object);
         } else {
             this.items.add(object as Item);
+            if ((object as Item).sprite !== null) {
+                this.tiles.add(object);
+            }
         }
         if (extraCells.length) {
             this.extraCells.set(object, extraCells);
@@ -64,6 +69,9 @@ export class CommandGroup {
             this.tiles.remove(object);
         } else {
             this.items.delete(object as Item);
+            if ((object as Item).sprite !== null) {
+                this.tiles.remove(object);
+            }
         }
         this.extraCells.get(object)?.forEach((cell) => cell.remove(object));
         this.extraCells.delete(object);
@@ -97,7 +105,7 @@ export class CommandGroup {
 
     /**
      * Draws the group shifted by an offset, when it is in view: the cached images of the visible
-     * tiles, then the items.
+     * tiles, then the items drawn on every frame.
      */
     public render(ctx: CanvasRenderingContext2D, track: Track, options: GroupRenderOptions): void {
         const { view, offset } = options;
@@ -147,11 +155,20 @@ export class CommandGroup {
             }
         }
 
-        if (this.items.size) {
-            ctx.save();
-            ctx.translate(offset.x * zoom, offset.y * zoom);
-            ctx.strokeStyle = '#000';
-            this.items.forEach((item) => item.render(ctx));
+        let shifted = false;
+        for (const item of this.items) {
+            if (!item.drawnLive) {
+                continue;
+            }
+            if (!shifted) {
+                shifted = true;
+                ctx.save();
+                ctx.translate(offset.x * zoom, offset.y * zoom);
+                ctx.strokeStyle = '#000';
+            }
+            item.render(ctx);
+        }
+        if (shifted) {
             ctx.restore();
         }
     }

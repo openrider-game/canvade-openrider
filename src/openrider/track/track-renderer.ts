@@ -103,12 +103,15 @@ export abstract class TrackRenderer {
                 }
             }
         }
+        // Over the cell images, see `ReachedItems`
+        track.reachedItems.render(ctx, layer);
         // Out of the cached images, as they change with the runners
         track.commands.render(ctx, layer, options.fastRender);
     }
 
     /**
-     * Draws the cached image of a cell, then the items of the cell.
+     * Draws the cached image of a cell, with its lines and item sprites, then the items of the
+     * cell drawn on every frame, e.g. the command blocks.
      *
      * The image is drawn 1px up and left, as cells bleed by 1px on each side. While the image at
      * the current zoom is rendering, an image of another zoom is scaled to it.
@@ -149,10 +152,15 @@ export abstract class TrackRenderer {
         }
 
         ctx.strokeStyle = '#000';
-        for (const object of cell.objects) {
+        for (const object of cell.liveObjects) {
             object.render(ctx);
-            if (options.debug && track.debugOptions.objects) {
-                object.renderDebug(ctx);
+        }
+        if (options.debug && track.debugOptions.objects) {
+            for (const object of cell.objects) {
+                // Once, by the cell of its position: a sprite is also in the cells it reaches
+                if (cell.contains(object.pos)) {
+                    object.renderDebug(ctx);
+                }
             }
         }
     }

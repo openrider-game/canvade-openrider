@@ -2,6 +2,7 @@ import { PhysicsCell } from '../grid/cell/physics-cell';
 import { RenderCell } from '../grid/cell/render-cell';
 import { Grid } from '../grid/grid';
 import { CACHE_CELL_SIZE, GRID_CELL_SIZE } from '../grid/grid.constants';
+import { ITEM_SPRITE_MARGIN } from '../item/item-sprite';
 import type { TrackObject } from '../item/track-object';
 
 /**
@@ -14,13 +15,13 @@ export type TrackLayerType = 'main' | 'foreground';
  * Layer of a track, holding its objects in two grids.
  *
  * The physics grid, with small cells, is used for collisions, erasing and exports. The render
- * cache grid, with larger cells, keeps pre-rendered images of the lines.
+ * cache grid, with larger cells, keeps pre-rendered images of the lines and the item sprites.
  */
 export class TrackLayer {
     /** Id of the layer for the edits of the track, see `TrackEditor`. */
     public uid = '';
     public readonly grid = new Grid(GRID_CELL_SIZE, PhysicsCell);
-    public readonly cache = new Grid(CACHE_CELL_SIZE, RenderCell);
+    public readonly cache = new Grid(CACHE_CELL_SIZE, RenderCell, ITEM_SPRITE_MARGIN);
 
     /**
      * Creates an empty layer.

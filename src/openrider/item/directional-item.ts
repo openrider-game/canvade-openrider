@@ -2,6 +2,7 @@ import { Vector } from 'canvade';
 import type { Collidable } from '../entity/collidable';
 import type { Track } from '../track/track';
 import { Item, parseItemPosition } from './item';
+import type { ItemShape } from './item-sprite';
 
 /** Constructor and static side of the directional item classes. */
 export interface DirectionalItemClass {
@@ -28,6 +29,14 @@ export abstract class DirectionalItem extends Item {
 
         const rad = (rotation * Math.PI) / 180;
         this.direction = new Vector(-Math.sin(rad), Math.cos(rad));
+    }
+
+    public override get sprite(): ItemShape {
+        return 'arrow';
+    }
+
+    public override get spriteRotation(): number {
+        return (this.rotation * Math.PI) / 180;
     }
 
     public override render(ctx: CanvasRenderingContext2D): void {

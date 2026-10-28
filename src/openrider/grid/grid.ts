@@ -16,7 +16,10 @@ export interface CellClass<T extends Cell> {
  *
  * Each track layer has two grids of the same objects: a physics grid of `PhysicsCell` used
  * for collisions, erasing and exports, and a render cache grid of larger `RenderCell`
- * keeping pre-rendered images of the lines. Cells are created on demand.
+ * keeping pre-rendered images of the lines and the item sprites. Cells are created on demand.
+ *
+ * An item is stored in the cell of its position, except in the render grids, where an item drawn
+ * as a sprite is stored in every cell its sprite reaches (see `ITEM_SPRITE_MARGIN`).
  */
 export class Grid<T extends Cell> {
     /** Cells crossed by each segment, by cell size then by segment ends. */
@@ -37,10 +40,13 @@ export class Grid<T extends Cell> {
      * Creates an empty grid.
      *
      * @param cellSize - Size of the cells, in world units.
+     * @param spriteMargin - Distance around an item sprite stored in the cells it reaches, 0
+     * to store the items in the cell of their position only.
      */
     public constructor(
         public readonly cellSize: number,
         private readonly cellClass: CellClass<T>,
+        private readonly spriteMargin = 0,
     ) {}
 
     private getKey(x: number, y: number): string {
@@ -75,7 +81,23 @@ export class Grid<T extends Cell> {
     }
 
     private getCellsForObject(obj: TrackObject): T[] {
+        if (this.spriteMargin > 0 && obj.kind === 'item' && (obj as Item).sprite !== null) {
+            return this.cellsAround(obj.pos, this.spriteMargin);
+        }
         return this.cellsCrossed(obj.pos, obj.endPos);
+    }
+
+    /** Cells within a distance of a position on each axis, created when needed. */
+    private cellsAround(pos: Vector, margin: number): T[] {
+        const from = Grid.gridCoords(new Vector(pos.x - margin, pos.y - margin), this.cellSize);
+        const to = Grid.gridCoords(new Vector(pos.x + margin, pos.y + margin), this.cellSize);
+        const cells: T[] = [];
+        for (let x = from.x; x <= to.x; x++) {
+            for (let y = from.y; y <= to.y; y++) {
+                cells.push(this.cell(x, y));
+            }
+        }
+        return cells;
     }
 
     /**

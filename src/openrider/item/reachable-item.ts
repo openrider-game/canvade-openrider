@@ -12,8 +12,33 @@ export abstract class ReachableItem extends Item {
     /** Fill color of the item once reached. */
     public static readonly reachedColor: string = '#fff';
 
-    /** Whether the player reached the item during the current run, reset on restart. */
-    public reached = false;
+    private isReached = false;
+
+    /**
+     * Whether the player reached the item during the current run, reset on restart. The reached
+     * items on the track are listed in `Track.reachedItems`, drawn over their sprite.
+     */
+    public get reached(): boolean {
+        return this.isReached;
+    }
+
+    public set reached(reached: boolean) {
+        this.isReached = reached;
+        if (reached && this.onTrack) {
+            this.track.reachedItems.add(this);
+        } else {
+            this.track.reachedItems.delete(this);
+        }
+    }
+
+    public override get drawnLive(): boolean {
+        return super.drawnLive || this.reached;
+    }
+
+    /** Drawn over its sprite in the reached color once reached, see `TrackRenderer`. */
+    public override get spriteColor(): string {
+        return this.reached ? this.reachedColor : super.spriteColor;
+    }
 
     protected get reachedColor(): string {
         return (this.constructor as typeof ReachableItem).reachedColor;
@@ -75,10 +100,14 @@ export abstract class ReachableItem extends Item {
     protected override onAdd(): void {
         super.onAdd();
         this.track.reachables.set(this.id, this);
+        if (this.reached) {
+            this.track.reachedItems.add(this);
+        }
     }
 
     protected override onDelete(): void {
         super.onDelete();
         this.track.reachables.delete(this.id);
+        this.track.reachedItems.delete(this);
     }
 }

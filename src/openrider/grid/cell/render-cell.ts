@@ -1,3 +1,5 @@
+import type { Item } from '../../item/item';
+import { drawItemSprites, type ItemSprites, packItemSprites } from '../../item/item-sprite';
 import { RenderPriority, WorkerPool } from '../../thread/worker-pool';
 import { MIN_ZOOM } from '../../track/track.constants';
 import { Zoom } from '../../track/zoom';
@@ -6,7 +8,10 @@ import { Cell } from './cell';
 /** Stroke colors of the scenery and solid lines in the cell images. */
 export const SCENERY_STROKE_STYLE = '#aaa',
     SOLID_STROKE_STYLE = '#000',
-    /** Cells with more lines than this are rendered by the workers with the fast renderer. */
+    /**
+     * Cells with more lines and item sprites than this are rendered by the workers with the fast
+     * renderer.
+     */
     FAST_RENDER_THRESHOLD = 500;
 
 /** Image of a cell: a canvas when rendered synchronously, a bitmap when rendered by a worker. */
@@ -25,7 +30,12 @@ export interface CellImage {
 let nextCellId = 0;
 
 /**
- * Cell of the render cache grid, keeping a pre-rendered image of its lines for each zoom level.
+ * Cell of the render cache grid, keeping a pre-rendered image of its lines and item sprites for
+ * each zoom level: the scenery lines, then the solid lines, then the sprites over them.
+ *
+ * A sprite near the edge of the cell is also stored in the cells it reaches, each drawing its
+ * part (see `Grid`); the items without a sprite are drawn on every frame (see
+ * {@link RenderCell.liveObjects}).
  *
  * Each change of the lines increments the content version of the cell, making its images stale
  * without discarding them. With the fast renderer, dense cells are rendered by the workers in
@@ -40,6 +50,12 @@ export class RenderCell extends Cell {
     /** Incremented each time the lines of the cell change. */
     private version = 0;
     private readonly images = new Map<number, CellImage>();
+    /** Items drawn on every frame, listed again once the content changes. */
+    private live: Item[] | null = null;
+    /** Number of items drawn as sprites, counted again once the content changes. */
+    private spriteCount: number | null = null;
+    /** Sprites of the cell flattened, once for every zoom level, again once the content changes. */
+    private packed: ItemSprites | null = null;
 
     /** Version of the lines of the cell, incremented each time they change. */
     public get contentVersion(): number {
@@ -49,11 +65,35 @@ export class RenderCell extends Cell {
     protected override clear(): void {
         // The stale images are kept to be displayed until they are rendered again
         this.version++;
+        this.live = null;
+        this.spriteCount = null;
+        this.packed = null;
     }
 
-    /** Whether the cell has enough lines to be rendered by the workers with the fast renderer. */
+    /** Sprites of the cell, flattened by `packItemSprites`: not to be changed, but copied. */
+    public get packedSprites(): ItemSprites {
+        this.packed ??= packItemSprites(this.objects);
+        return this.packed;
+    }
+
+    /** Items of the cell without a sprite, drawn on every frame, e.g. the command blocks. */
+    public get liveObjects(): readonly Item[] {
+        this.live ??= this.objects.filter((item) => item.sprite === null);
+        return this.live;
+    }
+
+    /** Number of items drawn in the images of the cell. */
+    public get sprites(): number {
+        this.spriteCount ??= this.objects.length - this.liveObjects.length;
+        return this.spriteCount;
+    }
+
+    /**
+     * Whether the cell has enough lines and sprites to be rendered by the workers with the fast
+     * renderer.
+     */
     public isHeavy(): boolean {
-        return this.lines.length + this.scenery.length > FAST_RENDER_THRESHOLD;
+        return this.lines.length + this.scenery.length + this.sprites > FAST_RENDER_THRESHOLD;
     }
 
     /**
@@ -184,7 +224,7 @@ export class RenderCell extends Cell {
         }
     }
 
-    /** Renders the cell lines synchronously, on the main thread. */
+    /** Renders the cell lines and sprites synchronously, on the main thread. */
     private renderNow(zoom: number, opacityFactor: number): CellImage {
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
@@ -208,6 +248,12 @@ export class RenderCell extends Cell {
         context.strokeStyle = SOLID_STROKE_STYLE;
         for (const line of this.lines) {
             line.renderCache(context, this.x * zoom - 1, this.y * zoom - 1, zoom);
+        }
+
+        if (this.sprites > 0) {
+            const { buffer, colors } = this.packedSprites;
+            const sprites = new Float64Array(buffer);
+            drawItemSprites(context, sprites, colors, zoom, this.x * zoom - 1, this.y * zoom - 1);
         }
 
         this.storeImage(zoom, this.version, canvas);

@@ -1,14 +1,18 @@
+import type { drawItemSprites } from '../item/item-sprite';
+
 /**
  * Body of the render workers.
  *
  * It is serialized with `toString()` to create the workers from a blob, so it must stay
- * self-contained: no imports nor outer references. Each cell is rendered on an offscreen canvas
- * like `RenderCell` does on the main thread, and sent back as an image bitmap.
+ * self-contained: no imports nor outer references, but `drawItemSprites`, set on the worker
+ * scope by the blob (see `WorkerPool`). Each cell is rendered on an offscreen canvas like
+ * `RenderCell` does on the main thread, and sent back as an image bitmap.
  */
 export function renderCellWorker(): void {
     interface WorkerScope {
         postMessage(message: unknown, transfer: Transferable[]): void;
         addEventListener(type: 'message', listener: (e: MessageEvent) => void): void;
+        drawItemSprites: typeof drawItemSprites;
     }
 
     const scope = self as unknown as WorkerScope;
@@ -48,6 +52,18 @@ export function renderCellWorker(): void {
             drawLines(task.sceneryBuffer);
             context.strokeStyle = '#000';
             drawLines(task.lineBuffer);
+
+            const sprites = new Float64Array(task.spriteBuffer);
+            if (sprites.length) {
+                scope.drawItemSprites(
+                    context,
+                    sprites,
+                    task.spriteColors,
+                    zoom,
+                    offsetLeft,
+                    offsetTop,
+                );
+            }
         }
 
         const bitmap = canvas.transferToImageBitmap();

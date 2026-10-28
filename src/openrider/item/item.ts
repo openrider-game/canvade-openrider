@@ -1,6 +1,7 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../entity/collidable';
 import type { Track } from '../track/track';
+import type { ItemShape } from './item-sprite';
 import { TrackObject } from './track-object';
 
 /** Static side of the item classes, used to read items from the track code. */
@@ -31,7 +32,9 @@ export function parseItemPosition(itemCode: string[]): Vector {
 /**
  * Object of the track touched by the bikes, drawn as a circle by default.
  *
- * Items are rendered on every frame from the cell objects, not in the cached line images.
+ * Items are drawn as sprites in the cached images of the render cells, with the lines (see
+ * {@link Item.sprite}); the others, and the items looking different for a while, e.g. once
+ * reached, are drawn on every frame instead (see {@link Item.drawnLive}).
  */
 export abstract class Item extends TrackObject {
     public static readonly itemName: string = 'Item';
@@ -43,6 +46,32 @@ export abstract class Item extends TrackObject {
     /** Static side of the item, giving its code and color. */
     public get itemClass(): ItemClass {
         return this.constructor as unknown as ItemClass;
+    }
+
+    /**
+     * Shape the item is drawn as in the cached images, filled with its color as
+     * {@link Item.render} draws it; null for an item drawn on every frame.
+     */
+    public get sprite(): ItemShape | null {
+        return 'circle';
+    }
+
+    /** Fill color of the sprite for now, see `ReachableItem`. */
+    public get spriteColor(): string {
+        return this.itemClass.color;
+    }
+
+    /** Rotation of the sprite, in radians. */
+    public get spriteRotation(): number {
+        return 0;
+    }
+
+    /**
+     * Whether the item is drawn on every frame with {@link Item.render}: without a sprite, or
+     * looking different from it for now, over it.
+     */
+    public get drawnLive(): boolean {
+        return this.sprite === null;
     }
 
     public override render(ctx: CanvasRenderingContext2D): void {

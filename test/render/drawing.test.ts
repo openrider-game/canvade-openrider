@@ -46,11 +46,23 @@ describe('Track drawing', () => {
         // Status effects drawn as glows around the bike
         track.playerRunner.modifiersMask = MODIFIERS.SLIPPERY | MODIFIERS.INVINCIBILITY;
 
-        const { context, calls } = render(true);
+        // The items are drawn in the images of the render cells, with the lines
+        const cellCalls: string[][] = [];
+        vi.stubGlobal('document', {
+            ...document,
+            createElement: () => {
+                const cell = createCanvasMock(0, 0);
+                cellCalls.push(cell.calls);
+                return cell.canvas;
+            },
+        });
+        const { context } = render(true);
+        const cells = cellCalls.flat();
 
-        expect(calls).toContain('arc');
-        expect(calls).toContain('rotate');
-        expect(calls).toContain('rect');
+        expect(cells).toContain('arc');
+        expect(cells).toContain('rect');
+        // A fill for each of the 13 items, the teleporter having two
+        expect(cells.filter((call) => call === 'fill').length).toBeGreaterThanOrEqual(13);
         expect(vi.mocked(context.fillText).mock.calls.map(([text]) => text)).toContain('Rival');
         expect(context.shadowColor).toBeDefined();
     });
@@ -62,8 +74,9 @@ describe('Track drawing', () => {
         track.restart();
         const bmxStrokes = render().calls.filter((call) => call === 'stroke').length;
 
-        expect(mtbStrokes).toBeGreaterThan(10);
-        expect(bmxStrokes).toBeGreaterThan(10);
+        // The items being drawn in the cell images, the strokes of the bike and its rider
+        expect(mtbStrokes).toBeGreaterThan(5);
+        expect(bmxStrokes).toBeGreaterThan(5);
     });
 
     test('draws the ragdoll of a crashed rider and the shards of an explosion', () => {

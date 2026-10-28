@@ -149,6 +149,11 @@ export class CommandBlock extends Item {
         this.track.commands.removeBlock(this);
     }
 
+    /** Drawn on every frame: the editor draws what it acts on around it. */
+    public override get sprite(): null {
+        return null;
+    }
+
     /** Draws a dark block, and in the editor what it acts on (see `Track.editing`). */
     public override render(ctx: CanvasRenderingContext2D): void {
         const pos = this.track.toPixel(this.pos);

@@ -1,4 +1,5 @@
 import type { BikeRunner } from '../bike/runner/bike-runner';
+import type { ItemShape } from './item-sprite';
 import { ReachableItem } from './reachable-item';
 
 /**
@@ -17,6 +18,10 @@ export abstract class StatusItem extends ReachableItem {
      */
     protected static setModifier(runner: BikeRunner, flag: number, group = 0): void {
         runner.modifiersMask = (runner.modifiersMask & ~group) | flag;
+    }
+
+    public override get sprite(): ItemShape {
+        return 'square';
     }
 
     public override render(ctx: CanvasRenderingContext2D): void {

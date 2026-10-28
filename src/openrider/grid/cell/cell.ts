@@ -26,6 +26,16 @@ export abstract class Cell {
         public readonly size: number,
     ) {}
 
+    /** Whether a position is in the cell, e.g. the position of an object. */
+    public contains(pos: { x: number; y: number }): boolean {
+        return (
+            pos.x >= this.x &&
+            pos.x < this.x + this.size &&
+            pos.y >= this.y &&
+            pos.y < this.y + this.size
+        );
+    }
+
     /**
      * Stores the object in the list matching its kind: after the others, or at its rank among
      * them when it has one (see {@link TrackObject.order}).

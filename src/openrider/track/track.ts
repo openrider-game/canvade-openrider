@@ -18,6 +18,7 @@ import type { TrackObject } from '../item/track-object';
 import { ToolCollection } from '../tool/tool-collection';
 import { ToolManager } from '../tool/tool-manager';
 import { DebugOptions, defaultDebugOptions } from './debug-options';
+import { ReachedItems } from './reached-items';
 import { LayerStack } from './layer-stack';
 import { DEFAULT_ZOOM, MAX_LINE_LENGTH, MIN_LINE_LENGTH } from './track.constants';
 import { Zoom } from './zoom';
@@ -65,6 +66,8 @@ export class Track extends World {
     public readonly targets = new Map<number, Target>();
     /** Reachable items of the track by id, targets included. */
     public readonly reachables = new Map<number, ReachableItem>();
+    /** Reachable items the player reached on the track, drawn over their sprite. */
+    public readonly reachedItems = new ReachedItems(this);
     /** Command blocks of the track and the objects of their areas. */
     public readonly commands = new CommandRegistry(this);
     /**
