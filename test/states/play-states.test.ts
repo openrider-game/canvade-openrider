@@ -1,6 +1,7 @@
 import { State, StateClass, StateManager } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GameConfig } from '../../src/openrider/config/game-config';
+import { TrackFormat } from '../../src/openrider/parser/track-format';
 import { GhostVerifier } from '../../src/verify/ghost-verifier';
 import { Session } from '../../src/states/session';
 import {
@@ -43,8 +44,8 @@ async function runFrames(frames: number, until?: string): Promise<void> {
 
 function fetchMock() {
     return vi.fn(async (url: string) => {
-        const body = url.includes('trackdata') ? { CODE: RACE_CODE } : { ID: 77 };
-        return new Response(JSON.stringify(body));
+        // The track itself, here of the original format
+        return new Response(url.includes('trackdata') ? RACE_CODE : JSON.stringify({ ID: 77 }));
     });
 }
 
@@ -142,7 +143,9 @@ describe('Upload state', () => {
         expect(manager.getCurrent() === manager.getState(STATE_TRACK_GENERATOR)).toBe(true);
         await runFrames(400, STATE_TRACK_UPLOAD);
 
-        expect(session.trackCode).toBe('-18 1i 18 1i,#####BMX#0 0');
+        expect(TrackFormat.read(session.trackCode ?? '').layers[0].solid).toEqual([
+            [-40, 50, 40, 50],
+        ]);
         expect(session.track.paused).toBe(true);
         expect(session.track.toolCollection.getByToolName('Eraser')).toBeUndefined();
 
@@ -171,9 +174,13 @@ describe('Upload state', () => {
         (manager.getCurrent() as TrackUploadState).getButtons()[1].action();
         await new Promise((resolve) => setTimeout(resolve, 10));
 
+        // The track file sent as a file
         const params = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
-            .body as URLSearchParams;
-        expect(params.get('trackCode')).toBe(TARGET_TRACK_CODE);
+            .body as FormData;
+        const file = new Uint8Array(await (params.get('trackCode') as Blob).arrayBuffer());
+        expect(file).toEqual(session.trackCode);
+        expect(TrackFormat.read(file).bike).toBe('BMX');
+        expect(TrackFormat.targetCount(file)).toBe(1);
         expect(params.get('thumbnail')).toBe('THUMBNAIL');
         expect(location.href).toBe('?track=77');
     });

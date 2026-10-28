@@ -1,3 +1,4 @@
+import { formatItem, type Polyline } from '../../src/openrider/parser/track-document';
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { invertEdit, TrackEdit } from '../../src/openrider/edit/track-edit';
@@ -39,23 +40,28 @@ function content(track: Track) {
     while (!generator.done) {
         generator.currentStep();
     }
-    const segments = (polylines: string) =>
+    // Each line of the polylines, as its base 32 points
+    const segments = (polylines: Polyline[]) =>
         polylines
-            .split(',')
-            .filter(Boolean)
-            .flatMap((polyline) => {
-                const points = polyline.split(' ');
-                return points
-                    .slice(0, -2)
-                    .flatMap((_, i) => (i % 2 ? [] : [points.slice(i, i + 4).join(' ')]));
-            })
+            .flatMap((points) =>
+                points.slice(0, -2).flatMap((_, i) =>
+                    i % 2
+                        ? []
+                        : [
+                              points
+                                  .slice(i, i + 4)
+                                  .map((value) => value.toString(32))
+                                  .join(' '),
+                          ],
+                ),
+            )
             .sort();
     return generator.getDocument().layers.map((layer) => ({
         name: layer.name,
         type: layer.type,
         solid: segments(layer.solid),
-        scenery: segments(layer.scenery),
-        items: layer.items.split(',').filter(Boolean).sort(),
+        scenery: segments(layer.scenery.flatMap((group) => group.polylines)),
+        items: layer.items.map(formatItem).sort(),
     }));
 }
 
@@ -166,6 +172,26 @@ describe('Track editor', () => {
         expect(content(other)).toEqual(content(track));
         // The layer moved under the main one, the removal of the foreground one undone
         expect(content(track).map((layer) => layer.name)).toEqual(['Bridge', 'Main', 'Foreground']);
+    });
+
+    test('give the scenery lines their color on another screen', () => {
+        const track = parseTrack(TRACK_CODE);
+        const edits: TrackEdit[] = [];
+        track.editor.onEdit = (edit) => edits.push(JSON.parse(JSON.stringify(edit)));
+        const rose = on(new SceneryLine(new Vector(0, -50), new Vector(30, -80), track), track);
+        rose.color = 1;
+        const grey = on(new SceneryLine(new Vector(30, -80), new Vector(60, -50), track), track);
+        track.editor.add([rose, grey]);
+
+        // The color of a colored line after its points, none for a grey line
+        const codes = edits.flatMap((edit) => (edit.type === 'add' ? edit.objects : []));
+        expect(codes.map((object) => object.code)).toEqual(['0 -1i u -2g 1', 'u -2g 1s -1i']);
+        const other = parseTrack(TRACK_CODE);
+        edits.forEach((edit) => other.editor.apply(edit));
+        const colors = [...other.layers.main[0].grid.totalSceneryLines.values()]
+            .filter((line) => line.pos.y <= -50)
+            .map((line) => line.color);
+        expect(colors).toEqual([1, 0]);
     });
 
     test('undoes every edit, back to the parsed track', () => {

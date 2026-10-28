@@ -1,11 +1,12 @@
 import { Vector } from 'canvade';
-import { SCENERY_STROKE_STYLE, SOLID_STROKE_STYLE } from '../grid/cell/render-cell';
+import { SOLID_STROKE_STYLE } from '../grid/cell/render-cell';
 import { CommandBlock } from '../item/command/command-block';
 import { Boost } from '../item/directional/boost';
 import { Gravity } from '../item/directional/gravity';
 import { Launcher } from '../item/directional/launcher';
 import type { Item, ItemClass } from '../item/item';
 import { LinkedCheckpoint } from '../item/linked/linked-checkpoint';
+import { sceneryColor } from '../item/line/scenery-colors';
 import { Teleporter } from '../item/linked/teleporter';
 import { Bomb } from '../item/misc/bomb';
 import { Mud } from '../item/misc/mud';
@@ -79,24 +80,33 @@ function itemIcon(
     };
 }
 
+/** Icons of the drawing tools by key, each created once. */
+const STROKE_ICONS = new Map<string, DrawnIcon>();
+
 /**
  * Icon of a drawing tool: a shape traced in a 24 pixels icon, stroked with the color of the lines
  * the tool draws, solid or scenery.
  *
+ * @param color - Color of the scenery lines (see `SCENERY_COLORS`), null for the solid lines.
  * @param trace - Traces the shape, with the size of a pixel of the 24 pixels icon.
  */
 function strokeIcon(
     name: string,
-    scenery: boolean,
+    color: number | null,
     trace: (ctx: CanvasRenderingContext2D, unit: number) => void,
 ): DrawnIcon {
-    return {
+    const key = `${name}:${color === null ? 'solid' : `scenery${color}`}`;
+    const existing = STROKE_ICONS.get(key);
+    if (existing) {
+        return existing;
+    }
+    const icon: DrawnIcon = {
         type: 'drawn',
-        key: `${name}:${scenery ? 'scenery' : 'solid'}`,
+        key,
         draw(ctx, size) {
             const unit = size / 24;
             ctx.save();
-            ctx.strokeStyle = scenery ? SCENERY_STROKE_STYLE : SOLID_STROKE_STYLE;
+            ctx.strokeStyle = color === null ? SOLID_STROKE_STYLE : sceneryColor(color);
             ctx.fillStyle = ctx.strokeStyle;
             ctx.lineWidth = 2.5 * unit;
             ctx.lineCap = 'round';
@@ -107,19 +117,21 @@ function strokeIcon(
             ctx.restore();
         },
     };
+    STROKE_ICONS.set(key, icon);
+    return icon;
 }
 
 /** Icon of a line tool: a line across the icon. */
-function lineIcon(scenery: boolean): DrawnIcon {
-    return strokeIcon('line', scenery, (ctx, unit) => {
+export function lineIcon(color: number | null): DrawnIcon {
+    return strokeIcon('line', color, (ctx, unit) => {
         ctx.moveTo(5 * unit, 19 * unit);
         ctx.lineTo(19 * unit, 5 * unit);
     });
 }
 
 /** Icon of a brush tool: a free hand stroke. */
-function brushIcon(scenery: boolean): DrawnIcon {
-    return strokeIcon('brush', scenery, (ctx, unit) => {
+export function brushIcon(color: number | null): DrawnIcon {
+    return strokeIcon('brush', color, (ctx, unit) => {
         ctx.moveTo(5 * unit, 16 * unit);
         ctx.bezierCurveTo(8 * unit, 6 * unit, 11 * unit, 6 * unit, 12 * unit, 12 * unit);
         ctx.bezierCurveTo(13 * unit, 18 * unit, 16 * unit, 18 * unit, 19 * unit, 8 * unit);
@@ -127,15 +139,15 @@ function brushIcon(scenery: boolean): DrawnIcon {
 }
 
 /** Icon of the circle tool: a circle filling the icon. */
-function circleIcon(scenery: boolean): DrawnIcon {
-    return strokeIcon('circle', scenery, (ctx, unit) => {
+export function circleIcon(color: number | null): DrawnIcon {
+    return strokeIcon('circle', color, (ctx, unit) => {
         ctx.arc(12 * unit, 12 * unit, 9 * unit, 0, 2 * Math.PI);
     });
 }
 
 /** Icon of the curve tool: an arch between its two end points, drawn as dots. */
-function curveIcon(scenery: boolean): DrawnIcon {
-    return strokeIcon('curve', scenery, (ctx, unit) => {
+export function curveIcon(color: number | null): DrawnIcon {
+    return strokeIcon('curve', color, (ctx, unit) => {
         ctx.moveTo(4 * unit, 19 * unit);
         ctx.bezierCurveTo(6 * unit, 6 * unit, 18 * unit, 6 * unit, 20 * unit, 19 * unit);
         ctx.stroke();
@@ -174,11 +186,11 @@ export const TARGET_ICON = itemIcon(Target),
     MIRROR_ICON = itemIcon(Mirror),
     TURBO_ICON = itemIcon(Turbo),
     COMMAND_BLOCK_ICON = itemIcon(CommandBlock, BLOCK_EXTENT),
-    SOLID_LINE_ICON = lineIcon(false),
-    SCENERY_LINE_ICON = lineIcon(true),
-    SOLID_BRUSH_ICON = brushIcon(false),
-    SCENERY_BRUSH_ICON = brushIcon(true),
-    SOLID_CIRCLE_ICON = circleIcon(false),
-    SCENERY_CIRCLE_ICON = circleIcon(true),
-    SOLID_CURVE_ICON = curveIcon(false),
-    SCENERY_CURVE_ICON = curveIcon(true);
+    SOLID_LINE_ICON = lineIcon(null),
+    SCENERY_LINE_ICON = lineIcon(0),
+    SOLID_BRUSH_ICON = brushIcon(null),
+    SCENERY_BRUSH_ICON = brushIcon(0),
+    SOLID_CIRCLE_ICON = circleIcon(null),
+    SCENERY_CIRCLE_ICON = circleIcon(0),
+    SOLID_CURVE_ICON = curveIcon(null),
+    SCENERY_CURVE_ICON = curveIcon(0);

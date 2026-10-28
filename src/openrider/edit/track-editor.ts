@@ -2,6 +2,7 @@ import { Vector } from 'canvade';
 import { Cell } from '../grid/cell/cell';
 import { LinkedItemGroup } from '../item/linked-item-group';
 import type { TrackObject } from '../item/track-object';
+import { parseItem } from '../parser/track-document';
 import type { Track } from '../track/track';
 import { TrackLayer, TrackLayerType } from '../track/track-layer';
 import { codeOf, objectFromCode, orderOf, rankObject, unitOf } from './edit-objects';

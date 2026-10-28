@@ -1,21 +1,23 @@
+import type { Item } from '../item/item';
+import type { Line } from '../item/line/line';
 import type { TrackObject } from '../item/track-object';
 import type { Track } from '../track/track';
 import type { TrackLayer } from '../track/track-layer';
-import { LayerDocument, TrackDocument, TrackFormat } from './track-format';
+import { addScenery, type LayerDocument, type TrackDocument } from './track-document';
+import { TrackFormat } from './track-format';
 
 /** Section of a layer being serialized. */
 interface GeneratorData {
     objects: TrackObject[];
     index: number;
-    code: string;
+    /** Adds an object not recorded yet to the layer document. */
+    record(object: TrackObject): void;
 }
 
-/** Sections of a layer being serialized. */
+/** Sections of a layer being serialized, into its document. */
 interface LayerData {
     layer: TrackLayer;
-    solid: GeneratorData;
-    scenery: GeneratorData;
-    items: GeneratorData;
+    document: LayerDocument;
 }
 
 // Number of entities serialized on each step
@@ -24,9 +26,9 @@ const STEP_SIZE = 1000;
 /**
  * Serializes a track a few entities at a time, so that the export can display its progress.
  *
- * Each layer is serialized in the entity format of the track codes; the result can then be read
- * as a track code (main layers and foreground layers merged, see `TrackFormat`) or as an editor
- * file keeping every layer.
+ * Each layer is serialized into a `LayerDocument`: connected lines as polylines, scenery lines
+ * by color. The result can then be written as a track code (main layers and foreground layers
+ * merged, see `TrackFormat`) or as an editor file keeping every layer.
  *
  * Call {@link TrackGenerator.currentStep} until {@link TrackGenerator.done}, then read the
  * result with {@link TrackGenerator.getCode} or {@link TrackGenerator.getEditorCode}.
@@ -44,20 +46,38 @@ export class TrackGenerator {
     private sectionIndex = 0;
 
     public constructor(private readonly track: Track) {
-        const section = (objects: Map<number, TrackObject>): GeneratorData => ({
-            objects: Array.from(objects.values()),
-            index: 0,
-            code: '',
-        });
-
         this.layers = track.layers.all.map((layer) => ({
             layer,
-            solid: section(layer.grid.totalSolidLines),
-            scenery: section(layer.grid.totalSceneryLines),
-            items: section(layer.grid.totalObjects),
+            document: {
+                name: layer.name,
+                type: layer.type,
+                visible: layer.visible,
+                solid: [],
+                scenery: [],
+                items: [],
+            },
         }));
-        this.sections = this.layers.flatMap(({ solid, scenery, items }) => [solid, scenery, items]);
+        this.sections = this.layers.flatMap(({ layer, document }) => [
+            TrackGenerator.section(layer.grid.totalSolidLines, (object) =>
+                document.solid.push((object as Line).toPolyline()),
+            ),
+            TrackGenerator.section(layer.grid.totalSceneryLines, (object) =>
+                addScenery(document.scenery, (object as Line).color, [
+                    (object as Line).toPolyline(),
+                ]),
+            ),
+            TrackGenerator.section(layer.grid.totalObjects, (object) =>
+                document.items.push((object as Item).toEntity()),
+            ),
+        ]);
         this.length = this.sections.reduce((total, data) => total + data.objects.length, 0);
+    }
+
+    private static section(
+        objects: Map<number, TrackObject>,
+        record: (object: TrackObject) => void,
+    ): GeneratorData {
+        return { objects: Array.from(objects.values()), index: 0, record };
     }
 
     /** Updates {@link TrackGenerator.progress} from the state of every section. */
@@ -81,7 +101,7 @@ export class TrackGenerator {
         for (; data.index < l; data.index++) {
             const obj = data.objects[data.index];
             if (!obj.recorded) {
-                data.code += `${obj.toString()},`;
+                data.record(obj);
             }
         }
 
@@ -108,16 +128,9 @@ export class TrackGenerator {
     /** Content of the track, once every step is done. */
     public getDocument(): TrackDocument {
         return {
-            layers: this.layers.map(({ layer, solid, scenery, items }): LayerDocument => ({
-                name: layer.name,
-                type: layer.type,
-                visible: layer.visible,
-                solid: solid.code,
-                scenery: scenery.code,
-                items: items.code,
-            })),
+            layers: this.layers.map(({ document }) => document),
             bike: this.track.playerRunner.bikeClass.bikeName,
-            origin: this.track.origin.toString(),
+            origin: { x: Math.round(this.track.origin.x), y: Math.round(this.track.origin.y) },
         };
     }
 
@@ -129,5 +142,14 @@ export class TrackGenerator {
     /** Editor file of the track, keeping its layers, once every step is done. */
     public getEditorCode(): string {
         return TrackFormat.toEditorCode(this.getDocument());
+    }
+
+    /**
+     * Bytes of the track file, once every step is done.
+     *
+     * @param editor - Whether to keep the layers, as an editor file, else as a track code.
+     */
+    public getFile(editor: boolean): Uint8Array<ArrayBuffer> {
+        return TrackFormat.encode(this.getDocument(), editor);
     }
 }

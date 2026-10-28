@@ -1,7 +1,8 @@
 import type { Item } from '../../item/item';
 import { type ItemSprites, packItemSprites } from '../../item/item-sprite';
+import { SCENERY_COLORS, SCENERY_STROKE_STYLES } from '../../item/line/scenery-colors';
 import type { TrackObject } from '../../item/track-object';
-import { type CellDrawing, flattenLines, painter } from '../../render/painter';
+import { type CellDrawing, flattenLines, flattenScenery, painter } from '../../render/painter';
 import { RenderPriority, WorkerPool } from '../../thread/worker-pool';
 import { MIN_ZOOM } from '../../track/track.constants';
 import type { Track } from '../../track/track';
@@ -12,8 +13,11 @@ import { CellPatcher } from './cell-patcher';
 
 export type { CellImage, CellImageSource } from './cell-images';
 
-/** Stroke colors of the scenery and solid lines in the cell images, as `createPainter` draws them. */
-export const SCENERY_STROKE_STYLE = '#aaa',
+/**
+ * Stroke colors of the grey scenery lines and of the solid lines in the cell images, as
+ * `createPainter` draws them.
+ */
+export const SCENERY_STROKE_STYLE = SCENERY_COLORS[0].color,
     SOLID_STROKE_STYLE = '#000',
     /**
      * Cells with more lines and item sprites than this are rendered by the workers with the fast
@@ -139,7 +143,7 @@ export class RenderCell extends Cell {
      */
     public drawing(zoom: number, opacityFactor: number): CellDrawing {
         this.packedLines ??= {
-            scenery: flattenLines(this.scenery),
+            scenery: flattenScenery(this.scenery),
             lines: flattenLines(this.lines),
         };
         const { buffer, colors } = this.packedSprites;
@@ -150,6 +154,7 @@ export class RenderCell extends Cell {
             offsetLeft: this.x * zoom - 1,
             offsetTop: this.y * zoom - 1,
             scenery: this.packedLines.scenery,
+            sceneryColors: SCENERY_STROKE_STYLES,
             lines: this.packedLines.lines,
             sprites: new Float64Array(buffer),
             spriteColors: colors,

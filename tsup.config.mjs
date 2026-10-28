@@ -10,13 +10,19 @@ export default defineConfig([
     {
         entry: ["src/main.ts"],
         define,
+        // Resolves the browser builds of the dependencies, e.g. fflate without its Node workers
+        platform: "browser",
         splitting: false,
         sourcemap: true,
         dts: true,
     },
-    // The ghost verifier of the backend, for Node: dist/verify-ghost.cjs
+    // The ghost verifier of the backend, for Node: dist/verify-ghost.cjs, and the converter of
+    // its migration to the track files: dist/convert-tracks.cjs
     {
-        entry: { "verify-ghost": "server/verify/verify-ghost.ts" },
+        entry: {
+            "verify-ghost": "server/verify/verify-ghost.ts",
+            "convert-tracks": "server/convert/convert-tracks.ts",
+        },
         platform: "node",
         format: "cjs",
         outExtension: () => ({ js: ".cjs" }),

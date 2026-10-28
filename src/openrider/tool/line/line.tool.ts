@@ -1,10 +1,9 @@
 import { Control, KEYQ, Vector } from 'canvade';
-import type { LineClass } from '../../item/line/line';
 import { InterfaceScale } from '../../numeric/interface-scale';
 import { LinePath } from '../../numeric/line-path';
 import { MAX_LINE_LENGTH, MIN_LINE_LENGTH } from '../../track/track.constants';
 import { Tool, ToolIcon, ToolOption } from '../tool';
-import { SCENERY_LINE_ICON, SOLID_LINE_ICON } from '../tool-icons';
+import { lineIcon, SOLID_LINE_ICON } from '../tool-icons';
 import { DrawingLines } from './drawing-lines';
 
 /** Distance to the canvas border under which the camera scrolls while drawing, in pixels. */
@@ -27,17 +26,12 @@ export class LineTool extends Tool {
     /** Drawn without a pointer too: the start of the next connected line, after a finger lifted. */
     public override alwaysRender = true;
 
-    /** Class of the drawn lines, solid or scenery. */
-    protected get lineClass(): LineClass {
-        return DrawingLines.lineClass;
-    }
-
     public override getIcon(): ToolIcon {
-        return DrawingLines.isScenery ? SCENERY_LINE_ICON : SOLID_LINE_ICON;
+        return lineIcon(DrawingLines.strokeColor);
     }
 
     public override getOptions(): ToolOption[] {
-        return [DrawingLines.option(this.track), this.connectOption()];
+        return [...DrawingLines.options(this.track), this.connectOption()];
     }
 
     /** The connect option, starting afresh when switched on. */
@@ -94,7 +88,7 @@ export class LineTool extends Tool {
      * @param startPos - Start of the line, in world units.
      */
     protected addLine(startPos: Vector): void {
-        const line = new this.lineClass(startPos.clone(), this.track.mousePos.clone(), this.track);
+        const line = DrawingLines.create(startPos.clone(), this.track.mousePos.clone(), this.track);
         this.lastLine = this.track.mousePos.clone();
 
         // Such lines would never collide nor render, but would still be exported

@@ -293,7 +293,9 @@ describe('Render worker', () => {
                         opacityFactor: 0.5,
                         offsetLeft: 400 * 0.5 - 1,
                         offsetTop: -1,
-                        scenery: new Int32Array([400, 0, 500, 0]),
+                        // A scenery line of color 3, then two solid lines
+                        scenery: new Int32Array([400, 0, 500, 0, 3]),
+                        sceneryColors: ['#aaa', '#111', '#222', '#333'],
                         lines: new Int32Array([400, 10, 500, 10, 400, 20, 500, 20]),
                         sprites: new Float64Array(),
                         spriteColors: [],

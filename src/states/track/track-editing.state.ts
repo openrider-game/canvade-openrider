@@ -102,10 +102,11 @@ export class TrackEditingState extends TrackPlayState {
     }
 
     /**
-     * Loads a track code or an editor file, then pops back to the parser state, which parses it
-     * as a new track to edit: a track code becomes a main and a foreground layer.
+     * Loads a track file or an editor file, in any format (see `TrackFormat.read`), then pops
+     * back to the parser state, which parses it as a new track to edit: a track code becomes a
+     * main and a foreground layer.
      *
-     * An invalid editor file is refused in a dialog, keeping the current track.
+     * An invalid file is refused in a dialog, keeping the current track.
      */
     private importTrack(): void {
         const input = document.createElement('input');
@@ -118,7 +119,7 @@ export class TrackEditingState extends TrackPlayState {
 
             const reader = new FileReader();
             reader.addEventListener('load', () => {
-                const code = String(reader.result);
+                const code = new Uint8Array(reader.result as ArrayBuffer);
                 try {
                     TrackFormat.read(code);
                 } catch (e) {
@@ -133,7 +134,7 @@ export class TrackEditingState extends TrackPlayState {
                 session.trackId = null;
                 this.manager.pop();
             });
-            reader.readAsText(file);
+            reader.readAsArrayBuffer(file);
         });
 
         input.click();

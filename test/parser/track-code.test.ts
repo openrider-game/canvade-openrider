@@ -1,5 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import { LinkedItem } from '../../src/openrider/item/linked-item';
+import { formatItem } from '../../src/openrider/parser/track-document';
+import { TrackFormat } from '../../src/openrider/parser/track-format';
 import { TrackGenerator } from '../../src/openrider/parser/track-generator';
 import { TrackParser } from '../../src/openrider/parser/track-parser';
 import { Track } from '../../src/openrider/track/track';
@@ -27,9 +29,22 @@ function generate(track: Track): string {
     return generator.getCode();
 }
 
-/** Track code entities of a section, sorted to compare codes regardless of the order. */
+/**
+ * Entities of a section of a track code, in the base 32 text of the original track codes, sorted
+ * to compare codes regardless of the order: the solid lines, the scenery lines and the items of
+ * the main layer, then the solid lines and the scenery lines of the foreground layer.
+ */
 function entities(code: string, section: number): string[] {
-    return code.split('#')[section].split(',').filter(Boolean).sort();
+    const [main, foreground] = TrackFormat.read(code).layers;
+    const polylines = (points: number[][]) =>
+        points.map((polyline) => polyline.map((value) => value.toString(32)).join(' '));
+    return [
+        polylines(main.solid),
+        polylines(main.scenery.flatMap((group) => group.polylines)),
+        main.items.map(formatItem),
+        polylines(foreground.solid),
+        polylines(foreground.scenery.flatMap((group) => group.polylines)),
+    ][section].sort();
 }
 
 describe('Track parser', () => {
@@ -135,7 +150,7 @@ describe('Track generator', () => {
         for (const section of [0, 1, 2, 3, 4]) {
             expect(entities(reparsed, section)).toEqual(entities(code, section));
         }
-        expect(code.split('#').slice(5)).toEqual(['MTB', 'a -5']);
+        expect(TrackFormat.read(code)).toMatchObject({ bike: 'MTB', origin: { x: 10, y: -5 } });
     });
 
     test('exports connected lines as a single polyline', () => {
@@ -178,7 +193,7 @@ describe('Track generator', () => {
         const code = generate(track);
 
         expect(entities(code, 2)).not.toContain('W 8 8 9 9');
-        expect(code.endsWith('#10 20')).toBe(true);
+        expect(TrackFormat.read(code).origin).toEqual({ x: 32, y: 64 });
     });
 
     test('reports its progress', () => {

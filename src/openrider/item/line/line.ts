@@ -1,6 +1,7 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../../entity/collidable';
 import { Grid } from '../../grid/grid';
+import type { Polyline } from '../../parser/track-document';
 import type { Track } from '../../track/track';
 import { TrackObject } from '../track-object';
 
@@ -24,6 +25,11 @@ export abstract class Line extends TrackObject {
      * cells must only collide once. Reset by `PhysicsCell.untouch`.
      */
     public touched = false;
+    /**
+     * Index of the color of a scenery line in `SCENERY_COLORS`, 0 for the grey of the original
+     * scenery; always 0 for a solid line.
+     */
+    public color = 0;
 
     public constructor(pos: Vector, endPos: Vector, track: Track) {
         super(pos, track);
@@ -63,25 +69,31 @@ export abstract class Line extends TrackObject {
     }
 
     /**
-     * Serializes the end of the line, followed by the lines connected to it.
-     *
-     * A polyline is thus exported as a single list of points, every chained line being marked as
-     * recorded so that it is not exported again on its own.
+     * Points of the line followed by the lines connected after it, of the same kind and color,
+     * rounded: a polyline is thus exported as a single list of points, every chained line being
+     * marked as recorded so that it is not exported again on its own.
      */
-    private getEnd(): string {
-        this.recorded = true;
-        let end = ' ' + this.endPos.toString();
-        const gridCoords = Grid.gridCoords(this.endPos, this.grid.cellSize);
-        const next = this.grid.cell(gridCoords.x, gridCoords.y).search(this.endPos, this.kind);
-        if (next) {
-            end += next.getEnd();
+    public toPolyline(): Polyline {
+        const polyline = [Math.round(this.pos.x), Math.round(this.pos.y)];
+        for (let line: Line | undefined = this; line; line = line.next()) {
+            line.recorded = true;
+            polyline.push(Math.round(line.endPos.x), Math.round(line.endPos.y));
         }
-
-        return end;
+        return polyline;
     }
 
-    /** Serializes the line and the lines chained after it, as a list of base 32 points. */
+    /** The polyline of the line in base 32, see {@link Line.toPolyline}. */
     public toString(): string {
-        return this.pos.toString() + this.getEnd();
+        return this.toPolyline()
+            .map((value) => value.toString(32))
+            .join(' ');
+    }
+
+    /** The line connected after this one not exported yet, of the same kind and color. */
+    private next(): Line | undefined {
+        const gridCoords = Grid.gridCoords(this.endPos, this.grid.cellSize);
+        return this.grid
+            .cell(gridCoords.x, gridCoords.y)
+            .search(this.endPos, this.kind, this.color);
     }
 }

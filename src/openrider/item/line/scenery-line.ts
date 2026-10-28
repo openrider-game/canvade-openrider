@@ -1,6 +1,9 @@
 import { Line } from './line';
 
-/** Decorative line, rendered in grey and ignored by the physics. */
+/**
+ * Decorative line, rendered in its color (see {@link Line.color} and `SCENERY_COLORS`) and
+ * ignored by the physics.
+ */
 export class SceneryLine extends Line {
     public readonly kind = 'scenery';
 

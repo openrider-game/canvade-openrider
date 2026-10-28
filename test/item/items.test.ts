@@ -1,3 +1,4 @@
+import { parseItem } from '../../src/openrider/parser/track-document';
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
@@ -440,7 +441,7 @@ describe('Launchers and mud', () => {
         ]);
         // Written with its rotation as the boosts, and read back the same
         const code = place(new Launcher(new Vector(32, 64), 90, track)).toString();
-        const parsed = Launcher.createInstance(code.split(' '), track) as Launcher;
+        const parsed = Launcher.createInstance(parseItem(code)?.values ?? [], track) as Launcher;
         expect(code.startsWith('X 10 20 ')).toBe(true);
         expect(parsed.rotation).toBe(90);
         expect(parsed.direction.x).toBeCloseTo(-LAUNCH_STRENGTH);
@@ -450,7 +451,8 @@ describe('Launchers and mud', () => {
 
 describe('Teleporters', () => {
     function placeTeleporters(): Teleporter[] {
-        const group = LinkedItemGroup.createGroup(['W', '3c', '0', '6g', '0'], track, Teleporter);
+        // At 108 0 and 208 0: 3c 0 and 6g 0 in base 32
+        const group = LinkedItemGroup.createGroup([108, 0, 208, 0], track, Teleporter);
         place(group);
         return group.instances as Teleporter[];
     }
@@ -524,11 +526,7 @@ describe('Teleporters', () => {
 
 describe('Linked checkpoints', () => {
     function placeCheckpoints(): LinkedCheckpoint[] {
-        const group = LinkedItemGroup.createGroup(
-            ['L', '3c', '0', '6g', '0'],
-            track,
-            LinkedCheckpoint,
-        );
+        const group = LinkedItemGroup.createGroup([108, 0, 208, 0], track, LinkedCheckpoint);
         place(group);
         return group.instances as LinkedCheckpoint[];
     }
