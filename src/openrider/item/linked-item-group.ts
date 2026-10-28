@@ -1,5 +1,6 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../entity/collidable';
+import type { ItemEntity } from '../parser/track-document';
 import type { Track } from '../track/track';
 import type { LinkedItem, LinkedItemClass } from './linked-item';
 import { ReachableItem } from './reachable-item';
@@ -33,21 +34,17 @@ export class LinkedItemGroup extends ReachableItem {
     }
 
     /**
-     * Exports the group as one item code, followed by the coordinates of each item.
+     * Exports the group as one item, its values being those of each item one after the other.
      *
      * @param code - Item letter of the group items.
      */
-    public serialize(code: string): string {
-        let serialized = code;
-        for (const instance of this.instances) {
-            instance.recorded = true;
-            // Strips the item code, keeping the coordinates
-            serialized += instance.toString(true).substring(code.length);
-        }
-        return serialized;
+    public serialize(code: string): ItemEntity {
+        this.recorded = true;
+        const values = this.instances.flatMap((instance) => instance.toEntity(true).values);
+        return { code, values };
     }
 
-    public override toString(): string {
+    public override toEntity(): ItemEntity {
         return this.serialize(this.instances[0]?.itemClass.code ?? '');
     }
 
@@ -97,27 +94,21 @@ export class LinkedItemGroup extends ReachableItem {
     }
 
     /**
-     * Creates a group and its items from a group code.
+     * Creates a group and its items from the values of the group.
      *
-     * @param itemCode - Group code split on spaces: the item letter, then the arguments of each
-     * item one after the other.
+     * @param values - Values of each item one after the other.
      */
     public static createGroup(
-        itemCode: string[],
+        values: number[],
         track: Track,
         itemClass: LinkedItemClass,
     ): LinkedItemGroup {
         const itemGroup = new LinkedItemGroup(track);
+        const count = itemClass.argumentCount;
 
         for (let itemIndex = 0; itemIndex < itemClass.itemCount; itemIndex++) {
-            const itemCodeArguments = [itemCode[0]];
-            for (let argumentIndex = 1; argumentIndex <= itemClass.argumentCount; argumentIndex++) {
-                itemCodeArguments.push(
-                    itemCode[itemIndex * itemClass.argumentCount + argumentIndex],
-                );
-            }
-
-            const instance = itemClass.createInstance(itemCodeArguments, track, true) as LinkedItem;
+            const itemValues = values.slice(itemIndex * count, (itemIndex + 1) * count);
+            const instance = itemClass.createInstance(itemValues, track, true) as LinkedItem;
             instance.group = itemGroup;
 
             itemGroup.instances.push(instance);

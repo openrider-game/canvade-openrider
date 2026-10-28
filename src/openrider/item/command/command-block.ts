@@ -2,7 +2,7 @@ import { Vector } from 'canvade';
 import type { BikeRunner } from '../../bike/runner/bike-runner';
 import type { Collidable } from '../../entity/collidable';
 import type { Track } from '../../track/track';
-import { Item, parseItemPosition } from '../item';
+import { Item, itemPosition } from '../item';
 
 /**
  * Commands of the blocks, in the order of their code in the track codes:
@@ -233,8 +233,8 @@ export class CommandBlock extends Item {
         ctx.restore();
     }
 
-    public override toString(): string {
-        this.recorded = true;
+    /** The position, then the kind and the settings of the kind, rounded. */
+    protected override values(): number[] {
         const { kind, area, offset, target, duration, zoom } = this.settings;
         const values: number[] = [COMMAND_KINDS.indexOf(kind)];
         const areaValues = area ? [area.left, area.top, area.right, area.bottom] : [0, 0, 0, 0];
@@ -249,13 +249,12 @@ export class CommandBlock extends Item {
             values.push(...areaValues);
         }
 
-        const settings = values.map((value) => Math.round(value).toString(32)).join(' ');
-        return `${this.itemClass.code} ${this.pos.toString()} ${settings}`;
+        return [...super.values(), ...values.map(Math.round)];
     }
 
-    /** Reads a command block from its track code, see {@link CommandBlock}. */
-    public static override createInstance(itemCode: string[], track: Track): Item {
-        const values = itemCode.slice(3).map((value) => parseInt(value, 32) || 0);
+    /** Reads a command block from its values, see {@link CommandBlock}. */
+    public static override createInstance(itemValues: number[], track: Track): Item {
+        const values = itemValues.slice(2);
         const kind = COMMAND_KINDS[values[0]] ?? 'zoom';
         const settings = defaultCommandSettings(kind);
         const [a = 0, b = 0, c = 0, d = 0, e = 0, f = 0, g = 0] = values.slice(1);
@@ -274,6 +273,6 @@ export class CommandBlock extends Item {
             }
         }
 
-        return new CommandBlock(parseItemPosition(itemCode), settings, track);
+        return new CommandBlock(itemPosition(itemValues), settings, track);
     }
 }

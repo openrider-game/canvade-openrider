@@ -1,3 +1,4 @@
+import { parseItem } from '../../src/openrider/parser/track-document';
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
@@ -107,7 +108,7 @@ describe('Command blocks', () => {
             const code = block(160, 32, setting).toString();
             expect(code.startsWith('A 50 10 ')).toBe(true);
             const parsed = ITEM_MAP.get('A')?.createInstance(
-                code.split(' '),
+                parseItem(code)?.values ?? [],
                 track,
             ) as CommandBlock;
             expect(parsed.settings).toMatchObject(setting);

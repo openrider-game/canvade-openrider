@@ -1,6 +1,4 @@
 import { Vector } from 'canvade';
-import { SCENERY_STROKE_STYLE, SOLID_STROKE_STYLE } from '../../grid/cell/render-cell';
-import type { LineClass } from '../../item/line/line';
 import { LinePath } from '../../numeric/line-path';
 import { MAX_LINE_LENGTH, MIN_LINE_LENGTH } from '../../track/track.constants';
 import { DrawingLines } from '../line/drawing-lines';
@@ -18,16 +16,11 @@ export const SHAPE_SEGMENT_LENGTH = 20;
  * shape saved and loaded again is the one drawn.
  */
 export abstract class ShapeTool extends Tool {
-    /** Class of the drawn lines. */
-    protected get lineClass(): LineClass {
-        return DrawingLines.lineClass;
-    }
-
     public override getOptions(): ToolOption[] {
-        return [DrawingLines.option(this.track), ...this.getShapeOptions()];
+        return [...DrawingLines.options(this.track), ...this.getShapeOptions()];
     }
 
-    /** Options of the shape, after the kind of lines. */
+    /** Options of the shape, after the kind and the color of the lines. */
     protected getShapeOptions(): ToolOption[] {
         return [];
     }
@@ -43,7 +36,7 @@ export abstract class ShapeTool extends Tool {
         const layer = this.track.layers.reveal(this.track.layers.active);
         const lines = points
             .slice(1)
-            .map((point, i) => new this.lineClass(points[i].clone(), point.clone(), this.track))
+            .map((point, i) => DrawingLines.create(points[i].clone(), point.clone(), this.track))
             .filter((line) => line.len >= MIN_LINE_LENGTH && line.len < MAX_LINE_LENGTH);
         if (lines.length === 0) {
             return 0;
@@ -70,13 +63,13 @@ export abstract class ShapeTool extends Tool {
         ctx.restore();
     }
 
-    /** Draws the lines a shape would add, in the color of their kind. */
+    /** Draws the lines a shape would add, in their color. */
     protected renderPreview(ctx: CanvasRenderingContext2D, points: Vector[]): void {
         ctx.save();
         ctx.lineWidth = Math.max(2 * this.track.zoomFactor, 0.5);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.strokeStyle = DrawingLines.isScenery ? SCENERY_STROKE_STYLE : SOLID_STROKE_STYLE;
+        ctx.strokeStyle = DrawingLines.strokeStyle;
         LinePath.render(ctx, [points.map((point) => this.track.toPixel(point))]);
         ctx.restore();
     }

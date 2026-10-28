@@ -1,6 +1,7 @@
 import { EventFactory, Mouse, State, StateClass, StateManager, Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { EDITOR_FORMAT, TrackFormat } from '../../src/openrider/parser/track-format';
+import { EDITOR_FORMAT } from '../../src/openrider/parser/legacy-format';
+import { TrackFormat } from '../../src/openrider/parser/track-format';
 import { Session } from '../../src/states/session';
 import {
     STATE_TRACK_EDITING,
@@ -282,8 +283,10 @@ describe('Editor files', () => {
         await runUntil(STATE_TRACK_EDITING);
 
         const [blob] = createObjectURL.mock.calls[0];
-        expect(blob.type).toBe('application/json');
-        const document = TrackFormat.read(await blob.text());
+        expect(blob.type).toBe('application/octet-stream');
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        expect(TrackFormat.isEditorCode(bytes)).toBe(true);
+        const document = TrackFormat.read(bytes);
         expect(document.layers.map((layer) => layer.name)).toEqual(['Ground', 'Glass', 'Ramps']);
     });
 
@@ -293,7 +296,7 @@ describe('Editor files', () => {
         const alert = vi.fn();
         vi.stubGlobal('alert', alert);
         const input = { files: [{}], addEventListener: vi.fn(), click: vi.fn() };
-        let fileContent = '';
+        let fileContent: Uint8Array = new Uint8Array();
         vi.stubGlobal('document', {
             ...document,
             createElement: (tag: string) => (tag === 'input' ? input : document.createElement(tag)),
@@ -301,19 +304,19 @@ describe('Editor files', () => {
         vi.stubGlobal(
             'FileReader',
             class {
-                public result = '';
+                public result: ArrayBuffer = new ArrayBuffer(0);
                 private onLoad = () => {};
                 public addEventListener(_name: string, listener: () => void) {
                     this.onLoad = listener;
                 }
-                public readAsText() {
-                    this.result = fileContent;
+                public readAsArrayBuffer() {
+                    this.result = fileContent.slice().buffer;
                     this.onLoad();
                 }
             },
         );
-        const importFile = (content: string) => {
-            fileContent = content;
+        const importFile = (content: string | Uint8Array) => {
+            fileContent = typeof content === 'string' ? new TextEncoder().encode(content) : content;
             (manager.getCurrent() as TrackEditingState).getButtons()[0].action();
             const [, onChange] = input.addEventListener.mock.calls.at(-1) as [string, () => void];
             onChange();
@@ -325,8 +328,25 @@ describe('Editor files', () => {
         );
         expect(manager.getCurrent() === manager.getState(STATE_TRACK_EDITING)).toBe(true);
 
+        importFile(new Uint8Array([0x4f, 0x52, 1, 0]));
+        expect(alert).toHaveBeenCalledWith(
+            'This file cannot be imported: The track file is truncated',
+        );
+
+        // A file of the original format
         importFile(EDITOR_CODE);
         expect(manager.getCurrent() === manager.getState(STATE_TRACK_PARSER)).toBe(true);
+        await runUntil(STATE_TRACK_EDITING);
+        expect(session.track.layers.all.map((layer) => layer.name)).toEqual([
+            'Ground',
+            'Glass',
+            'Ramps',
+        ]);
+
+        // A track file, kept as base 64 text in the session
+        const file = TrackFormat.encode(TrackFormat.read(EDITOR_CODE), true);
+        importFile(file);
+        expect(session.trackCode).toBe(TrackFormat.toText(file));
         await runUntil(STATE_TRACK_EDITING);
         expect(session.track.layers.all.map((layer) => layer.name)).toEqual([
             'Ground',
@@ -364,9 +384,20 @@ describe('Editor files', () => {
             'Upload track code',
             'Upload editor file',
         ]);
-        // Main layers merged into the solid section, the foreground layer into the foreground
-        // solid section
-        expect(await uploaded(1)).toBe('-50 1i 50 1i,0 a a 0,###0 0 a a,##BMX#0 0');
+        // Main layers merged into the main layer of the code, the foreground layer into its
+        // foreground layer
+        const code = await uploaded(1);
+        expect(TrackFormat.isEditorCode(code)).toBe(false);
+        expect(TrackFormat.read(code).layers.map((layer) => [layer.name, layer.solid])).toEqual([
+            [
+                'Main',
+                [
+                    [-160, 50, 160, 50],
+                    [0, 10, 10, 0],
+                ],
+            ],
+            ['Foreground', [[0, 0, 10, 10]]],
+        ]);
         expect(TrackFormat.isEditorCode(await uploaded(2))).toBe(true);
         expect(location.href).toBe('?track=9');
     });

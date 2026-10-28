@@ -54,6 +54,20 @@ export interface ToolOption {
      * label: the way to set it on every screen, touch screens included.
      */
     steps?: { down(): void; up(): void };
+    /**
+     * Choices of the option shown as buttons filled with their colors instead of its label, e.g.
+     * the colors of the scenery: a click selects one at once.
+     */
+    swatches?: OptionSwatches;
+}
+
+/** Colored choices of an option, see {@link ToolOption.swatches}. */
+export interface OptionSwatches {
+    /** Fill colors of the buttons, by index. */
+    colors: readonly string[];
+    /** Index of the current choice, marked. */
+    selected: number;
+    select(index: number): void;
 }
 
 /**

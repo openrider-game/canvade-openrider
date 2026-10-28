@@ -4,9 +4,9 @@ import { OpenRiderState } from '../openrider.state';
 import { STATE_TRACK_UPLOAD } from '../state-names';
 import { TrackGeneratorLayer } from './layers/track-generator.layer';
 
-/** Names of the downloaded files. */
-const TRACK_FILE_NAME = 'track.txt',
-    EDITOR_FILE_NAME = 'track.openrider.json';
+/** Names of the downloaded files, both track files (see `TrackFormat`). */
+const TRACK_FILE_NAME = 'track.ortrack',
+    EDITOR_FILE_NAME = 'track-editor.ortrack';
 
 /**
  * Generates the code of the session track, one step per update, pushed on top of the editing
@@ -57,19 +57,17 @@ export class TrackGeneratorState extends OpenRiderState {
             session.editorCode = generator.getEditorCode();
             session.track.pause(true);
             this.manager.push(STATE_TRACK_UPLOAD);
-        } else if (session.exportFormat === 'editor') {
-            TrackGeneratorState.download(
-                generator.getEditorCode(),
-                EDITOR_FILE_NAME,
-                'application/json',
-            );
         } else {
-            TrackGeneratorState.download(generator.getCode(), TRACK_FILE_NAME, 'text/plain');
+            const editor = session.exportFormat === 'editor';
+            TrackGeneratorState.download(
+                generator.getFile(editor),
+                editor ? EDITOR_FILE_NAME : TRACK_FILE_NAME,
+            );
         }
     }
 
-    private static download(content: string, fileName: string, type: string): void {
-        const url = URL.createObjectURL(new Blob([content], { type }));
+    private static download(content: Uint8Array<ArrayBuffer>, fileName: string): void {
+        const url = URL.createObjectURL(new Blob([content], { type: 'application/octet-stream' }));
         const downloadLink = document.createElement('a');
         downloadLink.download = fileName;
         downloadLink.href = url;

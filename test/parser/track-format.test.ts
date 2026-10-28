@@ -1,14 +1,17 @@
+import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { EDITOR_FORMAT, TrackFormat } from '../../src/openrider/parser/track-format';
-import { TrackGenerator } from '../../src/openrider/parser/track-generator';
+import { SceneryLine } from '../../src/openrider/item/line/scenery-line';
 import { SolidLine } from '../../src/openrider/item/line/solid-line';
 import { Target } from '../../src/openrider/item/reachable/target';
+import { EDITOR_FORMAT } from '../../src/openrider/parser/legacy-format';
+import type { TrackDocument } from '../../src/openrider/parser/track-document';
+import { TrackFormat } from '../../src/openrider/parser/track-format';
+import { TrackGenerator } from '../../src/openrider/parser/track-generator';
 import { Track } from '../../src/openrider/track/track';
 import { stubBrowser } from '../helpers/canvas';
 import { parseTrack } from '../helpers/track';
-import { Vector } from 'canvade';
 
-/** Editor file with two main layers (one hidden) and a foreground layer. */
+/** Editor file of the original format with two main layers (one hidden) and a foreground layer. */
 const EDITOR_CODE = JSON.stringify({
     format: EDITOR_FORMAT,
     version: 1,
@@ -30,6 +33,13 @@ function generate(track: Track): TrackGenerator {
     return generator;
 }
 
+/** Adds a line to the active layer of a track. */
+function addLine(track: Track, line: SolidLine | SceneryLine, color = 0): void {
+    line.color = color;
+    line.layer = track.layers.active;
+    line.addToTrack();
+}
+
 beforeEach(() => {
     stubBrowser();
 });
@@ -38,8 +48,8 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-describe('Track format', () => {
-    test('reads a track code as a main and a foreground layer', () => {
+describe('Original formats', () => {
+    test('read a track code as a main and a foreground layer, its scenery grey', () => {
         const document = TrackFormat.read('0 0 a 0#1 1 2 2#T 5 5#3 3 4 4#5 5 6 6#MTB#a b');
 
         expect(document.layers).toEqual([
@@ -47,27 +57,37 @@ describe('Track format', () => {
                 name: 'Main',
                 type: 'main',
                 visible: true,
-                solid: '0 0 a 0',
-                scenery: '1 1 2 2',
-                items: 'T 5 5',
+                solid: [[0, 0, 10, 0]],
+                scenery: [{ color: 0, polylines: [[1, 1, 2, 2]] }],
+                items: [{ code: 'T', values: [5, 5] }],
             },
             {
                 name: 'Foreground',
                 type: 'foreground',
                 visible: true,
-                solid: '3 3 4 4',
-                scenery: '5 5 6 6',
-                items: '',
+                solid: [[3, 3, 4, 4]],
+                scenery: [{ color: 0, polylines: [[5, 5, 6, 6]] }],
+                items: [],
             },
         ]);
         expect(document.bike).toBe('MTB');
-        expect(document.origin).toBe('a b');
+        expect(document.origin).toEqual({ x: 10, y: 11 });
         // Missing sections fall back to the defaults
-        expect(TrackFormat.read('').bike).toBe('BMX');
-        expect(TrackFormat.read('').origin).toBe('0 0');
+        expect(TrackFormat.read('')).toMatchObject({ bike: 'BMX', origin: { x: 0, y: 0 } });
     });
 
-    test('reads an editor file, with defaults for the missing fields', () => {
+    test('skip the malformed entities, splitting a polyline at an invalid point', () => {
+        const document = TrackFormat.read('0 0 a 0 x! 1 k 0 u 0 10 0,1 2 3,0 0 a##T 1,C,B 1 2 zz');
+
+        expect(document.layers[0].solid).toEqual([
+            [0, 0, 10, 0],
+            [20, 0, 30, 0, 32, 0],
+        ]);
+        // An invalid value of an item is 0, as the command blocks always read them
+        expect(document.layers[0].items).toEqual([{ code: 'B', values: [1, 2, 0] }]);
+    });
+
+    test('read an editor file, with defaults for the missing fields', () => {
         expect(TrackFormat.isEditorCode(`  ${EDITOR_CODE}`)).toBe(true);
         expect(TrackFormat.isEditorCode('-18 1i 18 1i')).toBe(false);
 
@@ -78,13 +98,13 @@ describe('Track format', () => {
             ['Decor', 'foreground', true],
             ['Jumps', 'main', false],
         ]);
-        expect(document.layers[1]).toMatchObject({ solid: '', items: '' });
+        expect(document.layers[1]).toMatchObject({ solid: [], items: [] });
         expect(document.bike).toBe('MTB');
         expect(
             TrackFormat.read(
                 JSON.stringify({ format: EDITOR_FORMAT, version: 1, layers: [{ type: 'main' }] }),
             ),
-        ).toMatchObject({ bike: 'BMX', origin: '0 0', layers: [{ name: 'Layer 1' }] });
+        ).toMatchObject({ bike: 'BMX', origin: { x: 0, y: 0 }, layers: [{ name: 'Layer 1' }] });
     });
 
     test.each([
@@ -103,22 +123,132 @@ describe('Track format', () => {
             JSON.stringify({ format: EDITOR_FORMAT, version: 1, layers: [{ type: 'foreground' }] }),
             'The editor file has no main layer',
         ],
-    ])('refuses an invalid editor file: %s', (code, message) => {
+    ])('refuse an invalid editor file: %s', (code, message) => {
         expect(() => TrackFormat.read(code)).toThrow(message);
     });
+});
 
-    test('writes a track code merging the layers of each type', () => {
+describe('Track files', () => {
+    test('keep the layers of an editor file, read back identically', () => {
         const document = TrackFormat.read(EDITOR_CODE);
+        const bytes = TrackFormat.encode(document, true);
 
-        expect(TrackFormat.toTrackCode(document)).toBe(
-            '-50 1i 50 1i,0 a a 0 k a,##T 0 0,C 5 5,##0 0 a a,#MTB#a -5',
-        );
+        expect([...bytes.subarray(0, 4)]).toEqual([0x4f, 0x52, 1, 1]);
+        expect(TrackFormat.isEditorCode(bytes)).toBe(true);
+        expect(TrackFormat.read(bytes)).toEqual(document);
     });
 
-    test('writes an editor file read back identically', () => {
-        const document = TrackFormat.read(EDITOR_CODE);
+    test('merge the layers of each type into a track code', () => {
+        const document = TrackFormat.read(TrackFormat.toTrackCode(TrackFormat.read(EDITOR_CODE)));
 
-        expect(TrackFormat.read(TrackFormat.toEditorCode(document))).toEqual(document);
+        expect(TrackFormat.isEditorCode(TrackFormat.toTrackCode(document))).toBe(false);
+        expect(document).toEqual({
+            layers: [
+                {
+                    name: 'Main',
+                    type: 'main',
+                    visible: true,
+                    solid: [
+                        [-160, 50, 160, 50],
+                        [0, 10, 10, 0, 20, 10],
+                    ],
+                    scenery: [],
+                    items: [
+                        { code: 'T', values: [0, 0] },
+                        { code: 'C', values: [5, 5] },
+                    ],
+                },
+                {
+                    name: 'Foreground',
+                    type: 'foreground',
+                    visible: true,
+                    solid: [],
+                    scenery: [{ color: 0, polylines: [[0, 0, 10, 10]] }],
+                    items: [],
+                },
+            ],
+            bike: 'MTB',
+            origin: { x: 10, y: -5 },
+        });
+    });
+
+    test('keep the scenery colors, the items in their order and their values', () => {
+        const document: TrackDocument = {
+            layers: [
+                {
+                    name: 'Main',
+                    type: 'main',
+                    visible: true,
+                    solid: [[-100000, 3, 100000, -7, 5, 5]],
+                    scenery: [
+                        { color: 0, polylines: [[0, 0, 1, 1]] },
+                        {
+                            color: 7,
+                            polylines: [
+                                [2, 2, 3, 3],
+                                [-4, -4, 9, 9],
+                            ],
+                        },
+                    ],
+                    items: [
+                        { code: 'B', values: [7, 7, -90] },
+                        { code: 'T', values: [-5, 6] },
+                        { code: 'A', values: [1, 2, 0, 150] },
+                        { code: 'B', values: [8, 8, 45] },
+                        { code: 'A', values: [3, 4, 3, 1, 2, 3, 4, 0, -64, 75] },
+                        { code: 'W', values: [1, 1, 900, 900] },
+                    ],
+                },
+                {
+                    name: 'Foreground',
+                    type: 'foreground',
+                    visible: true,
+                    solid: [],
+                    scenery: [],
+                    items: [],
+                },
+            ],
+            bike: 'BMX',
+            origin: { x: -3, y: 4 },
+        };
+
+        expect(TrackFormat.read(TrackFormat.toTrackCode(document))).toEqual(document);
+    });
+
+    test('travel as base 64 text, which no original format starts as', () => {
+        const bytes = TrackFormat.encode(TrackFormat.read(EDITOR_CODE), false);
+        const text = TrackFormat.toText(bytes);
+
+        expect(text.startsWith('T1I')).toBe(true);
+        expect(TrackFormat.fromText(text)).toEqual(bytes);
+        expect(TrackFormat.fromText('-18 1i 18 1i')).toBeNull();
+        expect(TrackFormat.fromText(EDITOR_CODE)).toBeNull();
+    });
+
+    test('are refused when truncated, corrupted or of a newer version', () => {
+        const bytes = TrackFormat.encode(TrackFormat.read(EDITOR_CODE), true);
+
+        expect(() => TrackFormat.read(bytes.subarray(0, 6))).toThrow('The track file is truncated');
+        expect(() => TrackFormat.read(bytes.subarray(0, bytes.length - 4))).toThrow();
+        const corrupted = bytes.slice();
+        corrupted.fill(0xff, 12);
+        expect(() => TrackFormat.read(corrupted)).toThrow();
+        const newer = bytes.slice();
+        newer[2] = 2;
+        expect(() => TrackFormat.read(newer)).toThrow('Unsupported track file version: 2');
+    });
+
+    test('are smaller than the original track codes', () => {
+        // Rough terrain: a long polyline of small steps, as drawn with the brush
+        const points = Array.from({ length: 2000 }, (_, i) => [
+            i * 15,
+            Math.round(Math.sin(i / 7) * 60 + i),
+        ]).flat();
+        const code = `${points.map((value) => value.toString(32)).join(' ')}#####BMX#0 0`;
+
+        const bytes = TrackFormat.encode(TrackFormat.read(code), false);
+
+        expect(bytes.length).toBeLessThan(code.length / 3);
     });
 });
 
@@ -150,14 +280,23 @@ describe('Layered tracks', () => {
             ['Decor', 'foreground', true],
             ['Jumps', 'main', false],
         ]);
-        expect(generator.getCode()).toBe(
-            '-50 1i 50 1i,0 a a 0 k a,##T 0 0,C 5 5,##0 0 a a,#MTB#a -5',
-        );
+        const document = TrackFormat.read(generator.getCode());
+        expect(document.layers.map((layer) => [layer.name, layer.solid])).toEqual([
+            [
+                'Main',
+                [
+                    [-160, 50, 160, 50],
+                    [0, 10, 10, 0, 20, 10],
+                ],
+            ],
+            ['Foreground', []],
+        ]);
         // Exporting again gives the same files
         expect(generate(track).getEditorCode()).toBe(generator.getEditorCode());
+        expect(generate(track).getFile(true)).toEqual(generator.getFile(true));
     });
 
-    test('convert a track code into an editor file', () => {
+    test('convert a track code of the original format into an editor file', () => {
         const track = parseTrack('-18 1i 18 1i#0 0 a a#T 1 1#0 -a a -a##BMX#0 0');
 
         const document = TrackFormat.read(generate(track).getEditorCode());
@@ -167,19 +306,42 @@ describe('Layered tracks', () => {
                 name: 'Main',
                 type: 'main',
                 visible: true,
-                solid: '-18 1i 18 1i,',
-                scenery: '0 0 a a,',
-                items: 'T 1 1,',
+                solid: [[-40, 50, 40, 50]],
+                scenery: [{ color: 0, polylines: [[0, 0, 10, 10]] }],
+                items: [{ code: 'T', values: [1, 1] }],
             },
             {
                 name: 'Foreground',
                 type: 'foreground',
                 visible: true,
-                solid: '0 -a a -a,',
-                scenery: '',
-                items: '',
+                solid: [[0, -10, 10, -10]],
+                scenery: [],
+                items: [],
             },
         ]);
+    });
+
+    test('export scenery by color, a polyline never changing color', () => {
+        const track = parseTrack('#####BMX#0 0');
+        const point = (x: number) => new Vector(x, 0);
+        // Grey, grey, then rose from the same end point, then rose again
+        addLine(track, new SceneryLine(point(0), point(10), track));
+        addLine(track, new SceneryLine(point(10), point(20), track));
+        addLine(track, new SceneryLine(point(20), point(30), track), 1);
+        addLine(track, new SceneryLine(point(30), point(40), track), 1);
+
+        const document = TrackFormat.read(generate(track).getCode());
+
+        expect(document.layers[0].scenery).toEqual([
+            { color: 0, polylines: [[0, 0, 10, 0, 20, 0]] },
+            { color: 1, polylines: [[20, 0, 30, 0, 40, 0]] },
+        ]);
+        // Read back with their colors
+        const parsed = parseTrack(generate(track).getCode());
+        const colors = [...parsed.layers.main[0].grid.totalSceneryLines.values()].map(
+            (line) => line.color,
+        );
+        expect(colors).toEqual([0, 0, 1, 1]);
     });
 
     test('collide with every main layer, never with the foreground layers', () => {

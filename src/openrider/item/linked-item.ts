@@ -1,5 +1,6 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../entity/collidable';
+import type { ItemEntity } from '../parser/track-document';
 import type { Track } from '../track/track';
 import { Item } from './item';
 import { LinkedItemGroup } from './linked-item-group';
@@ -12,14 +13,14 @@ export interface LinkedItemClass {
     readonly code: string;
     /** Number of linked items in a group. */
     readonly itemCount: number;
-    /** Number of code arguments of each item of the group. */
+    /** Number of values of each item of the group. */
     readonly argumentCount: number;
     /**
-     * Creates the whole group from a group code, or a single item when called by the group.
+     * Creates the whole group from its values, or a single item when called by the group.
      *
-     * @param fromGroup - Whether the item code is the one of a single item of the group.
+     * @param fromGroup - Whether the values are those of a single item of the group.
      */
-    createInstance(itemCode: string[], track: Track, fromGroup?: boolean): Item;
+    createInstance(values: number[], track: Track, fromGroup?: boolean): Item;
 }
 
 /**
@@ -75,9 +76,9 @@ export abstract class LinkedItem extends ReachableItem {
      *
      * @param fromGroup - Whether the call comes from the group, serializing only this item.
      */
-    public override toString(fromGroup = false): string {
+    public override toEntity(fromGroup = false): ItemEntity {
         if (fromGroup || !this.group) {
-            return super.toString();
+            return super.toEntity();
         }
 
         return this.group.serialize(this.itemClass.code);
@@ -108,20 +109,16 @@ export abstract class LinkedItem extends ReachableItem {
     }
 
     /**
-     * Creates the whole group from a group code.
+     * Creates the whole group from its values.
      *
-     * @param fromGroup - Whether the item code is the one of a single item of the group.
+     * @param fromGroup - Whether the values are those of a single item of the group.
      * @returns The group, or the single item when `fromGroup` is set.
      */
-    public static override createInstance(
-        itemCode: string[],
-        track: Track,
-        fromGroup = false,
-    ): Item {
+    public static override createInstance(values: number[], track: Track, fromGroup = false): Item {
         if (fromGroup) {
-            return super.createInstance(itemCode, track);
+            return super.createInstance(values, track);
         }
 
-        return LinkedItemGroup.createGroup(itemCode, track, this as unknown as LinkedItemClass);
+        return LinkedItemGroup.createGroup(values, track, this as unknown as LinkedItemClass);
     }
 }

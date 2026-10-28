@@ -10,7 +10,10 @@ export interface CellDrawing {
     /** Left and top of the image drawn on, in canvas pixels at the zoom. */
     offsetLeft: number;
     offsetTop: number;
+    /** Scenery lines as `[x1, y1, x2, y2, color, ...]`, sorted by color. */
     scenery: Int32Array;
+    /** Stroke colors of the scenery lines, by their color index. */
+    sceneryColors: readonly string[];
     lines: Int32Array;
     sprites: Float64Array;
     /** Fill colors of the sprites, by their color index. */
@@ -21,6 +24,24 @@ export interface CellDrawing {
 export function flattenLines(lines: readonly Line[]): Int32Array {
     return new Int32Array(
         lines.flatMap((line) => [line.pos.x, line.pos.y, line.endPos.x, line.endPos.y]),
+    );
+}
+
+/**
+ * Scenery lines flattened as `[x1, y1, x2, y2, color, ...]` in world units, as a
+ * {@link CellDrawing} has them: sorted by color, so that the painters stroke each color once, the
+ * lines of a color in their order, over those of the colors before.
+ */
+export function flattenScenery(lines: readonly Line[]): Int32Array {
+    const sorted = [...lines].sort((a, b) => a.color - b.color);
+    return new Int32Array(
+        sorted.flatMap((line) => [
+            line.pos.x,
+            line.pos.y,
+            line.endPos.x,
+            line.endPos.y,
+            line.color,
+        ]),
     );
 }
 
@@ -311,14 +332,43 @@ export function createPainter(): Painter {
         ctx.stroke();
     };
 
+    /**
+     * Strokes scenery lines flattened as `[x1, y1, x2, y2, color, ...]` and sorted by color, in
+     * world units: a single path per color, as {@link drawLines} strokes the solid lines.
+     */
+    const drawScenery = (
+        ctx: PainterContext,
+        lines: Int32Array,
+        colors: readonly string[],
+        zoom: number,
+        offsetLeft: number,
+        offsetTop: number,
+    ) => {
+        let color = -1;
+        for (let i = 0; i + 4 < lines.length; i += 5) {
+            if (lines[i + 4] !== color) {
+                if (color >= 0) {
+                    ctx.stroke();
+                }
+                color = lines[i + 4];
+                ctx.strokeStyle = colors[color] ?? colors[0];
+                ctx.beginPath();
+            }
+            ctx.moveTo(lines[i] * zoom - offsetLeft, lines[i + 1] * zoom - offsetTop);
+            ctx.lineTo(lines[i + 2] * zoom - offsetLeft, lines[i + 3] * zoom - offsetTop);
+        }
+        if (color >= 0) {
+            ctx.stroke();
+        }
+    };
+
     const drawCell: Painter['drawCell'] = (ctx, drawing) => {
         const { zoom, offsetLeft, offsetTop } = drawing;
         ctx.lineCap = 'round';
         ctx.lineWidth = Math.max(2 * zoom, 0.5);
         ctx.globalAlpha = drawing.opacityFactor;
-        // The colors of the scenery and of the solid lines, see `SCENERY_STROKE_STYLE`
-        ctx.strokeStyle = '#aaa';
-        drawLines(ctx, drawing.scenery, zoom, offsetLeft, offsetTop);
+        // The colors of the scenery, then of the solid lines, see `SOLID_STROKE_STYLE`
+        drawScenery(ctx, drawing.scenery, drawing.sceneryColors, zoom, offsetLeft, offsetTop);
         ctx.strokeStyle = '#000';
         drawLines(ctx, drawing.lines, zoom, offsetLeft, offsetTop);
         if (drawing.sprites.length) {

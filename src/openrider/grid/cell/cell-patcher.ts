@@ -1,6 +1,7 @@
 import { ITEM_SPRITE_MARGIN, packItemSprites } from '../../item/item-sprite';
 import type { TrackObject } from '../../item/track-object';
-import { type CellDrawing, flattenLines, painter } from '../../render/painter';
+import { SCENERY_STROKE_STYLES } from '../../item/line/scenery-colors';
+import { type CellDrawing, flattenLines, flattenScenery, painter } from '../../render/painter';
 import type { CellImage, RenderCell } from './render-cell';
 
 /**
@@ -191,7 +192,8 @@ export class CellPatcher {
             opacityFactor,
             offsetLeft,
             offsetTop,
-            scenery: flattenLines(cell.scenery.filter(crosses)),
+            scenery: flattenScenery(cell.scenery.filter(crosses)),
+            sceneryColors: SCENERY_STROKE_STYLES,
             lines: flattenLines(cell.lines.filter(crosses)),
             sprites: new Float64Array(buffer),
             spriteColors: colors,

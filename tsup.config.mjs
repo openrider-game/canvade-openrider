@@ -5,6 +5,8 @@ export default defineConfig([
     // The game, for the browser
     {
         entry: ["src/main.ts"],
+        // Resolves the browser builds of the dependencies, e.g. fflate without its Node workers
+        platform: "browser",
         splitting: false,
         sourcemap: true,
         dts: true,

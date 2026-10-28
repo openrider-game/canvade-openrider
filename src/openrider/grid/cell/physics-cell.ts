@@ -31,13 +31,20 @@ export class PhysicsCell extends Cell {
         }
     }
 
-    /** Finds a line of the given kind starting at the given point that was not exported yet. */
-    public search(point: Vector, kind: TrackObjectKind): Line | undefined {
+    /**
+     * Finds a line of the given kind and color starting at the given point that was not exported
+     * yet.
+     */
+    public search(point: Vector, kind: TrackObjectKind, color = 0): Line | undefined {
         const lines: Line[] =
             kind === 'scenery' ? this.scenery : kind === 'solid' ? this.lines : [];
 
         return lines.find(
-            (line) => line.pos.x === point.x && line.pos.y === point.y && !line.recorded,
+            (line) =>
+                line.pos.x === point.x &&
+                line.pos.y === point.y &&
+                line.color === color &&
+                !line.recorded,
         );
     }
 

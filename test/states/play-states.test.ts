@@ -1,6 +1,7 @@
 import { State, StateClass, StateManager } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GameConfig } from '../../src/openrider/config/game-config';
+import { TrackFormat } from '../../src/openrider/parser/track-format';
 import { Session } from '../../src/states/session';
 import {
     STATE_TRACK_EDITING,
@@ -121,7 +122,9 @@ describe('Upload state', () => {
         expect(manager.getCurrent() === manager.getState(STATE_TRACK_GENERATOR)).toBe(true);
         await runFrames(400, STATE_TRACK_UPLOAD);
 
-        expect(session.trackCode).toBe('-18 1i 18 1i,#####BMX#0 0');
+        expect(TrackFormat.read(session.trackCode ?? '').layers[0].solid).toEqual([
+            [-40, 50, 40, 50],
+        ]);
         expect(session.track.paused).toBe(true);
         expect(session.track.toolCollection.getByToolName('Eraser')).toBeUndefined();
 
@@ -151,7 +154,8 @@ describe('Upload state', () => {
 
         const params = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
             .body as URLSearchParams;
-        expect(params.get('trackCode')).toBe('-18 1i 18 1i,#####BMX#0 0');
+        expect(params.get('trackCode')).toBe(session.trackCode);
+        expect(TrackFormat.read(params.get('trackCode') ?? '').bike).toBe('BMX');
         expect(params.get('thumbnail')).toBe('THUMBNAIL');
         expect(location.href).toBe('?track=77');
     });

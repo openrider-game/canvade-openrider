@@ -1,6 +1,7 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../entity/collidable';
 import type { Track } from '../track/track';
+import { formatItem, type ItemEntity } from '../parser/track-document';
 import { painter } from '../render/painter';
 import { type ItemShape, spriteCode } from './item-sprite';
 import { TrackObject } from './track-object';
@@ -14,20 +15,16 @@ export interface ItemClass {
     /** Letter identifying the item in the track code. */
     readonly code: string;
     /**
-     * Creates an item from its code.
+     * Creates an item from its values, see `ItemEntity`.
      *
-     * @param itemCode - Item code split on spaces, starting with the item letter.
+     * @param values - `[x, y, ...]`, followed by the values of the item class.
      */
-    createInstance(itemCode: string[], track: Track): Item;
+    createInstance(values: number[], track: Track): Item;
 }
 
-/**
- * Reads the position of an item from its code.
- *
- * @param itemCode - Item code split on spaces: `code x y ...`, with base 32 coordinates.
- */
-export function parseItemPosition(itemCode: string[]): Vector {
-    return new Vector(parseInt(itemCode[1], 32), parseInt(itemCode[2], 32));
+/** Position of an item, the first two of its values. */
+export function itemPosition(values: number[]): Vector {
+    return new Vector(values[0], values[1]);
 }
 
 /**
@@ -133,9 +130,23 @@ export abstract class Item extends TrackObject {
         return null;
     }
 
-    public toString(): string {
+    /**
+     * The item as stored, its letter then its values (see `ItemEntity`), marking it as exported
+     * (see {@link TrackObject.recorded}).
+     */
+    public toEntity(): ItemEntity {
         this.recorded = true;
-        return this.itemClass.code + ' ' + this.pos.toString();
+        return { code: this.itemClass.code, values: this.values() };
+    }
+
+    /** The item in the text format of the edits, see `formatItem`. */
+    public toString(): string {
+        return formatItem(this.toEntity());
+    }
+
+    /** Values of the item, see `ItemEntity`: its position, rounded, by default. */
+    protected values(): number[] {
+        return [Math.round(this.pos.x), Math.round(this.pos.y)];
     }
 
     /** Applies the item effect, called when a bike part touches the item. */
@@ -149,8 +160,8 @@ export abstract class Item extends TrackObject {
         this.grid.totalObjects.delete(this.id);
     }
 
-    public static createInstance(itemCode: string[], track: Track): Item {
+    public static createInstance(values: number[], track: Track): Item {
         const ItemConstructor = this as unknown as new (pos: Vector, track: Track) => Item;
-        return new ItemConstructor(parseItemPosition(itemCode), track);
+        return new ItemConstructor(itemPosition(values), track);
     }
 }

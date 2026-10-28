@@ -4,7 +4,8 @@ import { createCanvasMock } from '../helpers/canvas';
 
 describe('Icons of the item and line tools', () => {
     test('are drawn at any size, without side effect, each with its own key', () => {
-        const drawn = Object.values(icons);
+        // The icons, without the functions creating those of the colors
+        const drawn = Object.values(icons).filter((icon) => typeof icon !== 'function');
         expect(drawn).toHaveLength(29);
         expect(new Set(drawn.map((icon) => icon.key)).size).toBe(29);
 

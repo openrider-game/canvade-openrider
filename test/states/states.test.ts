@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
 import { PLAYER_CONTROL_NAMES } from '../../src/openrider/bike/runner/player-runner';
 import { GameConfig } from '../../src/openrider/config/game-config';
+import { TrackFormat } from '../../src/openrider/parser/track-format';
 import { LATEST_GENERATOR_VERSION } from '../../src/openrider/endurance/terrain/versions';
 import { ControlBindings } from '../../src/openrider/controls/control-bindings';
 import { ControlCatalog } from '../../src/openrider/controls/control-catalog';
@@ -34,6 +35,7 @@ import { TrackEnduranceState } from '../../src/states/endurance/track-endurance.
 import { EnduranceCourse } from '../../src/openrider/endurance/endurance-course';
 import States from '../../src/states/states';
 import { EraserTool } from '../../src/openrider/tool/misc/eraser.tool';
+import { DrawingLines } from '../../src/openrider/tool/line/drawing-lines';
 import { TrackEditingState } from '../../src/states/track/track-editing.state';
 import { ToolIcons } from '../../src/states/track/ui/tool-icons';
 import { UIToolButton } from '../../src/states/track/ui/ui-tool-button';
@@ -204,6 +206,45 @@ describe('Editing a track', () => {
         expect(session.track.toolManager.tool?.mouseDown).toBe(false);
     });
 
+    test('shows the colors of the scenery as swatches in the drawer, picked with a click', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runUntil(STATE_TRACK_EDITING);
+        const state = manager.getCurrent();
+        session.track.toolCollection.getByToolName('Line')?.run();
+        DrawingLines.setScenery(true);
+        session.track.invalidateUI();
+        const frames = (count: number) => {
+            const { context } = createCanvasMock();
+            for (let frame = 0; frame < count; frame++) {
+                manager.update(0.5, 20);
+                manager.render(context);
+            }
+            return context;
+        };
+        const click = (x: number, y: number) => {
+            state?.dispatch('pointerDown', mouseEvent('pointerDown', x, y));
+            state?.dispatch('pointerUp', mouseEvent('pointerUp', x, y));
+        };
+        try {
+            frames(1);
+            click(350, 10);
+            const context = frames(15);
+            // The grey swatch selected, every color filled in
+            const texts = vi.mocked(context.fillText).mock.calls.map(([text]) => text);
+            expect(texts).toContain('✓');
+
+            // In a panel of 230 pixels centered on the canvas of 700 pixels, inside a padding of
+            // 4 pixels: the kind of lines, then two rows of 8 swatches 27.75 pixels wide
+            click(239 + 2.5 * 27.75, 4 + 2 * 22 + 11);
+            expect(DrawingLines.color).toBe(10);
+            click(239 + 0.5 * 27.75, 4 + 22 + 11);
+            expect(DrawingLines.color).toBe(0);
+        } finally {
+            DrawingLines.setScenery(false);
+            DrawingLines.setColor(0);
+        }
+    });
+
     test('keeps the tool options in a drawer, opened and closed with its handle', async () => {
         manager.push(STATE_TRACK_FETCHER);
         await runUntil(STATE_TRACK_EDITING);
@@ -294,7 +335,9 @@ describe('Editing a track', () => {
         await runUntil(STATE_TRACK_EDITING);
 
         const [blob] = createObjectURL.mock.calls[0];
-        expect(await blob.text()).toBe('-18 1i 18 1i,#####BMX#0 0');
+        const document = TrackFormat.read(new Uint8Array(await blob.arrayBuffer()));
+        expect(document.layers[0].solid).toEqual([[-40, 50, 40, 50]]);
+        expect(document.bike).toBe('BMX');
     });
 
     test('imports a track by parsing the new track code again', async () => {

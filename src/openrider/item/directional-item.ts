@@ -1,7 +1,7 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../entity/collidable';
 import type { Track } from '../track/track';
-import { Item, parseItemPosition } from './item';
+import { Item, itemPosition } from './item';
 import type { ItemShape } from './item-sprite';
 
 /** Constructor and static side of the directional item classes. */
@@ -46,19 +46,13 @@ export abstract class DirectionalItem extends Item {
         }
     }
 
-    /** Serializes the item, the rotation being stored in base 32 with a 180 degrees offset. */
-    public override toString(): string {
-        this.recorded = true;
-        const rotation = (this.rotation - 180).toString(32);
-        return `${this.itemClass.code} ${this.pos.toString()} ${rotation}`;
+    /** The position, then the rotation stored with a 180 degrees offset, in whole degrees. */
+    protected override values(): number[] {
+        return [...super.values(), Math.trunc(this.rotation - 180)];
     }
 
-    public static override createInstance(itemCode: string[], track: Track): Item {
+    public static override createInstance(values: number[], track: Track): Item {
         const ItemConstructor = this as unknown as DirectionalItemClass;
-        return new ItemConstructor(
-            parseItemPosition(itemCode),
-            parseInt(itemCode[3], 32) + 180,
-            track,
-        );
+        return new ItemConstructor(itemPosition(values), (values[2] ?? 0) + 180, track);
     }
 }

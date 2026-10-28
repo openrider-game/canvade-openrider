@@ -1,11 +1,13 @@
 import { Vector } from 'canvade';
 import { Cell } from '../grid/cell/cell';
 import { ITEM_MAP } from '../item/item.constants';
+import type { Line } from '../item/line/line';
 import { SceneryLine } from '../item/line/scenery-line';
 import { SolidLine } from '../item/line/solid-line';
 import { LinkedItem } from '../item/linked-item';
 import { LinkedItemGroup } from '../item/linked-item-group';
 import type { TrackObject } from '../item/track-object';
+import { parseItem } from '../parser/track-document';
 import type { Track } from '../track/track';
 import { TrackLayer, TrackLayerType } from '../track/track-layer';
 import { LayerData, ObjectData, TrackEdit, TrackSnapshot } from './track-edit';
@@ -375,12 +377,14 @@ export class TrackEditor {
     }
 
     /**
-     * Code of an object: its points for a line, else its item code, without marking it as
-     * exported (see `TrackObject.recorded`).
+     * Code of an object, without marking it as exported (see `TrackObject.recorded`): for a line,
+     * its two base 32 points, then its color unless 0 (see `Line.color`); else its item code.
      */
     private static code(object: TrackObject): string {
         if (object.kind !== 'item') {
-            return `${object.pos.toString()} ${object.endPos.toString()}`;
+            const points = `${object.pos.toString()} ${object.endPos.toString()}`;
+            const { color } = object as Line;
+            return color ? `${points} ${color.toString(32)}` : points;
         }
         const marked = [object, ...(object instanceof LinkedItemGroup ? object.instances : [])];
         const recorded = marked.map((part) => part.recorded);
@@ -396,16 +400,25 @@ export class TrackEditor {
             return;
         }
 
-        const code = data.code.split(' ');
         let object = this.detached.get(data.uid);
         if (object) {
             this.detached.delete(data.uid);
         } else if (data.kind === 'item') {
-            object = ITEM_MAP.get(code[0])?.createInstance(code, this.track);
+            const entity = parseItem(data.code);
+            object = entity
+                ? ITEM_MAP.get(entity.code)?.createInstance(entity.values, this.track)
+                : undefined;
         } else {
-            const [x1, y1, x2, y2] = code.map((value) => parseInt(value, 32));
+            const [x1, y1, x2, y2, color] = data.code
+                .split(' ')
+                .map((value) => parseInt(value, 32));
             const LineClass = data.kind === 'solid' ? SolidLine : SceneryLine;
-            object = new LineClass(new Vector(x1, y1), new Vector(x2, y2), this.track);
+            const line = new LineClass(new Vector(x1, y1), new Vector(x2, y2), this.track);
+            // Solid lines have no color
+            if (data.kind === 'scenery' && color > 0) {
+                line.color = color;
+            }
+            object = line;
         }
         if (!object) {
             return;

@@ -1,3 +1,4 @@
+import { formatItem, type Polyline } from '../../src/openrider/parser/track-document';
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { TrackEditor } from '../../src/openrider/edit/track-editor';
@@ -80,16 +81,21 @@ function content(track: Track) {
     while (!generator.done) {
         generator.currentStep();
     }
-    const segments = (polylines: string) =>
+    // Each line of the polylines, as its base 32 points
+    const segments = (polylines: Polyline[]) =>
         polylines
-            .split(',')
-            .filter(Boolean)
-            .flatMap((polyline) => {
-                const points = polyline.split(' ');
-                return points
-                    .slice(0, -2)
-                    .flatMap((_, i) => (i % 2 ? [] : [points.slice(i, i + 4).join(' ')]));
-            })
+            .flatMap((points) =>
+                points.slice(0, -2).flatMap((_, i) =>
+                    i % 2
+                        ? []
+                        : [
+                              points
+                                  .slice(i, i + 4)
+                                  .map((value) => value.toString(32))
+                                  .join(' '),
+                          ],
+                ),
+            )
             .sort();
     const document = generator.getDocument();
     return {
@@ -98,8 +104,8 @@ function content(track: Track) {
             name: layer.name,
             type: layer.type,
             solid: segments(layer.solid),
-            scenery: segments(layer.scenery),
-            items: layer.items.split(',').filter(Boolean).sort(),
+            scenery: segments(layer.scenery.flatMap((group) => group.polylines)),
+            items: layer.items.map(formatItem).sort(),
         })),
     };
 }
@@ -169,7 +175,7 @@ describe('Live edit session', () => {
         expect(content(bob)).toEqual(content(ann));
         expect(cells(bob)).toEqual(cells(ann));
         expect(content(ann).layers.map((layer) => layer.name)).toContain('Bob');
-        expect(content(ann).origin).toBe(new Vector(40, -60).toString());
+        expect(content(ann).origin).toEqual({ x: 40, y: -60 });
         // The line undone by Bob is gone on both screens
         expect(content(ann).layers.flatMap((layer) => layer.solid)).not.toContain('0 68 2g 68');
     });

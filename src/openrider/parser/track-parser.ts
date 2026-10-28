@@ -9,10 +9,12 @@ import { Track } from '../track/track';
 import { TrackLayer } from '../track/track-layer';
 import { MIN_ZOOM } from '../track/track.constants';
 import { Zoom } from '../track/zoom';
-import { TrackDocument, TrackFormat } from './track-format';
+import type { ItemEntity, Polyline, TrackDocument } from './track-document';
+import { TrackFormat } from './track-format';
 
+/** Entities of a section, parsed up to {@link ParserData.index}. */
 interface ParserData {
-    code: string[];
+    length: number;
     index: number;
 }
 
@@ -38,12 +40,12 @@ const STEP_SIZE = 250;
 const START_RENDER_DISTANCE = { x: 1600, y: 1000 };
 
 /**
- * Parses a track code or an editor file a few entities at a time, so that the parsing state can
- * display its progress, then pre-renders the densest cells of the track layers.
+ * Parses a track file a few entities at a time, so that the parsing state can display its
+ * progress, then pre-renders the densest cells of the track layers.
  *
- * Both formats are described by `TrackFormat`. Entities are separated by `,` within a section,
- * and coordinates are integers in base 32. The parsed layers replace the layers of the track,
- * the first main layer becoming the active one.
+ * Every format is read by `TrackFormat` first, the parser then adding its entities to the
+ * track: polylines and items. The parsed layers replace the layers of the track, the first main
+ * layer becoming the active one.
  *
  * Call {@link TrackParser.init}, then {@link TrackParser.runFor} on each frame, or
  * {@link TrackParser.currentStep}, until {@link TrackParser.done}.
@@ -89,9 +91,10 @@ export class TrackParser {
     /**
      * Reads the code and creates the layers of the track, empty until the steps fill them.
      *
-     * @throws When the code is an invalid editor file.
+     * @param rawTrack - Track file or code, in any format (see `TrackFormat.read`).
+     * @throws When the code is an invalid track file or editor file.
      */
-    public init(rawTrack: string): void {
+    public init(rawTrack: string | Uint8Array): void {
         const document = TrackFormat.read(rawTrack);
         const layers = document.layers.map(
             ({ type, name, visible }) => new TrackLayer(type, name, visible),
@@ -101,9 +104,14 @@ export class TrackParser {
         this.steps = [
             ...document.layers.flatMap((layerDocument, index) => {
                 const layer = layers[index];
+                // The scenery of every color in one step, each polyline with its color
+                const scenery = layerDocument.scenery.flatMap((group) => group.polylines);
+                const colors = layerDocument.scenery.flatMap((group) =>
+                    group.polylines.map(() => group.color),
+                );
                 return [
                     this.lineStep(layer, 'Solid lines', layerDocument.solid, SolidLine),
-                    this.lineStep(layer, 'Scenery lines', layerDocument.scenery, SceneryLine),
+                    this.lineStep(layer, 'Scenery lines', scenery, SceneryLine, colors),
                     this.itemStep(layer, layerDocument.items),
                 ];
             }),
@@ -112,7 +120,7 @@ export class TrackParser {
             ...layers.map((layer) => this.cacheStep(layer)),
         ];
 
-        this.length = this.sections.reduce((total, section) => total + section.code.length, 0);
+        this.length = this.sections.reduce((total, section) => total + section.length, 0);
         this.progressLabel = this.steps[0].label;
     }
 
@@ -161,76 +169,89 @@ export class TrackParser {
         }
     }
 
-    private section(code: string): ParserData {
-        const data = { code: code.split(','), index: 0 };
+    /**
+     * Section of a number of entities. An empty section counts as one entity, as the empty
+     * sections of the original track codes did, so that its step shows progress too.
+     */
+    private section(length: number): ParserData {
+        const data = { length: Math.max(length, 1), index: 0 };
         this.sections.push(data);
         return data;
     }
 
     /**
-     * Parses lines: each line code is a polyline, a list of base 32 `x y` coordinates separated
-     * with spaces, each point being linked to the next one.
+     * Parses polylines, each point being linked to the next one.
+     *
+     * @param colors - Color of each polyline, see `Line.color`; 0 for every one without.
      */
     private lineStep(
         layer: TrackLayer,
         label: string,
-        code: string,
+        polylines: Polyline[],
         lineClass: LineClass,
+        colors: number[] = [],
     ): ParserStep {
-        const data = this.section(code);
+        const data = this.section(polylines.length);
         return {
             label: `${label} (${layer.name})`,
             caching: false,
             run: () => {
-                const l = Math.min(data.index + STEP_SIZE, data.code.length);
+                const l = Math.min(data.index + STEP_SIZE, polylines.length);
                 for (; data.index < l; data.index++) {
-                    const lineCode = data.code[data.index].split(' ');
-                    if (lineCode.length > 3) {
-                        for (let k = 0, m = lineCode.length - 2; k < m; k += 2) {
-                            const line = new lineClass(
-                                TrackParser.point(lineCode, k),
-                                TrackParser.point(lineCode, k + 2),
-                                this.track,
-                            );
+                    const points = polylines[data.index];
+                    const color = colors[data.index] ?? 0;
+                    for (let k = 0; k + 3 < points.length; k += 2) {
+                        const line = new lineClass(
+                            new Vector(points[k], points[k + 1]),
+                            new Vector(points[k + 2], points[k + 3]),
+                            this.track,
+                        );
 
-                            line.layer = layer;
-                            line.uid = `p${this.objectCount++}`;
-                            line.addToTrack();
-                        }
+                        line.color = color;
+                        line.layer = layer;
+                        line.uid = `p${this.objectCount++}`;
+                        line.addToTrack();
                     }
                 }
-                return data.index >= data.code.length;
+                return TrackParser.finished(data, polylines.length);
             },
         };
     }
 
-    /** Reads the base 32 `x y` point starting at an index of a split entity code. */
-    private static point(code: string[], index: number): Vector {
-        return new Vector(parseInt(code[index], 32), parseInt(code[index + 1], 32));
-    }
-
-    /** Parses items, skipping the unknown item codes. */
-    private itemStep(layer: TrackLayer, code: string): ParserStep {
-        const data = this.section(code);
+    /** Parses items, skipping the unknown item letters. */
+    private itemStep(layer: TrackLayer, items: ItemEntity[]): ParserStep {
+        const data = this.section(items.length);
         return {
             label: `Items (${layer.name})`,
             caching: false,
             run: () => {
-                const l = Math.min(data.index + STEP_SIZE, data.code.length);
+                const l = Math.min(data.index + STEP_SIZE, items.length);
                 for (; data.index < l; data.index++) {
-                    const itemCode = data.code[data.index].split(' ');
-                    const itemClass = itemCode.length > 2 ? ITEM_MAP.get(itemCode[0]) : undefined;
+                    const { code, values } = items[data.index];
+                    const itemClass = ITEM_MAP.get(code);
 
                     if (itemClass) {
-                        const item = itemClass.createInstance(itemCode, this.track);
+                        const item = itemClass.createInstance(values, this.track);
                         item.layer = layer;
                         item.uid = `p${this.objectCount++}`;
                         item.addToTrack();
                     }
                 }
-                return data.index >= data.code.length;
+                return TrackParser.finished(data, items.length);
             },
         };
+    }
+
+    /**
+     * Whether every entity of a section was parsed, its progress then reaching its length, an
+     * empty section counting one entity.
+     */
+    private static finished(data: ParserData, count: number): boolean {
+        if (data.index < count) {
+            return false;
+        }
+        data.index = data.length;
+        return true;
     }
 
     private originStep(document: TrackDocument): ParserStep {
@@ -238,8 +259,7 @@ export class TrackParser {
             label: 'Origin',
             caching: false,
             run: () => {
-                const [x, y] = document.origin.split(' ');
-                const originVector = new Vector(parseInt(x, 32), parseInt(y, 32));
+                const originVector = new Vector(document.origin.x, document.origin.y);
                 this.track.origin.set(originVector);
                 this.track.camera.set(originVector);
                 return true;

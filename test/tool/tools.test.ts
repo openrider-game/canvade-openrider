@@ -19,6 +19,7 @@ import {
     SCENERY_CIRCLE_ICON,
     SCENERY_CURVE_ICON,
     SCENERY_LINE_ICON,
+    lineIcon,
     SOLID_CIRCLE_ICON,
     SOLID_CURVE_ICON,
     SOLID_BRUSH_ICON,
@@ -90,9 +91,10 @@ afterEach(() => {
     for (const code of ['KeyQ', 'KeyA']) {
         Keyboard.onKeyUp(keyEvent(code, code.slice(3).toLowerCase()));
     }
-    // The kind of lines is shared by the drawing tools
+    // The kind and the color of the lines are shared by the drawing tools
     DrawingLines.setScenery(false);
     DrawingLines.setConnected(false);
+    DrawingLines.setColor(0);
     vi.unstubAllGlobals();
 });
 
@@ -127,6 +129,36 @@ describe('Line tools', () => {
         select(CurveTool).getOptions()[0].action();
         expect(select(CurveTool).getIcon()).toBe(SOLID_CURVE_ICON);
         expect(select(CircleTool).getIcon()).toBe(SOLID_CIRCLE_ICON);
+    });
+
+    test('draw scenery lines in the color chosen in the options, solid lines having none', () => {
+        const line = select(LineTool);
+        const sceneryLines = () => [...track.layers.main[0].grid.totalSceneryLines.values()];
+        // Only the scenery lines have a color
+        expect(line.getOptions().some((option) => option.swatches)).toBe(false);
+        line.getOptions()[0].action();
+        expect(line.getOptions()[1].label).toBe('Color: Grey');
+
+        // Every color as a swatch, the current one selected
+        expect(line.getOptions()[1].swatches).toMatchObject({ selected: 0 });
+        expect(line.getOptions()[1].swatches?.colors).toHaveLength(16);
+        line.getOptions()[1].swatches?.select(15);
+        expect(line.getOptions()[1].label).toBe('Color: Slate');
+        // Clicking the option goes to the next color, the first after the last
+        line.getOptions()[1].action();
+        line.getOptions()[1].swatches?.select(1);
+        expect(line.getOptions()[1].label).toBe('Color: Rose');
+        expect(line.getOptions()[1].swatches?.selected).toBe(1);
+        expect(line.getIcon()).toBe(lineIcon(1));
+        expect(line.getIcon()).not.toBe(SCENERY_LINE_ICON);
+
+        drag(new Vector(0, 0), new Vector(100, 0));
+        expect(sceneryLines().map((scenery) => scenery.color)).toEqual([1]);
+
+        // Solid lines keep no color
+        line.getOptions()[0].action();
+        drag(new Vector(0, 50), new Vector(100, 50));
+        expect(solidLines().map((solid) => solid.color)).toEqual([0]);
     });
 
     test('change the brush size from its options only, stepping it down and up', () => {
