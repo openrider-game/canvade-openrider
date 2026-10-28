@@ -25,8 +25,11 @@ interface ParserStep {
     run(): boolean;
 }
 
-// Number of entities parsed on each step
-const STEP_SIZE = 1000;
+/**
+ * Number of entities parsed on each step: small enough for {@link TrackParser.runFor} to keep to
+ * its time budget, a step of items taking about a millisecond.
+ */
+const STEP_SIZE = 250;
 
 /**
  * Distance from the start position to the centers of the cells pre-rendered at the zoom of the
@@ -42,8 +45,8 @@ const START_RENDER_DISTANCE = { x: 1600, y: 1000 };
  * and coordinates are integers in base 32. The parsed layers replace the layers of the track,
  * the first main layer becoming the active one.
  *
- * Call {@link TrackParser.init}, then {@link TrackParser.currentStep} until
- * {@link TrackParser.done}.
+ * Call {@link TrackParser.init}, then {@link TrackParser.runFor} on each frame, or
+ * {@link TrackParser.currentStep}, until {@link TrackParser.done}.
  */
 export class TrackParser {
     public done = false;
@@ -58,6 +61,11 @@ export class TrackParser {
     public progressLabel = '';
     /** Whether the parser is pre-rendering the cache, after every entity has been parsed. */
     public caching = false;
+    /**
+     * Whether the last step waits for the workers to render the cells it requested, running it
+     * again until they did being of no use.
+     */
+    private waiting = false;
 
     private steps: ParserStep[] = [];
     private stepIndex = 0;
@@ -108,6 +116,21 @@ export class TrackParser {
         this.progressLabel = this.steps[0].label;
     }
 
+    /**
+     * Runs as many steps as fit in a time budget, e.g. the time of a frame, so that a track is
+     * parsed as fast as it can while the progress is displayed: until the parsing is done, the
+     * budget spent, or a step waits for the workers. Then updates the indicators.
+     *
+     * @param budget - Time to run steps for, in milliseconds: at least one step runs.
+     */
+    public runFor(budget: number): void {
+        const end = performance.now() + budget;
+        do {
+            this.currentStep();
+        } while (!this.done && !this.waiting && performance.now() < end);
+        this.updateIndicators();
+    }
+
     /** Runs the current step, moving to the next one once it is complete. */
     public currentStep(): void {
         const step = this.steps[this.stepIndex];
@@ -118,6 +141,7 @@ export class TrackParser {
 
         this.progressLabel = step.label;
         this.caching = step.caching;
+        this.waiting = false;
         if (step.run()) {
             this.stepIndex++;
             this.done = this.stepIndex >= this.steps.length;
@@ -237,15 +261,6 @@ export class TrackParser {
         };
     }
 
-    /**
-     * Pre-renders the densest cells in the workers, one cell per step, at the pixel ratio of the
-     * track: every one at the lowest zoom, the fallback scaled while a cell renders, and those
-     * around the start position at the zoom of the track too, seen first. Waits for the workers
-     * before going to the next step.
-     *
-     * The other cells, and every cell without workers support, are rendered when first displayed,
-     * at the zoom they are displayed at.
-     */
     /** Whether a cell is around the start position, in view when the track starts. */
     private nearStart(cell: { x: number; y: number; size: number }): boolean {
         const { origin } = this.track;
@@ -255,6 +270,15 @@ export class TrackParser {
         );
     }
 
+    /**
+     * Pre-renders the densest cells in the workers, one cell per step, at the pixel ratio of the
+     * track: every one at the lowest zoom, the fallback scaled while a cell renders, and those
+     * around the start position at the zoom of the track too, seen first. Waits for the workers
+     * before going to the next step.
+     *
+     * The other cells, and every cell without workers support, are rendered when first displayed,
+     * at the zoom they are displayed at.
+     */
     private cacheStep(layer: TrackLayer): ParserStep {
         return {
             label: `Cache (${layer.name})`,
@@ -284,13 +308,17 @@ export class TrackParser {
                     }
                 }
 
-                if (this.cacheIndex >= cacheCells.length && this.proxyIndex >= this.renderIndex) {
-                    this.proxyIndex = 0;
-                    this.renderIndex = 0;
-                    this.cacheIndex = 0;
-                    return true;
+                if (this.cacheIndex < cacheCells.length) {
+                    return false;
                 }
-                return false;
+                if (this.proxyIndex < this.renderIndex) {
+                    this.waiting = true;
+                    return false;
+                }
+                this.proxyIndex = 0;
+                this.renderIndex = 0;
+                this.cacheIndex = 0;
+                return true;
             },
         };
     }

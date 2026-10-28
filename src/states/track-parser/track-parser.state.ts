@@ -7,8 +7,15 @@ import { STATE_TRACK_EDITING, STATE_TRACK_RACING } from '../state-names';
 import { TrackParserLayer } from './layers/track-parser.layer';
 
 /**
- * Builds a new track from the session track code, one step per update, then stores it in the
- * session and pushes the racing or editing state depending on the session track mode.
+ * Time spent parsing on each update, in milliseconds: most of a frame at 60 fps, its progress
+ * drawn in the rest.
+ */
+const PARSE_BUDGET = 12;
+
+/**
+ * Builds a new track from the session track code, as many steps per update as fit in
+ * {@link PARSE_BUDGET}, then stores it in the session and pushes the racing or editing state
+ * depending on the session track mode.
  *
  * Every enter starts a new parsing, so popping back to this state parses the session track code
  * again (e.g. when importing a track).
@@ -50,8 +57,7 @@ export class TrackParserState extends OpenRiderState {
         }
 
         if (!parser.done) {
-            parser.currentStep();
-            parser.updateIndicators();
+            parser.runFor(PARSE_BUDGET);
             return;
         }
 

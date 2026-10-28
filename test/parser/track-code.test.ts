@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { LinkedItem } from '../../src/openrider/item/linked-item';
 import { TrackGenerator } from '../../src/openrider/parser/track-generator';
 import { TrackParser } from '../../src/openrider/parser/track-parser';
@@ -99,6 +99,31 @@ describe('Track parser', () => {
         }
         parser.updateIndicators();
         expect(parser.progressLabel).toBe('Cache (Main)');
+    });
+
+    test('runs as many steps as fit in a time budget', () => {
+        // Enough items for several steps
+        const items = Array.from({ length: 1000 }, (_, i) => `T ${i.toString(32)} 0`).join(',');
+        const code = `0 0 a 0##${items}###BMX#0 0`;
+
+        // A frame long enough parses the whole track
+        const quick = new TrackParser(new Track());
+        quick.init(code);
+        quick.runFor(Infinity);
+        expect(quick.done).toBe(true);
+        expect(quick.track.layers.main[0].grid.totalObjects.size).toBe(1000);
+
+        // Each step taking 5 ms, a budget of 12 ms runs three of them: the solid line, the empty
+        // scenery, then the first items, the indicators following
+        let now = 0;
+        const clock = vi.spyOn(performance, 'now').mockImplementation(() => (now += 5));
+        const slow = new TrackParser(new Track());
+        slow.init(code);
+        slow.runFor(12);
+        expect(slow.done).toBe(false);
+        expect(slow.progressLabel).toBe('Items (Main)');
+        expect(slow.progress).toBe(1 + 1 + 250);
+        clock.mockRestore();
     });
 });
 
