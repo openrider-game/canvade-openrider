@@ -1,3 +1,4 @@
+import type { ItemShape } from '../item-sprite';
 import type { Collidable } from '../../entity/collidable';
 import { MODIFIER_GROUPS, MODIFIERS } from '../modifiers';
 import { StatusItem } from '../status-item';
@@ -14,6 +15,10 @@ export class Heavy extends StatusItem {
     public static override readonly color: string = '#c63';
     public static override readonly reachedColor: string = '#e96';
     public static override readonly code: string = 'K';
+
+    public override get sprite(): ItemShape {
+        return 'trapezoid';
+    }
 
     public override onReach(part: Collidable): void {
         part.bike.gravityValueScale = HEAVY_GRAVITY_SCALE;

@@ -44,22 +44,6 @@ export abstract class ReachableItem extends Item {
         return (this.constructor as typeof ReachableItem).reachedColor;
     }
 
-    public override render(ctx: CanvasRenderingContext2D): void {
-        const pos = this.track.toPixel(this.pos);
-        const zoom = this.track.zoomFactor;
-
-        ctx.save();
-        ctx.fillStyle = this.reached ? this.reachedColor : this.itemClass.color;
-        ctx.lineWidth = Math.max(2 * zoom, 0.5);
-        ctx.beginPath();
-        ctx.moveTo(pos.x + 7 * zoom, pos.y);
-        ctx.arc(pos.x, pos.y, 7 * zoom, 0, 2 * Math.PI, true);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
-    }
-
     /** Reaches the item, unless the player already did or it is already queued for the runner. */
     protected override onTouch(part: Collidable): void {
         const runner = part.bike.runner;

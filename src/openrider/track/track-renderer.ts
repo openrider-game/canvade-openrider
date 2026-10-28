@@ -1,5 +1,5 @@
 import { Vector } from 'canvade';
-import type { RenderCell } from '../grid/cell/render-cell';
+import { RenderCell } from '../grid/cell/render-cell';
 import { Grid } from '../grid/grid';
 import { CACHE_CELL_SIZE, GRID_CELL_SIZE } from '../grid/grid.constants';
 import { WorkerPool } from '../thread/worker-pool';
@@ -23,7 +23,16 @@ export interface TrackRenderOptions {
     hideHiddenLayers?: boolean;
 }
 
-type RenderOptions = Required<TrackRenderOptions>;
+type RenderOptions = Required<TrackRenderOptions> & {
+    /** Whether the debug overlay writes the ids of the objects, see {@link MAX_DEBUG_LABELS}. */
+    debugLabels: boolean;
+};
+
+/**
+ * Most objects in view whose ids the debug overlay writes: past it, e.g. a track stacking a
+ * million items, writing them would take seconds a frame, and they could not be read.
+ */
+export const MAX_DEBUG_LABELS = 2000;
 
 /** Visible area of the track, in grid coordinates. */
 export interface GridBounds {
@@ -42,14 +51,29 @@ export abstract class TrackRenderer {
         track: Track,
         renderOptions: TrackRenderOptions = {},
     ): void {
-        const options: RenderOptions = {
+        const settings: Required<TrackRenderOptions> = {
             debug: false,
             fastRender: WorkerPool.supported,
             hideHiddenLayers: false,
             ...renderOptions,
         };
+        track.followZoom();
         const cacheBounds = TrackRenderer.getVisibleCells(track, CACHE_CELL_SIZE);
-        const shown = (layer: TrackLayer) => layer.visible || !options.hideHiddenLayers;
+        const shown = (layer: TrackLayer) => layer.visible || !settings.hideHiddenLayers;
+
+        // The ids of the objects in view, when there are few enough to be written and read
+        const objectOverlay = settings.debug && track.debugOptions.objects;
+        track.debugIdsHidden =
+            objectOverlay &&
+            TrackRenderer.hasMoreObjects(
+                track.layers.all.filter(shown),
+                cacheBounds,
+                MAX_DEBUG_LABELS,
+            );
+        const options: RenderOptions = {
+            ...settings,
+            debugLabels: objectOverlay && !track.debugIdsHidden,
+        };
         // The objects the command blocks act on, after the objects added or removed since
         track.commands.refresh();
 
@@ -78,6 +102,35 @@ export abstract class TrackRenderer {
         }
     }
 
+    /**
+     * Whether the visible cells of layers hold more objects than a limit, each one counted once,
+     * by the cell of its position: stops counting past the limit, whatever the number of objects.
+     */
+    private static hasMoreObjects(
+        layers: TrackLayer[],
+        bounds: GridBounds,
+        limit: number,
+    ): boolean {
+        let count = 0;
+        for (const layer of layers) {
+            for (let x = bounds.topLeft.x; x <= bounds.bottomRight.x; x++) {
+                for (let y = bounds.topLeft.y; y <= bounds.bottomRight.y; y++) {
+                    if (!layer.cache.has(x, y)) {
+                        continue;
+                    }
+                    const cell = layer.cache.cell(x, y);
+                    for (const object of cell.objects) {
+                        // A sprite is also in the cells it reaches
+                        if (cell.contains(object.pos) && ++count > limit) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     /** Gets the cells covered by the canvas, for a grid of the given cell size. */
     private static getVisibleCells(track: Track, cellSize: number): GridBounds {
         const topLeft = track.toWorld(new Vector(0, 0));
@@ -104,7 +157,7 @@ export abstract class TrackRenderer {
             }
         }
         // Over the cell images, see `ReachedItems`
-        track.reachedItems.render(ctx, layer);
+        track.reachedItems.render(ctx, layer, bounds);
         // Out of the cached images, as they change with the runners
         track.commands.render(ctx, layer, options.fastRender);
     }
@@ -128,9 +181,7 @@ export abstract class TrackRenderer {
         const zoom = track.zoomFactor;
         const image = cell.getImage(
             zoom,
-            layer.opacityFactor,
-            options.fastRender,
-            track.pixelRatio,
+            RenderCell.optionsFor(track, layer.opacityFactor, options.fastRender),
         );
 
         if (image) {
@@ -155,7 +206,7 @@ export abstract class TrackRenderer {
         for (const object of cell.liveObjects) {
             object.render(ctx);
         }
-        if (options.debug && track.debugOptions.objects) {
+        if (options.debugLabels) {
             for (const object of cell.objects) {
                 // Once, by the cell of its position: a sprite is also in the cells it reaches
                 if (cell.contains(object.pos)) {

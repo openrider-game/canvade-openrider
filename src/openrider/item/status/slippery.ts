@@ -1,3 +1,4 @@
+import type { ItemShape } from '../item-sprite';
 import type { Collidable } from '../../entity/collidable';
 import { MODIFIERS } from '../modifiers';
 import { StatusItem } from '../status-item';
@@ -8,6 +9,10 @@ export class Slippery extends StatusItem {
     public static override readonly color: string = '#999';
     public static override readonly reachedColor: string = '#aaa';
     public static override readonly code: string = 'H';
+
+    public override get sprite(): ItemShape {
+        return 'hexagon';
+    }
 
     public override onReach(part: Collidable): void {
         part.bike.friction = 1;

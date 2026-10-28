@@ -2,6 +2,7 @@ import { CONTROL_NAMES, ControlName } from '../bike/runner/runner-controls';
 import { modifierNames } from '../item/modifiers';
 import { WorkerPool } from '../thread/worker-pool';
 import type { Track } from './track';
+import { MAX_DEBUG_LABELS } from './track-renderer';
 
 /** Symbols of the pressed controls in the stats. */
 const CONTROL_SYMBOLS: Record<ControlName, string> = {
@@ -42,5 +43,7 @@ export function debugStats(track: Track, fps: number): string[] {
             : 'workers: unsupported',
         `inputs: ${inputs.join(' ') || '-'}${runner.dead ? ' (dead)' : ''}`,
         `status: ${status.join(', ') || '-'}`,
+        // The ids of the objects, written when few enough are in view
+        ...(track.debugIdsHidden ? [`ids hidden: over ${MAX_DEBUG_LABELS} objects in view`] : []),
     ];
 }

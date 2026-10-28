@@ -1,7 +1,10 @@
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import type { RenderCell } from '../../src/openrider/grid/cell/render-cell';
-import { drawItemSprites, packItemSprites } from '../../src/openrider/item/item-sprite';
+import { ITEM_MAP } from '../../src/openrider/item/item.constants';
+import { packItemSprites, spriteCode } from '../../src/openrider/item/item-sprite';
+import { StatusItem } from '../../src/openrider/item/status-item';
+import { painter } from '../../src/openrider/render/painter';
 import type { ReachableItem } from '../../src/openrider/item/reachable-item';
 import { RenderCellTask } from '../../src/openrider/thread/render-cell-task';
 import type { Track } from '../../src/openrider/track/track';
@@ -30,6 +33,35 @@ beforeEach(() => {
 afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+});
+
+describe('Status effects', () => {
+    test('have a shape of their own, the reset items keeping the square', () => {
+        const statuses = [...ITEM_MAP.values()].filter(
+            (itemClass) =>
+                (itemClass as unknown as { prototype: object }).prototype instanceof StatusItem,
+        );
+        const shapes = statuses.map(
+            (itemClass) =>
+                (
+                    Object.create(
+                        (itemClass as unknown as { prototype: object }).prototype,
+                    ) as StatusItem
+                ).sprite,
+        );
+
+        expect(statuses.length).toBe(10);
+        expect(new Set(shapes).size).toBe(statuses.length);
+        expect(shapes).toContain('square');
+
+        // Each one drawn, filled and outlined
+        for (const shape of shapes) {
+            const { context, calls } = createCanvasMock();
+            painter.drawItem(context, spriteCode(shape), '#f00', 50, 50, 0, 1);
+            expect(calls).toContain('fill');
+            expect(calls).toContain('stroke');
+        }
+    });
 });
 
 describe('Item sprites', () => {
@@ -64,7 +96,7 @@ describe('Item sprites', () => {
         const { context, calls } = createCanvasMock();
         const { buffer, colors } = packItemSprites(cacheCell(0, 0).objects);
 
-        drawItemSprites(context, new Float64Array(buffer), colors, 2, 0, 0);
+        painter.drawSprites(context, new Float64Array(buffer), colors, 2, 0, 0);
 
         expect(calls.filter((call) => call === 'fill')).toHaveLength(2);
         expect(vi.mocked(context.arc)).toHaveBeenCalledWith(796, 20, 14, 0, 2 * Math.PI, true);
@@ -78,9 +110,9 @@ describe('Item sprites', () => {
     test('are sent to the workers with the lines', () => {
         const task = new RenderCellTask(cacheCell(0, 0), 1, 1);
 
-        expect(new Float64Array(task.definition.spriteBuffer)).toHaveLength(10);
-        expect(task.definition.spriteColors).toEqual(['#ff0']);
-        expect(task.transferables).toContain(task.definition.spriteBuffer);
+        expect(task.definition.drawing.sprites).toHaveLength(10);
+        expect(task.definition.drawing.spriteColors).toEqual(['#ff0']);
+        expect(task.transferables).toContain(task.definition.drawing.sprites.buffer);
     });
 });
 
@@ -143,16 +175,22 @@ describe('Reached items', () => {
         });
         const frame = () =>
             TrackRenderer.render(createCanvasMock().context, track, { fastRender: false });
+        let now = 1000;
+        vi.spyOn(performance, 'now').mockImplementation(() => now);
         target.reached = true;
         frame();
         // The overlays, drawing in the reached color unlike the cell images
         const overlays = () => created.filter((context) => context.fillStyle === '#ffa').length;
         expect(overlays()).toBe(1);
 
-        // While zooming, the overlay is scaled; at the same zoom on the next frame, drawn again
+        // While zooming, the overlay is scaled; once the zoom settled, drawn again
         track.zoomFactor *= 1.5;
         frame();
         expect(overlays()).toBe(1);
+        now += 100;
+        frame();
+        expect(overlays()).toBe(1);
+        now += 100;
         frame();
         expect(overlays()).toBe(2);
     });

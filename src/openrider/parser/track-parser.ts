@@ -7,6 +7,7 @@ import { SolidLine } from '../item/line/solid-line';
 import { RenderPriority, WorkerPool } from '../thread/worker-pool';
 import { Track } from '../track/track';
 import { TrackLayer } from '../track/track-layer';
+import { MIN_ZOOM } from '../track/track.constants';
 import { Zoom } from '../track/zoom';
 import { TrackDocument, TrackFormat } from './track-format';
 
@@ -28,8 +29,14 @@ interface ParserStep {
 const STEP_SIZE = 1000;
 
 /**
+ * Distance from the start position to the centers of the cells pre-rendered at the zoom of the
+ * track, on each axis, in world units: a wide screen around the start at the default zoom.
+ */
+const START_RENDER_DISTANCE = { x: 1600, y: 1000 };
+
+/**
  * Parses a track code or an editor file a few entities at a time, so that the parsing state can
- * display its progress, then pre-renders the cache of the track layers.
+ * display its progress, then pre-renders the densest cells of the track layers.
  *
  * Both formats are described by `TrackFormat`. Entities are separated by `,` within a section,
  * and coordinates are integers in base 32. The parsed layers replace the layers of the track,
@@ -231,12 +238,23 @@ export class TrackParser {
     }
 
     /**
-     * Pre-renders one cell per step at every view zoom up to 1, at the pixel ratio of the
-     * track, the densest cells being rendered by the workers. Waits for the workers before going
-     * to the next step.
+     * Pre-renders the densest cells in the workers, one cell per step, at the pixel ratio of the
+     * track: every one at the lowest zoom, the fallback scaled while a cell renders, and those
+     * around the start position at the zoom of the track too, seen first. Waits for the workers
+     * before going to the next step.
      *
-     * Without workers support, the cells are rendered when first displayed instead.
+     * The other cells, and every cell without workers support, are rendered when first displayed,
+     * at the zoom they are displayed at.
      */
+    /** Whether a cell is around the start position, in view when the track starts. */
+    private nearStart(cell: { x: number; y: number; size: number }): boolean {
+        const { origin } = this.track;
+        return (
+            Math.abs(cell.x + cell.size / 2 - origin.x) <= START_RENDER_DISTANCE.x &&
+            Math.abs(cell.y + cell.size / 2 - origin.y) <= START_RENDER_DISTANCE.y
+        );
+    }
+
     private cacheStep(layer: TrackLayer): ParserStep {
         return {
             label: `Cache (${layer.name})`,
@@ -247,20 +265,22 @@ export class TrackParser {
 
                 for (; this.cacheIndex < l; this.cacheIndex++) {
                     const cell = cacheCells[this.cacheIndex];
-                    for (const viewZoom of Zoom.levels(1)) {
-                        if (cell.isHeavy() && WorkerPool.supported) {
-                            WorkerPool.request(
-                                cell,
-                                Zoom.toPixel(viewZoom, this.track.pixelRatio),
-                                layer.opacityFactor,
-                                RenderPriority.PRELOAD,
-                                () => this.proxyIndex++,
-                            );
-                        } else {
-                            this.proxyIndex++;
-                        }
-
+                    if (!cell.isHeavy() || !WorkerPool.supported) {
+                        continue;
+                    }
+                    const zooms = [Zoom.toPixel(MIN_ZOOM, this.track.pixelRatio)];
+                    if (this.nearStart(cell)) {
+                        zooms.push(this.track.zoomFactor);
+                    }
+                    for (const zoom of new Set(zooms)) {
                         this.renderIndex++;
+                        WorkerPool.request(
+                            cell,
+                            zoom,
+                            layer.opacityFactor,
+                            RenderPriority.PRELOAD,
+                            () => this.proxyIndex++,
+                        );
                     }
                 }
 

@@ -2,12 +2,20 @@ import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { FAST_RENDER_THRESHOLD, RenderCell } from '../../src/openrider/grid/cell/render-cell';
 import { SolidLine } from '../../src/openrider/item/line/solid-line';
+import { createPainter } from '../../src/openrider/render/painter';
 import { renderCellWorker } from '../../src/openrider/thread/render-cell-worker';
 import { RenderPriority, WorkerPool } from '../../src/openrider/thread/worker-pool';
 import { Track } from '../../src/openrider/track/track';
 import { TrackRenderer } from '../../src/openrider/track/track-renderer';
+import { TrackParser } from '../../src/openrider/parser/track-parser';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 import { parseTrack } from '../helpers/track';
+import type { RenderCellDefinition } from '../../src/openrider/thread/render-cell-task';
+
+/** Left of the cell of a task, in world units: its image bleeds by 1px. */
+function cellLeft({ drawing }: RenderCellDefinition): number {
+    return (drawing.offsetLeft + 1) / drawing.zoom;
+}
 
 class FakeBitmap {
     public closed = false;
@@ -25,7 +33,7 @@ class FakeBitmap {
 /** Worker double, answering the render tasks on demand. */
 class FakeWorker {
     public static instances: FakeWorker[] = [];
-    public readonly tasks: Array<{ id: number; task: { zoom: number; x: number } }> = [];
+    public readonly tasks: Array<{ id: number; task: RenderCellDefinition }> = [];
     private readonly listeners: Array<(e: { data: unknown }) => void> = [];
 
     public constructor() {
@@ -89,15 +97,17 @@ describe('Render cells', () => {
         const cell = new RenderCell(0, 0, 400);
         cell.push(new SolidLine(new Vector(0, 0), new Vector(100, 0), track));
 
-        const image = cell.getImage(0.6, 1, true);
+        const image = cell.getImage(0.6, { opacityFactor: 1, fastRender: true });
         expect(image?.zoom).toBe(0.6);
         expect(image?.version).toBe(cell.contentVersion);
         expect((image?.source as HTMLCanvasElement).width).toBe(400 * 0.6 + 2);
-        expect(cell.getImage(0.6, 1, true)).toEqual(image);
+        expect(cell.getImage(0.6, { opacityFactor: 1, fastRender: true })).toEqual(image);
 
         cell.push(new SolidLine(new Vector(0, 10), new Vector(100, 10), track));
         expect(cell.isUpToDate(0.6)).toBe(false);
-        expect(cell.getImage(0.6, 1, true)?.source).not.toBe(image?.source);
+        expect(cell.getImage(0.6, { opacityFactor: 1, fastRender: true })?.source).not.toBe(
+            image?.source,
+        );
         expect(worker()).toBeUndefined();
     });
 
@@ -105,57 +115,95 @@ describe('Render cells', () => {
         const cell = createHeavyCell();
 
         // Nothing to display while the first image is rendering
-        expect(cell.getImage(1, 1, true)).toBeNull();
-        expect(worker().tasks.map(({ task }) => task.zoom)).toEqual([1]);
+        expect(cell.getImage(1, { opacityFactor: 1, fastRender: true })).toBeNull();
+        expect(worker().tasks.map(({ task }) => task.drawing.zoom)).toEqual([1]);
 
         const bitmap = worker().reply();
-        const image = cell.getImage(1, 1, true);
+        const image = cell.getImage(1, { opacityFactor: 1, fastRender: true });
         expect(image?.source).toBe(bitmap);
         expect(cell.isUpToDate(1)).toBe(true);
     });
 
     test('keep displaying the previous image while the edited cell renders', () => {
         const cell = createHeavyCell();
-        cell.getImage(1, 1, true);
+        cell.getImage(1, { opacityFactor: 1, fastRender: true });
         const bitmap = worker().reply();
         drainWorker();
 
         cell.push(new SolidLine(new Vector(0, 5), new Vector(100, 5), track));
 
         // No blank frame: the stale image is kept until the new one is rendered
-        expect(cell.getImage(1, 1, true)?.source).toBe(bitmap);
+        expect(cell.getImage(1, { opacityFactor: 1, fastRender: true })?.source).toBe(bitmap);
         const newBitmap = worker().reply();
         expect(bitmap.closed).toBe(true);
-        expect(cell.getImage(1, 1, true)?.source).toBe(newBitmap);
+        expect(cell.getImage(1, { opacityFactor: 1, fastRender: true })?.source).toBe(newBitmap);
     });
 
     test('display the closest zoom level while the current one renders', () => {
         const cell = createHeavyCell();
-        cell.getImage(1, 1, true);
+        cell.getImage(1, { opacityFactor: 1, fastRender: true });
         worker().reply();
         drainWorker();
 
-        const fallback = cell.getImage(1.4, 1, true);
+        const fallback = cell.getImage(1.4, { opacityFactor: 1, fastRender: true });
 
         // The adjacent zoom levels were rendered in the background, 1.2 is the closest one
         expect(fallback?.zoom).toBe(1.2);
-        expect(worker().tasks[0].task.zoom).toBe(1.4);
+        expect(worker().tasks[0].task.drawing.zoom).toBe(1.4);
     });
 
     test('render the fallback and adjacent zoom levels in the background', () => {
         const cell = createHeavyCell();
-        cell.getImage(1, 1, true);
+        cell.getImage(1, { opacityFactor: 1, fastRender: true });
         worker().reply();
 
         const zooms = [];
         while (worker().tasks.length) {
-            zooms.push(worker().tasks[0].task.zoom);
+            zooms.push(worker().tasks[0].task.drawing.zoom);
             worker().reply();
         }
 
         // The low resolution fallback first, then the levels around the current zoom
         expect(zooms).toEqual([0.2, 0.8, 1.2]);
         expect([0.2, 0.8, 1, 1.2].every((zoom) => cell.isUpToDate(zoom))).toBe(true);
+    });
+
+    test('scale their closest image while the zoom changes, rendered once it settles', () => {
+        const cell = new RenderCell(0, 0, 400);
+        cell.push(new SolidLine(new Vector(0, 10), new Vector(300, 10), track));
+        const options = { opacityFactor: 1, fastRender: true };
+        const first = cell.getImage(1, options);
+
+        // The image of the zoom before, as it is
+        expect(cell.getImage(1.2, { ...options, settled: false })?.source).toBe(first?.source);
+        expect(cell.imageState(1.2)).toBe('other-zoom');
+        expect(cell.getImage(1.2, options)?.zoom).toBe(1.2);
+    });
+
+    test('render the dense cells at the zoom eased to, while it changes', () => {
+        const cell = createHeavyCell();
+        cell.storeImage(1, cell.contentVersion, new FakeBitmap() as unknown as ImageBitmap);
+
+        const image = cell.getImage(1.4, {
+            opacityFactor: 1,
+            fastRender: true,
+            settled: false,
+            targetZoom: 2,
+        });
+
+        expect(image?.zoom).toBe(1);
+        expect(worker().tasks.map(({ task }) => task.drawing.zoom)).toEqual([2]);
+    });
+
+    test('keep a few images, the one of the lowest zoom always', () => {
+        const cell = new RenderCell(0, 0, 400);
+        cell.push(new SolidLine(new Vector(0, 10), new Vector(300, 10), track));
+        const zooms = [0.2, 0.4, 0.6, 0.8, 1, 1.2, 1.4, 1.6];
+        zooms.forEach((zoom) => cell.getImage(zoom, { opacityFactor: 1, fastRender: false }));
+
+        // The least recently displayed ones dropped, the fallback kept
+        const kept = zooms.filter((zoom) => cell.imageState(zoom) === 'current');
+        expect(kept).toEqual([0.2, 0.8, 1, 1.2, 1.4, 1.6]);
     });
 
     test('ignore images rendered for an older content than the stored one', () => {
@@ -166,7 +214,7 @@ describe('Render cells', () => {
         cell.storeImage(1, cell.contentVersion, recent as unknown as ImageBitmap);
         cell.storeImage(1, cell.contentVersion - 1, old as unknown as ImageBitmap);
 
-        expect(cell.getImage(1, 1, true)?.source).toBe(recent);
+        expect(cell.getImage(1, { opacityFactor: 1, fastRender: true })?.source).toBe(recent);
         expect(old.closed).toBe(true);
     });
 });
@@ -187,7 +235,7 @@ describe('Worker pool', () => {
 
         const rendered = [];
         while (worker().tasks.length) {
-            rendered.push(worker().tasks[0].task.x);
+            rendered.push(cellLeft(worker().tasks[0].task));
             worker().reply();
         }
 
@@ -209,6 +257,8 @@ describe('Render worker', () => {
         vi.stubGlobal('self', {
             addEventListener: (_type: string, listener: typeof onMessage) => (onMessage = listener),
             postMessage,
+            // As the blob of the worker pool sets it
+            painter: createPainter(),
         });
         vi.stubGlobal(
             'OffscreenCanvas',
@@ -228,12 +278,16 @@ describe('Render worker', () => {
                 id: 7,
                 task: {
                     cellSize: 400,
-                    zoom: 0.5,
-                    opacityFactor: 0.5,
-                    x: 400,
-                    y: 0,
-                    sceneryBuffer: new Int32Array([400, 0, 500, 0]).buffer,
-                    lineBuffer: new Int32Array([400, 10, 500, 10, 400, 20, 500, 20]).buffer,
+                    drawing: {
+                        zoom: 0.5,
+                        opacityFactor: 0.5,
+                        offsetLeft: 400 * 0.5 - 1,
+                        offsetTop: -1,
+                        scenery: new Int32Array([400, 0, 500, 0]),
+                        lines: new Int32Array([400, 10, 500, 10, 400, 20, 500, 20]),
+                        sprites: new Float64Array(),
+                        spriteColors: [],
+                    },
                 },
             },
         } as MessageEvent);
@@ -280,7 +334,39 @@ describe('Fast renderer support', () => {
         TrackRenderer.render(createCanvasMock().context, heavy);
 
         expect(cell.isUpToDate(heavy.zoomFactor)).toBe(false);
-        expect(worker().tasks.map(({ task }) => task.zoom)).toContain(heavy.zoomFactor);
+        expect(worker().tasks.map(({ task }) => task.drawing.zoom)).toContain(heavy.zoomFactor);
+    });
+});
+
+describe('Track parser', () => {
+    test('pre-renders the dense cells at the lowest zoom, those around the start at its zoom', () => {
+        vi.stubGlobal('OffscreenCanvas', class {});
+        // A dense cell at the start, and another one far away
+        const line = (x: number, y: number) =>
+            [x, y, x + 300, y].map((value) => value.toString(32)).join(' ');
+        const lines: string[] = [];
+        for (let i = 0; i <= FAST_RENDER_THRESHOLD; i++) {
+            lines.push(line(0, i % 400), line(40000, i % 400));
+        }
+        const dense = new Track(null);
+        const parser = new TrackParser(dense);
+        parser.init(`${lines.join(',')}#####BMX#0 0`);
+
+        const rendered = new Map<number, number[]>();
+        for (let step = 0; step < 10000 && !parser.done; step++) {
+            parser.currentStep();
+            parser.updateIndicators();
+            while (worker()?.tasks.length) {
+                const { task } = worker().tasks[0];
+                const left = cellLeft(task);
+                rendered.set(left, [...(rendered.get(left) ?? []), task.drawing.zoom]);
+                worker().reply();
+            }
+        }
+
+        expect(parser.done).toBe(true);
+        expect(rendered.get(0)?.sort()).toEqual([0.2, dense.zoomFactor].sort());
+        expect(rendered.get(40000)).toEqual([0.2]);
     });
 });
 

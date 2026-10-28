@@ -1,3 +1,4 @@
+import type { ItemShape } from '../item-sprite';
 import type { Collidable } from '../../entity/collidable';
 import { MODIFIER_GROUPS, MODIFIERS } from '../modifiers';
 import { StatusItem } from '../status-item';
@@ -13,6 +14,10 @@ export class ZeroGravity extends StatusItem {
     public static override readonly color: string = '#5ff';
     public static override readonly reachedColor: string = '#aff';
     public static override readonly code: string = 'Z';
+
+    public override get sprite(): ItemShape {
+        return 'circle';
+    }
 
     public override onReach(part: Collidable): void {
         part.bike.gravityValueScale = 0;

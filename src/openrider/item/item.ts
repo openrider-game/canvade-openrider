@@ -1,7 +1,8 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../entity/collidable';
 import type { Track } from '../track/track';
-import type { ItemShape } from './item-sprite';
+import { painter } from '../render/painter';
+import { type ItemShape, spriteCode } from './item-sprite';
 import { TrackObject } from './track-object';
 
 /** Static side of the item classes, used to read items from the track code. */
@@ -74,20 +75,22 @@ export abstract class Item extends TrackObject {
         return this.sprite === null;
     }
 
+    /** Draws the item as its sprite looks for now, by the painter drawing the cells too. */
     public override render(ctx: CanvasRenderingContext2D): void {
+        const shape = this.sprite;
+        if (shape === null) {
+            return;
+        }
         const pos = this.track.toPixel(this.pos);
-        const zoom = this.track.zoomFactor;
-
-        ctx.save();
-        ctx.fillStyle = this.itemClass.color;
-        ctx.lineWidth = Math.max(2 * zoom, 0.5);
-        ctx.beginPath();
-        ctx.moveTo(pos.x + 7 * zoom, pos.y);
-        ctx.arc(pos.x, pos.y, 7 * zoom, 0, 2 * Math.PI, true);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
+        painter.drawItem(
+            ctx,
+            spriteCode(shape),
+            this.spriteColor,
+            pos.x,
+            pos.y,
+            this.spriteRotation,
+            this.track.zoomFactor,
+        );
     }
 
     public override renderDebug(ctx: CanvasRenderingContext2D): void {

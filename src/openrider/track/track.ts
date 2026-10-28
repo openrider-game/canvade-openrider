@@ -20,7 +20,12 @@ import { ToolManager } from '../tool/tool-manager';
 import { DebugOptions, defaultDebugOptions } from './debug-options';
 import { ReachedItems } from './reached-items';
 import { LayerStack } from './layer-stack';
-import { DEFAULT_ZOOM, MAX_LINE_LENGTH, MIN_LINE_LENGTH } from './track.constants';
+import {
+    DEFAULT_ZOOM,
+    MAX_LINE_LENGTH,
+    MIN_LINE_LENGTH,
+    ZOOM_SETTLE_TIME,
+} from './track.constants';
 import { Zoom } from './zoom';
 import type { TrackLayer } from './track-layer';
 
@@ -77,6 +82,32 @@ export class Track extends World {
     public editing = false;
     /** View zoom a command block eases the view to, null once reached. */
     public zoomTarget: number | null = null;
+    /** Pixel zoom of the last frame, null before the first one, see {@link followZoom}. */
+    private zoomSeen: number | null = null;
+    /** Time the pixel zoom last changed at, in milliseconds (`performance.now`). */
+    private zoomChangedAt = -Infinity;
+    /**
+     * Notes the pixel zoom of a frame, to tell when it settles (see {@link zoomSettled}): called
+     * once per frame by the renderer.
+     */
+    public followZoom(): void {
+        if (this.zoomSeen !== null && this.zoomSeen !== this.zoomFactor) {
+            this.zoomChangedAt = performance.now();
+        }
+        this.zoomSeen = this.zoomFactor;
+    }
+
+    /**
+     * Whether the zoom settled: unchanged for {@link ZOOM_SETTLE_TIME}, and not easing to the zoom
+     * of a command block. While it changes, the images of the track are scaled rather than drawn
+     * again at each zoom (see `RenderCell.getImage`).
+     */
+    public get zoomSettled(): boolean {
+        return (
+            this.zoomTarget === null && performance.now() - this.zoomChangedAt >= ZOOM_SETTLE_TIME
+        );
+    }
+
     /** Point a command block shows instead of the focal point, until a physics tick. */
     public cameraHold: { pos: Vector; until: number } | null = null;
     /**
@@ -114,6 +145,11 @@ export class Track extends World {
 
     /** Whether the debug mode is enabled, its overlays chosen in {@link Track.debugOptions}. */
     public debug = false;
+    /**
+     * Whether the last frame drawn with the object overlay of the debug mode left out the ids of
+     * the objects, more than `MAX_DEBUG_LABELS` being in view.
+     */
+    public debugIdsHidden = false;
     public readonly debugOptions: DebugOptions = defaultDebugOptions();
     /** Whether the controls panel is open, to bind the controls to other keys. */
     public controlsOpen = false;

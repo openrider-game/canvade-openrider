@@ -138,9 +138,7 @@ export class CommandGroup {
                 const tile = this.tiles.cell(x, y);
                 const image = tile.getImage(
                     zoom,
-                    options.opacityFactor,
-                    options.fastRender,
-                    track.pixelRatio,
+                    RenderCell.optionsFor(track, options.opacityFactor, options.fastRender),
                 );
                 if (image) {
                     CommandGroup.drawImage(

@@ -1,3 +1,4 @@
+import type { ItemShape } from '../item-sprite';
 import type { Collidable } from '../../entity/collidable';
 import { MODIFIER_GROUPS, MODIFIERS } from '../modifiers';
 import { StatusItem } from '../status-item';
@@ -14,6 +15,10 @@ export class Turbo extends StatusItem {
     public static override readonly color: string = '#f90';
     public static override readonly reachedColor: string = '#fc8';
     public static override readonly code: string = 'U';
+
+    public override get sprite(): ItemShape {
+        return 'diamond';
+    }
 
     public override onReach(part: Collidable): void {
         part.bike.engineValueScale = TURBO_ENGINE_SCALE;

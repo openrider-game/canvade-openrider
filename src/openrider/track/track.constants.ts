@@ -14,6 +14,11 @@ export const TRACK_MODE_EDITING = 'TRACK_MODE_EDITING',
     MIN_ZOOM = 0.2,
     MAX_ZOOM = 4,
     ZOOM_STEP = 0.2,
+    /**
+     * Time the zoom stays the same before the images of the track are drawn at it, in
+     * milliseconds: they are scaled meanwhile.
+     */
+    ZOOM_SETTLE_TIME = 150,
     /** Speed at which the camera catches up with the focal point. */
     CAMERA_FOLLOW_FACTOR = 1 / 200;
 

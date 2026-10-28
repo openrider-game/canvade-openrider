@@ -84,23 +84,4 @@ export abstract class Line extends TrackObject {
     public toString(): string {
         return this.pos.toString() + this.getEnd();
     }
-
-    /**
-     * Strokes the line on the image of a render cell.
-     *
-     * @param offsetLeft - Left of the cell image, in canvas pixels at the given zoom.
-     * @param offsetTop - Top of the cell image, in canvas pixels at the given zoom.
-     * @param zoom - Zoom factor the image is rendered at.
-     */
-    public renderCache(
-        ctx: CanvasRenderingContext2D,
-        offsetLeft: number,
-        offsetTop: number,
-        zoom: number,
-    ): void {
-        ctx.beginPath();
-        ctx.moveTo(this.pos.x * zoom - offsetLeft, this.pos.y * zoom - offsetTop);
-        ctx.lineTo(this.endPos.x * zoom - offsetLeft, this.endPos.y * zoom - offsetTop);
-        ctx.stroke();
-    }
 }

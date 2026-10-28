@@ -1,5 +1,5 @@
 import type { RenderCell } from '../grid/cell/render-cell';
-import { drawItemSprites } from '../item/item-sprite';
+import { createPainter } from '../render/painter';
 import { RenderCellTask } from './render-cell-task';
 import { renderCellWorker } from './render-cell-worker';
 
@@ -68,8 +68,8 @@ export abstract class WorkerPool {
         const source = URL.createObjectURL(
             new Blob(
                 [
-                    // The sprites are drawn by the same function as on the main thread
-                    `self.drawItemSprites = (${drawItemSprites.toString()});`,
+                    // A painter of its own, drawing as the one of the main thread
+                    `self.painter = (${createPainter.toString()})();`,
                     `(${renderCellWorker.toString()})()`,
                 ],
                 { type: 'text/javascript' },

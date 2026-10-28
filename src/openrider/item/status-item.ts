@@ -23,19 +23,4 @@ export abstract class StatusItem extends ReachableItem {
     public override get sprite(): ItemShape {
         return 'square';
     }
-
-    public override render(ctx: CanvasRenderingContext2D): void {
-        const pos = this.track.toPixel(this.pos);
-        const zoom = this.track.zoomFactor;
-
-        ctx.save();
-        ctx.fillStyle = this.reached ? this.reachedColor : this.itemClass.color;
-        ctx.lineWidth = Math.max(2 * zoom, 0.5);
-        ctx.beginPath();
-        ctx.rect(pos.x - 7 * zoom, pos.y - 7 * zoom, 14 * zoom, 14 * zoom);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
-    }
 }

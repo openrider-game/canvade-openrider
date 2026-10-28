@@ -39,35 +39,6 @@ export abstract class DirectionalItem extends Item {
         return (this.rotation * Math.PI) / 180;
     }
 
-    public override render(ctx: CanvasRenderingContext2D): void {
-        const pos = this.track.toPixel(this.pos);
-        const zoom = this.track.zoomFactor;
-
-        ctx.save();
-        ctx.fillStyle = this.itemClass.color;
-        ctx.lineWidth = Math.max(2 * zoom, 0.5);
-        ctx.beginPath();
-        ctx.translate(pos.x, pos.y);
-        ctx.rotate((this.rotation * Math.PI) / 180);
-        DirectionalItem.traceArrow(ctx, zoom);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.restore();
-    }
-
-    /**
-     * Traces the item triangle around the origin of the context, pointing down.
-     *
-     * @param zoom - Track zoom factor, the triangle being sized in world units.
-     */
-    public static traceArrow(ctx: CanvasRenderingContext2D, zoom: number): void {
-        ctx.moveTo(-7 * zoom, -10 * zoom);
-        ctx.lineTo(0, 10 * zoom);
-        ctx.lineTo(7 * zoom, -10 * zoom);
-        ctx.lineTo(-7 * zoom, -10 * zoom);
-    }
-
     /** Same as {@link Item.touch}, with a larger touch radius. */
     public override touch(part: Collidable): void {
         if (part.pos.distanceToSquared(this.pos) < 1000) {

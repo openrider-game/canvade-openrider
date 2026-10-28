@@ -59,8 +59,9 @@ describe('Track drawing', () => {
         const { context } = render(true);
         const cells = cellCalls.flat();
 
+        // The circles of the items, the polygons of the status effects
         expect(cells).toContain('arc');
-        expect(cells).toContain('rect');
+        expect(cells).toContain('closePath');
         // A fill for each of the 13 items, the teleporter having two
         expect(cells.filter((call) => call === 'fill').length).toBeGreaterThanOrEqual(13);
         expect(vi.mocked(context.fillText).mock.calls.map(([text]) => text)).toContain('Rival');
@@ -143,7 +144,9 @@ describe('Tool previews', () => {
             track.toolManager.onMouseDown(mouseEvent());
         });
 
-        expect(calls).toContain('rotate');
+        // A dot at the mouse, and the arrow at the press
+        expect(calls).toContain('arc');
+        expect(calls).toContain('lineTo');
     });
 
     test('draws the links of the linked items being placed', () => {

@@ -1,18 +1,43 @@
 import type { Item } from '../../item/item';
-import { drawItemSprites, type ItemSprites, packItemSprites } from '../../item/item-sprite';
+import { type ItemSprites, packItemSprites } from '../../item/item-sprite';
+import type { Line } from '../../item/line/line';
+import { type CellDrawing, painter } from '../../render/painter';
 import { RenderPriority, WorkerPool } from '../../thread/worker-pool';
 import { MIN_ZOOM } from '../../track/track.constants';
+import type { Track } from '../../track/track';
 import { Zoom } from '../../track/zoom';
 import { Cell } from './cell';
 
-/** Stroke colors of the scenery and solid lines in the cell images. */
+/** Stroke colors of the scenery and solid lines in the cell images, as `createPainter` draws them. */
 export const SCENERY_STROKE_STYLE = '#aaa',
     SOLID_STROKE_STYLE = '#000',
     /**
      * Cells with more lines and item sprites than this are rendered by the workers with the fast
      * renderer.
      */
-    FAST_RENDER_THRESHOLD = 500;
+    FAST_RENDER_THRESHOLD = 500,
+    /**
+     * Images kept by a cell, the least recently displayed ones being dropped past it, but the
+     * one of the lowest zoom, a fallback always at hand.
+     */
+    MAX_CELL_IMAGES = 6;
+
+/** How a cell gets its image at a zoom, see {@link RenderCell.getImage}. */
+export interface ImageOptions {
+    /** Opacity of the lines, depending on the layer. */
+    opacityFactor: number;
+    /** Whether heavy cells are rendered by the workers. */
+    fastRender: boolean;
+    /** Pixel ratio of the screen, to prefetch the zoom levels around the current one. */
+    pixelRatio?: number;
+    /**
+     * Whether the zoom settled (see `Track.zoomSettled`): while it changes, the closest image is
+     * scaled rather than rendered at each zoom.
+     */
+    settled?: boolean;
+    /** Pixel zoom the view eases to, e.g. asked by a command block, null without. */
+    targetZoom?: number | null;
+}
 
 /** Image of a cell: a canvas when rendered synchronously, a bitmap when rendered by a worker. */
 export type CellImageSource = HTMLCanvasElement | ImageBitmap;
@@ -41,7 +66,8 @@ let nextCellId = 0;
  * without discarding them. With the fast renderer, dense cells are rendered by the workers in
  * the background: until the image at the current zoom is up to date, the stale image is
  * displayed, or else the image of the closest zoom level scaled to the current zoom, so that the
- * cell never blinks.
+ * cell never blinks. While the zoom changes, the closest image is scaled, the cell being rendered
+ * at the zoom once it settles, and a cell keeps a few images only (see {@link MAX_CELL_IMAGES}).
  */
 export class RenderCell extends Cell {
     /** Unique id, used to deduplicate the render requests. */
@@ -56,6 +82,8 @@ export class RenderCell extends Cell {
     private spriteCount: number | null = null;
     /** Sprites of the cell flattened, once for every zoom level, again once the content changes. */
     private packed: ItemSprites | null = null;
+    /** Scenery and solid lines of the cell flattened, as the sprites. */
+    private packedLines: { scenery: Int32Array; lines: Int32Array } | null = null;
 
     /** Version of the lines of the cell, incremented each time they change. */
     public get contentVersion(): number {
@@ -68,12 +96,45 @@ export class RenderCell extends Cell {
         this.live = null;
         this.spriteCount = null;
         this.packed = null;
+        this.packedLines = null;
     }
 
     /** Sprites of the cell, flattened by `packItemSprites`: not to be changed, but copied. */
     public get packedSprites(): ItemSprites {
         this.packed ??= packItemSprites(this.objects);
         return this.packed;
+    }
+
+    /**
+     * What the painters draw for the cell at a zoom (see `createPainter`): its lines and sprites
+     * flattened once per content, shared by every zoom level, not to be changed.
+     *
+     * @param opacityFactor - Opacity of the lines, depending on the layer.
+     */
+    public drawing(zoom: number, opacityFactor: number): CellDrawing {
+        this.packedLines ??= {
+            scenery: RenderCell.flatten(this.scenery),
+            lines: RenderCell.flatten(this.lines),
+        };
+        const { buffer, colors } = this.packedSprites;
+        return {
+            zoom,
+            opacityFactor,
+            // Cells bleed by 1px on each side to avoid thin seams between adjacent cells
+            offsetLeft: this.x * zoom - 1,
+            offsetTop: this.y * zoom - 1,
+            scenery: this.packedLines.scenery,
+            lines: this.packedLines.lines,
+            sprites: new Float64Array(buffer),
+            spriteColors: colors,
+        };
+    }
+
+    /** Lines flattened as `[x1, y1, x2, y2, ...]`, in world units. */
+    private static flatten(lines: readonly Line[]): Int32Array {
+        return new Int32Array(
+            lines.flatMap((line) => [line.pos.x, line.pos.y, line.endPos.x, line.endPos.y]),
+        );
     }
 
     /** Items of the cell without a sprite, drawn on every frame, e.g. the command blocks. */
@@ -121,36 +182,75 @@ export class RenderCell extends Cell {
      * are requested to the workers with the {@link RenderPriority.VISIBLE} priority, and a stale
      * or another zoom image is returned meanwhile.
      *
+     * While the zoom changes, the closest image is returned as it is, to be scaled: the cell is
+     * only rendered without any image, and the heavy cells at the zoom eased to, if any.
+     *
      * @param zoom - Pixel zoom, in canvas pixels per world unit.
-     * @param opacityFactor - Opacity of the lines, depending on the layer.
-     * @param fastRender - Whether heavy cells are rendered by the workers.
-     * @param pixelRatio - Pixel ratio of the screen, to prefetch the zoom levels around the
-     *   current one.
      * @returns The image, which may be stale or of another zoom, null if nothing can be displayed
      * yet.
      */
-    public getImage(
-        zoom: number,
-        opacityFactor: number,
-        fastRender: boolean,
-        pixelRatio = 1,
-    ): CellImage | null {
+    public getImage(zoom: number, options: ImageOptions): CellImage | null {
+        const { opacityFactor, fastRender, pixelRatio = 1, settled = true } = options;
+        const heavy = fastRender && this.isHeavy();
         const image = this.images.get(zoom);
         if (image?.version === this.version) {
-            if (fastRender && this.isHeavy()) {
+            if (heavy && settled) {
                 this.prefetch(zoom, opacityFactor, pixelRatio);
             }
-            return image;
+            return this.used(image);
         }
 
-        if (!fastRender || !this.isHeavy()) {
+        if (!settled) {
+            const target = options.targetZoom;
+            if (heavy && target && !this.isUpToDate(target)) {
+                WorkerPool.request(this, target, opacityFactor, RenderPriority.ADJACENT);
+            }
+            const closest = this.getClosestImage(zoom);
+            if (closest) {
+                return this.used(closest);
+            }
+        }
+
+        if (!heavy) {
             return this.renderNow(zoom, opacityFactor);
         }
 
         WorkerPool.request(this, zoom, opacityFactor, RenderPriority.VISIBLE);
-        this.prefetch(zoom, opacityFactor, pixelRatio);
+        if (settled) {
+            this.prefetch(zoom, opacityFactor, pixelRatio);
+        }
 
-        return image ?? this.getClosestImage(zoom);
+        const fallback = image ?? this.getClosestImage(zoom);
+        return fallback && this.used(fallback);
+    }
+
+    /**
+     * How the cells of a track get their images for now: scaled while its zoom changes, the heavy
+     * ones requested at the zoom it eases to.
+     *
+     * @param opacityFactor - Opacity of the lines, depending on the layer.
+     * @param fastRender - Whether heavy cells are rendered by the workers.
+     */
+    public static optionsFor(
+        track: Track,
+        opacityFactor: number,
+        fastRender: boolean,
+    ): ImageOptions {
+        return {
+            opacityFactor,
+            fastRender,
+            pixelRatio: track.pixelRatio,
+            settled: track.zoomSettled,
+            targetZoom:
+                track.zoomTarget === null ? null : Zoom.toPixel(track.zoomTarget, track.pixelRatio),
+        };
+    }
+
+    /** Marks an image as the most recently displayed, the last one dropped (see `storeImage`). */
+    private used(image: CellImage): CellImage {
+        this.images.delete(image.zoom);
+        this.images.set(image.zoom, image);
+        return image;
     }
 
     /**
@@ -207,8 +307,21 @@ export class RenderCell extends Cell {
 
         if (current) {
             RenderCell.release(current.source);
+            this.images.delete(zoom);
         }
         this.images.set(zoom, { source, zoom, version });
+
+        // The least recently displayed images first, the one of the lowest zoom always kept
+        const lowest = Math.min(...this.images.keys());
+        for (const kept of this.images.keys()) {
+            if (this.images.size <= MAX_CELL_IMAGES) {
+                break;
+            }
+            if (kept !== lowest && kept !== zoom) {
+                RenderCell.release(this.images.get(kept)!.source);
+                this.images.delete(kept);
+            }
+        }
     }
 
     /** Frees the images of the cell, e.g. once the cell is discarded. */
@@ -235,26 +348,7 @@ export class RenderCell extends Cell {
         // Cells bleed by 1px on each side to avoid thin seams between adjacent cells
         canvas.width = this.size * zoom + 2;
         canvas.height = this.size * zoom + 2;
-
-        context.lineCap = 'round';
-        context.lineWidth = Math.max(2 * zoom, 0.5);
-        context.globalAlpha = opacityFactor;
-
-        context.strokeStyle = SCENERY_STROKE_STYLE;
-        for (const scenery of this.scenery) {
-            scenery.renderCache(context, this.x * zoom - 1, this.y * zoom - 1, zoom);
-        }
-
-        context.strokeStyle = SOLID_STROKE_STYLE;
-        for (const line of this.lines) {
-            line.renderCache(context, this.x * zoom - 1, this.y * zoom - 1, zoom);
-        }
-
-        if (this.sprites > 0) {
-            const { buffer, colors } = this.packedSprites;
-            const sprites = new Float64Array(buffer);
-            drawItemSprites(context, sprites, colors, zoom, this.x * zoom - 1, this.y * zoom - 1);
-        }
+        painter.drawCell(context, this.drawing(zoom, opacityFactor));
 
         this.storeImage(zoom, this.version, canvas);
 

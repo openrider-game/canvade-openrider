@@ -69,7 +69,7 @@ describe('Tracks on high density screens', () => {
             cell.push(new SolidLine(new Vector(0, i % 400), new Vector(300, i % 400), track));
         }
 
-        cell.getImage(1.2, 1, true, 2);
+        cell.getImage(1.2, { opacityFactor: 1, fastRender: true, pixelRatio: 2 });
 
         expect(request.mock.calls.map(([, zoom, , priority]) => [zoom, priority])).toEqual([
             [1.2, RenderPriority.VISIBLE],
@@ -77,5 +77,27 @@ describe('Tracks on high density screens', () => {
             [0.8, RenderPriority.ADJACENT],
             [1.6, RenderPriority.ADJACENT],
         ]);
+    });
+});
+
+describe('Zoom settling', () => {
+    test('waits for the zoom to stay the same, and for the zoom of a command block to be reached', () => {
+        let now = 1000;
+        vi.spyOn(performance, 'now').mockImplementation(() => now);
+        const track = new Track(null);
+        track.followZoom();
+        expect(track.zoomSettled).toBe(true);
+
+        track.zoomFactor = 1.2;
+        track.followZoom();
+        expect(track.zoomSettled).toBe(false);
+        now += 100;
+        track.followZoom();
+        expect(track.zoomSettled).toBe(false);
+        now += 60;
+        expect(track.zoomSettled).toBe(true);
+
+        track.zoomTarget = 2;
+        expect(track.zoomSettled).toBe(false);
     });
 });

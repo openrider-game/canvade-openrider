@@ -1,5 +1,7 @@
 import { Vector } from 'canvade';
 import { DirectionalItem, DirectionalItemClass } from '../../item/directional-item';
+import { spriteCode } from '../../item/item-sprite';
+import { painter } from '../../render/painter';
 import { ItemTool } from './item.tool';
 
 /**
@@ -40,24 +42,23 @@ export abstract class DirectionalItemTool extends ItemTool {
         const lastClick = this.track.toPixel(this.track.lastClick);
         const pos = this.track.toPixel(this.track.mousePos);
 
-        ctx.beginPath();
-        ctx.fillStyle = this.itemClass.color;
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = Math.max(0.5, zoom * 2);
-        ctx.save();
-
+        const color = this.itemClass.color;
+        const arrow = spriteCode('arrow');
         if (this.mouseDown) {
+            // The arrow at the press, turned toward the mouse, with a dot at the mouse
+            ctx.save();
+            ctx.beginPath();
+            ctx.fillStyle = color;
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = Math.max(0.5, zoom * 2);
             ctx.arc(pos.x, pos.y, 3 * zoom, 0, 2 * Math.PI);
-
-            ctx.translate(lastClick.x, lastClick.y);
-            ctx.rotate(Math.atan2(lastClick.x - pos.x, pos.y - lastClick.y));
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            const rotation = Math.atan2(lastClick.x - pos.x, pos.y - lastClick.y);
+            painter.drawItem(ctx, arrow, color, lastClick.x, lastClick.y, rotation, zoom);
         } else {
-            ctx.translate(pos.x, pos.y);
+            painter.drawItem(ctx, arrow, color, pos.x, pos.y, 0, zoom);
         }
-
-        DirectionalItem.traceArrow(ctx, zoom);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
     }
 }

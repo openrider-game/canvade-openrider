@@ -1,3 +1,4 @@
+import type { ItemShape } from '../item-sprite';
 import type { Collidable } from '../../entity/collidable';
 import { MODIFIER_GROUPS, MODIFIERS } from '../modifiers';
 import { StatusItem } from '../status-item';
@@ -14,6 +15,10 @@ export class LowGravity extends StatusItem {
     public static override readonly color: string = '#c9f';
     public static override readonly reachedColor: string = '#ecf';
     public static override readonly code: string = 'F';
+
+    public override get sprite(): ItemShape {
+        return 'triangle';
+    }
 
     public override onReach(part: Collidable): void {
         part.bike.gravityValueScale = LOW_GRAVITY_SCALE;

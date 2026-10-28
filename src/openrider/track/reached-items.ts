@@ -1,32 +1,30 @@
 import { CACHE_CELL_SIZE } from '../grid/grid.constants';
-import {
-    drawItemSprites,
-    ITEM_SPRITE_MARGIN,
-    type ItemStamps,
-    packItemSprites,
-} from '../item/item-sprite';
+import { ITEM_SPRITE_MARGIN, packItemSprites } from '../item/item-sprite';
 import type { ReachableItem } from '../item/reachable-item';
+import { painter } from '../render/painter';
 import type { Track } from './track';
 import type { TrackLayer } from './track-layer';
+import type { GridBounds } from './track-renderer';
 
 /** Largest side of an overlay image, in pixels: closer, the reached items are drawn directly. */
 const MAX_OVERLAY_SIZE = 2048;
 
 /** Reached items of a render cell, by the cell of their position, and their image. */
 interface Overlay {
-    /** Left of the cell, in world units. */
+    /** Left and top of the cell, in world units. */
     x: number;
-    /** Top of the cell, in world units. */
     y: number;
     /** Items in the order they were reached. */
     items: ReachableItem[];
+    /** Image of the items, null until drawn, or once an item left; and its zoom. */
+    image: HTMLCanvasElement | null;
+    zoom: number;
     /** Number of items already drawn on the image. */
     drawn: number;
-    /** Image of the drawn items, null until drawn or once an item left. */
-    image: HTMLCanvasElement | null;
-    /** Zoom the image is drawn at. */
-    zoom: number;
-    /** Whether items left the overlay, to remove from its list before drawing it again. */
+    /**
+     * Whether items left, to take out of the list once before drawing the image again: a restart
+     * unreaching thousands of items one by one filters each list once.
+     */
     dirty: boolean;
 }
 
@@ -34,23 +32,19 @@ interface Overlay {
  * Items of a track the player reached during the run, drawn over their sprite in the reached
  * colors (see `ReachableItem.spriteColor`).
  *
- * They are drawn on an overlay image for each render cell, on top of the cell images: each item
- * is stamped once on the overlay of its cell when reached, as reaching only adds items until the
- * run restarts. A frame then draws one image per cell, however many items were reached; an item
- * leaving, on restart or erased, redraws its overlay. The images are drawn again at a new zoom
- * once the zoom stops changing, scaled meanwhile, and the items are drawn directly when the
- * zoom is too close for an image.
+ * They are drawn on an overlay image for each render cell, over the cell images: an item reached
+ * is only stamped on the image of its cell, as reaching items only adds some until the run
+ * restarts, so that a frame draws one image per cell however many items were reached. An item
+ * leaving, e.g. erased, has its image drawn again; a restart drops them all. The images follow
+ * the zoom once it settles, scaled meanwhile (see `Track.zoomSettled`), and the items are drawn
+ * directly when the zoom is too close for an image.
  *
  * The items of the command groups are drawn by their group.
  */
 export class ReachedItems {
     private readonly items = new Set<ReachableItem>();
-    /** Overlays of each layer, by `x,y` coordinates of their cell. */
+    /** Overlays of each layer, by grid coordinates of their render cell. */
     private readonly overlays = new Map<TrackLayer, Map<string, Overlay>>();
-    /** Stamps of the overlays, kept between frames (see `drawItemSprites`). */
-    private readonly stamps: ItemStamps = new Map();
-    /** Zoom of the last frame, the images being drawn again once it stops changing. */
-    private lastZoom = 0;
 
     public constructor(private readonly track: Track) {}
 
@@ -66,14 +60,13 @@ export class ReachedItems {
         return this.items.values();
     }
 
-    /** Adds an item reached on the track, drawn on the overlay of its cell from the next frame. */
+    /** Adds an item reached on the track, stamped on the overlay of its cell on the next frame. */
     public add(item: ReachableItem): void {
         if (this.items.has(item)) {
             return;
         }
         this.items.add(item);
-        const overlay = this.overlayOf(item, true);
-        overlay?.items.push(item);
+        this.overlayOf(item, true)?.items.push(item);
     }
 
     /** Removes an item no longer reached or no longer on the track, its overlay drawn again. */
@@ -81,10 +74,37 @@ export class ReachedItems {
         if (!this.items.delete(item)) {
             return;
         }
-        // Removed from the list on the next frame: a restart removes every item at once
+        // A restart leaves none: every overlay at once
+        if (this.items.size === 0) {
+            this.overlays.clear();
+            return;
+        }
         const overlay = this.overlayOf(item, false);
         if (overlay) {
             overlay.dirty = true;
+        }
+    }
+
+    /** Draws the reached items of a layer in view, over the images of its cells. */
+    public render(ctx: CanvasRenderingContext2D, layer: TrackLayer, view: GridBounds): void {
+        const layerOverlays = this.overlays.get(layer);
+        if (!layerOverlays?.size) {
+            return;
+        }
+        // The overlays of the cells around the view too, their items reaching over its edges
+        const { topLeft, bottomRight } = view;
+        for (let x = topLeft.x - 1; x <= bottomRight.x + 1; x++) {
+            for (let y = topLeft.y - 1; y <= bottomRight.y + 1; y++) {
+                const overlay = layerOverlays.get(`${x},${y}`);
+                if (overlay?.dirty) {
+                    overlay.items = overlay.items.filter((item) => this.items.has(item));
+                    overlay.image = null;
+                    overlay.dirty = false;
+                }
+                if (overlay?.items.length) {
+                    this.renderOverlay(ctx, overlay);
+                }
+            }
         }
     }
 
@@ -101,95 +121,48 @@ export class ReachedItems {
             layerOverlays = new Map();
             this.overlays.set(item.layer, layerOverlays);
         }
-        const x = Math.floor(item.pos.x / CACHE_CELL_SIZE) * CACHE_CELL_SIZE;
-        const y = Math.floor(item.pos.y / CACHE_CELL_SIZE) * CACHE_CELL_SIZE;
-        const key = `${x},${y}`;
+        const cellX = Math.floor(item.pos.x / CACHE_CELL_SIZE);
+        const cellY = Math.floor(item.pos.y / CACHE_CELL_SIZE);
+        const key = `${cellX},${cellY}`;
         let overlay = layerOverlays.get(key) ?? null;
         if (!overlay && create) {
-            overlay = { x, y, items: [], drawn: 0, image: null, zoom: 0, dirty: false };
+            overlay = {
+                x: cellX * CACHE_CELL_SIZE,
+                y: cellY * CACHE_CELL_SIZE,
+                items: [],
+                image: null,
+                zoom: 0,
+                drawn: 0,
+                dirty: false,
+            };
             layerOverlays.set(key, overlay);
         }
         return overlay;
     }
 
-    /** Draws the reached items of a layer in view, over the cell images. */
-    public render(ctx: CanvasRenderingContext2D, layer: TrackLayer): void {
-        const layerOverlays = this.overlays.get(layer);
-        if (!layerOverlays?.size) {
-            return;
-        }
+    private renderOverlay(ctx: CanvasRenderingContext2D, overlay: Overlay): void {
         const track = this.track;
         const zoom = track.zoomFactor;
-        const zooming = zoom !== this.lastZoom;
-        this.lastZoom = zoom;
-        if (this.stamps.size > 1024) {
-            this.stamps.clear();
-        }
-
-        // The view in world units, an overlay reaching over the edges of its cell
         const margin = ITEM_SPRITE_MARGIN;
-        const left = track.camera.x - track.viewWidth / 2 / zoom - margin;
-        const right = track.camera.x + track.viewWidth / 2 / zoom + margin;
-        const top = track.camera.y - track.viewHeight / 2 / zoom - margin;
-        const bottom = track.camera.y + track.viewHeight / 2 / zoom + margin;
+        // Left and top of the image on the canvas, at the zoom of the frame
+        const left = track.viewWidth / 2 + (overlay.x - margin - track.camera.x) * zoom;
+        const top = track.viewHeight / 2 + (overlay.y - margin - track.camera.y) * zoom;
 
-        for (const [key, overlay] of layerOverlays) {
-            if (overlay.dirty) {
-                overlay.items = overlay.items.filter((item) => this.items.has(item));
-                overlay.drawn = 0;
-                overlay.image = null;
-                overlay.dirty = false;
-                if (overlay.items.length === 0) {
-                    layerOverlays.delete(key);
-                    continue;
-                }
-            }
-            const inView =
-                overlay.x + CACHE_CELL_SIZE >= left &&
-                overlay.x <= right &&
-                overlay.y + CACHE_CELL_SIZE >= top &&
-                overlay.y <= bottom;
-            if (inView) {
-                this.renderOverlay(ctx, overlay, zoom, zooming);
-            }
-        }
-    }
-
-    private renderOverlay(
-        ctx: CanvasRenderingContext2D,
-        overlay: Overlay,
-        zoom: number,
-        zooming: boolean,
-    ): void {
-        const track = this.track;
-        const margin = ITEM_SPRITE_MARGIN;
+        // Too close for an image: its items drawn directly, cut to the canvas
         const size = Math.ceil((CACHE_CELL_SIZE + 2 * margin) * zoom);
-
-        // Too close for an image: the few items in view drawn directly
         if (size > MAX_OVERLAY_SIZE) {
             overlay.image = null;
-            const halfWidth = track.viewWidth / 2 / zoom + margin;
-            const halfHeight = track.viewHeight / 2 / zoom + margin;
-            this.draw(
-                ctx,
-                overlay.items.filter(
-                    ({ pos }) =>
-                        Math.abs(pos.x - track.camera.x) <= halfWidth &&
-                        Math.abs(pos.y - track.camera.y) <= halfHeight,
-                ),
-                zoom,
-                track.camera.x * zoom - track.viewWidth / 2,
-                track.camera.y * zoom - track.viewHeight / 2,
-            );
+            const offsetLeft = track.camera.x * zoom - track.viewWidth / 2;
+            const offsetTop = track.camera.y * zoom - track.viewHeight / 2;
+            ReachedItems.stamp(ctx, overlay.items, zoom, offsetLeft, offsetTop);
             return;
         }
 
-        // Drawn again at the new zoom once it stops changing, scaled meanwhile
-        if (!overlay.image || (overlay.zoom !== zoom && !zooming)) {
-            const image = document.createElement('canvas');
-            image.width = size;
-            image.height = size;
-            overlay.image = image;
+        // At the zoom once it settles, scaled meanwhile
+        if (!overlay.image || (overlay.zoom !== zoom && track.zoomSettled)) {
+            overlay.image = document.createElement('canvas');
+            overlay.image.width = size;
+            overlay.image.height = size;
             overlay.zoom = zoom;
             overlay.drawn = 0;
         }
@@ -197,7 +170,7 @@ export class ReachedItems {
         if (overlay.drawn < overlay.items.length) {
             const context = image.getContext('2d');
             if (context) {
-                this.draw(
+                ReachedItems.stamp(
                     context,
                     overlay.items.slice(overlay.drawn),
                     overlay.zoom,
@@ -208,18 +181,17 @@ export class ReachedItems {
             overlay.drawn = overlay.items.length;
         }
 
-        const x = track.viewWidth / 2 + (overlay.x - margin - track.camera.x) * zoom;
-        const y = track.viewHeight / 2 + (overlay.y - margin - track.camera.y) * zoom;
-        if (overlay.zoom === zoom) {
-            ctx.drawImage(image, x, y);
-        } else {
-            const scale = zoom / overlay.zoom;
-            ctx.drawImage(image, x, y, image.width * scale, image.height * scale);
-        }
+        const scale = zoom / overlay.zoom;
+        ctx.drawImage(image, left, top, image.width * scale, image.height * scale);
     }
 
-    /** Stamps items, stacked copies once (see `packItemSprites`). */
-    private draw(
+    /**
+     * Stamps items in their colors of the moment, stacked copies once (see `packItemSprites`).
+     *
+     * @param offsetLeft - Left of the image drawn on, in canvas pixels at the zoom.
+     * @param offsetTop - Top of the image drawn on, in canvas pixels at the zoom.
+     */
+    private static stamp(
         ctx: CanvasRenderingContext2D,
         items: ReachableItem[],
         zoom: number,
@@ -227,14 +199,6 @@ export class ReachedItems {
         offsetTop: number,
     ): void {
         const { buffer, colors } = packItemSprites(items, true);
-        drawItemSprites(
-            ctx,
-            new Float64Array(buffer),
-            colors,
-            zoom,
-            offsetLeft,
-            offsetTop,
-            this.stamps,
-        );
+        painter.drawSprites(ctx, new Float64Array(buffer), colors, zoom, offsetLeft, offsetTop);
     }
 }

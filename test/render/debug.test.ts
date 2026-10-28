@@ -6,7 +6,7 @@ import { MODIFIERS } from '../../src/openrider/item/modifiers';
 import { DebugOptions } from '../../src/openrider/track/debug-options';
 import { debugStats } from '../../src/openrider/track/debug-stats';
 import { Track } from '../../src/openrider/track/track';
-import { TrackRenderer } from '../../src/openrider/track/track-renderer';
+import { MAX_DEBUG_LABELS, TrackRenderer } from '../../src/openrider/track/track-renderer';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 import { parseTrack } from '../helpers/track';
 
@@ -44,6 +44,30 @@ describe('Debug overlays', () => {
         expect(vi.mocked(none.context.fillText)).not.toHaveBeenCalled();
     });
 
+    test('write the ids of the objects only when few enough are in view', () => {
+        // More targets stacked in view than ids written
+        const targets = Array.from({ length: MAX_DEBUG_LABELS + 1 }, () => 'T 0 0').join(',');
+        track = parseTrack(`-50 1i 1k0 1i##${targets}###BMX#0 0`);
+
+        const crowded = renderDebug({ objects: true });
+        expect(vi.mocked(crowded.context.fillText)).not.toHaveBeenCalled();
+        expect(track.debugIdsHidden).toBe(true);
+        expect(debugStats(track, 60)).toContain(
+            `ids hidden: over ${MAX_DEBUG_LABELS} objects in view`,
+        );
+
+        // Without the overlay, nothing to tell
+        renderDebug({});
+        expect(track.debugIdsHidden).toBe(false);
+        expect(debugStats(track, 60).some((line) => line.startsWith('ids hidden'))).toBe(false);
+
+        // As many as written: each one counted once, though in every cell its sprite reaches
+        const targetsAtLimit = Array.from({ length: MAX_DEBUG_LABELS }, () => 'T 0 0').join(',');
+        track = parseTrack(`-50 1i 1k0 1i##${targetsAtLimit}###BMX#0 0`);
+        renderDebug({ objects: true });
+        expect(track.debugIdsHidden).toBe(false);
+    });
+
     test('draw the springs, points and velocities of the bikes', () => {
         const none = renderDebug({});
         const bikes = renderDebug({ bikes: true });
@@ -73,7 +97,7 @@ describe('Render cell states', () => {
 
         const line = new SolidLine(new Vector(0, 0), new Vector(100, 0), track);
         cell.push(line);
-        cell.getImage(1, 1, false);
+        cell.getImage(1, { opacityFactor: 1, fastRender: false });
         expect(cell.imageState(1)).toBe('current');
         expect(cell.imageState(0.6)).toBe('other-zoom');
 
