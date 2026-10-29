@@ -132,8 +132,11 @@ describe('Render cells', () => {
 
         cell.push(new SolidLine(new Vector(0, 5), new Vector(100, 5), track));
 
-        // No blank frame: the stale image is kept until the new one is rendered
-        expect(cell.getImage(1, { opacityFactor: 1, fastRender: true })?.source).toBe(bitmap);
+        // No blank frame: the stale image is kept until the new one is rendered, shown with the
+        // line added drawn on a copy of it
+        const copy = cell.getImage(1, { opacityFactor: 1, fastRender: true })?.source;
+        const drawn = vi.mocked((copy as HTMLCanvasElement).getContext('2d')!.drawImage);
+        expect(drawn).toHaveBeenCalledWith(bitmap, 0, 0);
         const newBitmap = worker().reply();
         expect(bitmap.closed).toBe(true);
         expect(cell.getImage(1, { opacityFactor: 1, fastRender: true })?.source).toBe(newBitmap);
