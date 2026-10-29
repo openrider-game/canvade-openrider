@@ -92,6 +92,7 @@ afterEach(() => {
     }
     // The kind of lines is shared by the drawing tools
     DrawingLines.setScenery(false);
+    DrawingLines.setConnected(false);
     vi.unstubAllGlobals();
 });
 
@@ -130,7 +131,7 @@ describe('Line tools', () => {
 
     test('change the brush size from its options only, stepping it down and up', () => {
         const brush = select(BrushTool);
-        const option = () => brush.getOptions()[1];
+        const option = () => brush.getOptions().find(({ label }) => label.startsWith('Size'))!;
         expect(option().label).toBe('Size: 20');
 
         option().steps?.down();
@@ -203,6 +204,78 @@ describe('Line tools', () => {
             [0, 50],
             [50, 100],
         ]);
+    });
+
+    test('connect the lines with the option, as with the key held, on touch screens', () => {
+        const line = select(LineTool);
+        const connect = () => line.getOptions().find(({ label }) => label.startsWith('Connect'))!;
+        drag(new Vector(-300, 0), new Vector(-200, 0));
+        expect(connect().label).toBe('Connect: off');
+
+        connect().action();
+        expect(connect().label).toBe('Connect: on');
+        // Switched on, the first line starts afresh, then each one at the end of the previous one,
+        // wherever the pointer is pressed
+        drag(new Vector(0, 0), new Vector(50, 0));
+        drag(new Vector(400, 400), new Vector(100, 20));
+        drag(new Vector(-50, 90), new Vector(150, 0));
+
+        expect(solidLines().map(({ pos, endPos }) => [pos.x, pos.y, endPos.x, endPos.y])).toEqual([
+            [-300, 0, -200, 0],
+            [0, 0, 50, 0],
+            [50, 0, 100, 20],
+            [100, 20, 150, 0],
+        ]);
+        // Shared by the brush
+        expect(
+            select(BrushTool)
+                .getOptions()
+                .map(({ label }) => label),
+        ).toContain('Connect: on');
+    });
+
+    test('mark the start of the next connected line, also once the finger is lifted', () => {
+        const line = select(LineTool);
+        line.getOptions()
+            .find(({ label }) => label.startsWith('Connect'))!
+            .action();
+        drag(new Vector(0, 0), new Vector(50, 0));
+        /** Arcs and strokes the tool draws, the pointer out of the canvas as a lifted finger. */
+        const drawn = () => {
+            track.mouseIn = false;
+            const { context, calls } = createCanvasMock();
+            track.toolManager.render(context);
+            return calls;
+        };
+
+        expect(drawn()).toContain('arc');
+        // No crosshair without a pointer: only the marker
+        expect(drawn().filter((call) => call === 'stroke')).toHaveLength(1);
+        line.getOptions()
+            .find(({ label }) => label.startsWith('Connect'))!
+            .action();
+        expect(drawn()).toEqual([]);
+    });
+
+    test('start each brush stroke at the end of the previous one with the connect option', () => {
+        const brush = select(BrushTool);
+        brush
+            .getOptions()
+            .find(({ label }) => label.startsWith('Connect'))!
+            .action();
+        // Idle until the first stroke, which starts where it is pressed
+        moveMouse(track, 500, 500);
+        brush.update(0, 16);
+
+        drag(new Vector(0, 0), new Vector(100, 0), 5, () => brush.update(0, 16));
+        const firstStroke = solidLines().length;
+        drag(new Vector(120, 60), new Vector(120, 100), 2, () => brush.update(0, 16));
+
+        const lines = solidLines();
+        expect(lines[0].pos).toEqual(new Vector(0, 0));
+        // The second stroke goes on from the end of the first one
+        expect(lines[firstStroke].pos).toEqual(new Vector(100, 0));
+        expect(lines.at(-1)?.endPos).toEqual(new Vector(120, 100));
     });
 
     test('a brush stroke draws a line each time the mouse moves further than its size', () => {

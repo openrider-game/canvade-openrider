@@ -12,7 +12,9 @@ const BRUSH_SIZES = [4, 10, 20, 40, 80, 160];
  * Draws a line each time the mouse moves further than the brush size from the last line, solid or
  * scenery as chosen in the options (see {@link DrawingLines}).
  *
- * A stroke is undone as a whole. The size is set in the options, see {@link sizeOption}.
+ * A stroke is undone as a whole. The size is set in the options, see {@link sizeOption}. With the
+ * connect option, each stroke starts at the end of the previous one (see `DrawingLines.connected`),
+ * as when moving the mouse with the tool key held.
  */
 export class BrushTool extends LineTool {
     public static override readonly toolName: string = 'Brush';
@@ -29,6 +31,7 @@ export class BrushTool extends LineTool {
     public override getOptions(): ToolOption[] {
         return [
             DrawingLines.option(this.track),
+            this.connectOption(),
             sizeOption(this.size, BRUSH_SIZES, (size) => {
                 this.size = size;
                 this.track.invalidateUI();
@@ -40,6 +43,10 @@ export class BrushTool extends LineTool {
         // The segments of a stroke are undone together
         this.track.history.startGroup();
         super.onMouseDown();
+        // Connected: the stroke goes on from the end of the previous one
+        if (this.mouseDown && DrawingLines.connected && this.lastLine) {
+            this.track.lastClick = this.lastLine.clone();
+        }
     }
 
     public override onMouseUp(): void {
@@ -61,7 +68,10 @@ export class BrushTool extends LineTool {
             }
         } else {
             this.track.history.endGroup();
-            this.lastLine ??= this.track.mousePos.clone();
+            // Holding the key draws from the cursor, while the option waits for a stroke
+            if (holding || !DrawingLines.connected) {
+                this.lastLine ??= this.track.mousePos.clone();
+            }
         }
 
         super.update(progress, delta);

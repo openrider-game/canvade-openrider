@@ -52,7 +52,7 @@ export class ToolManager {
     }
 
     public render(ctx: CanvasRenderingContext2D): void {
-        if (this.tool && (this.allowRender() || this.tool.alwaysRender)) {
+        if (this.tool && (this.showsPointer || this.tool.alwaysRender)) {
             this.tool.render(ctx);
         }
     }
@@ -104,7 +104,11 @@ export class ToolManager {
         }
     }
 
-    private allowRender(): boolean {
+    /**
+     * Whether the tool shows where the pointer is: over the canvas, outside the interface, the
+     * manager being active. A finger lifted leaves the canvas.
+     */
+    public get showsPointer(): boolean {
         return this.track.mouseIn && !this.track.uiHovered && this.active;
     }
 }

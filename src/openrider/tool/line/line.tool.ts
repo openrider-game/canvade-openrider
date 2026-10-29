@@ -15,12 +15,17 @@ const EDGE_SCROLL_MARGIN = 50;
  * the options (see {@link DrawingLines}).
  *
  * Holding the tool key draws connected lines: each click adds a line from the end of the previous
- * one. Lines are drawn on the active layer of the track.
+ * one. Without a keyboard, the connect option does the same: each line drawn starts at the end of
+ * the previous one, where a marker shows it, and ends where the pointer is released (see
+ * `DrawingLines.connected`). Lines are drawn on the active layer of the track.
  */
 export class LineTool extends Tool {
     public static override readonly toolName: string = 'Line';
     public static override readonly key = new Control(KEYQ);
     public static override readonly icon = SOLID_LINE_ICON;
+
+    /** Drawn without a pointer too: the start of the next connected line, after a finger lifted. */
+    public override alwaysRender = true;
 
     /** Class of the drawn lines, solid or scenery. */
     protected get lineClass(): LineClass {
@@ -32,7 +37,28 @@ export class LineTool extends Tool {
     }
 
     public override getOptions(): ToolOption[] {
-        return [DrawingLines.option(this.track)];
+        return [DrawingLines.option(this.track), this.connectOption()];
+    }
+
+    /** The connect option, starting afresh when switched on. */
+    protected connectOption(): ToolOption {
+        return DrawingLines.connectOption(this.track, () => {
+            this.lastLine = null;
+        });
+    }
+
+    /**
+     * Start of the line being drawn: the end of the previous line when connecting, the key held
+     * or the option on, else the press position.
+     */
+    protected get lineStart(): Vector {
+        if (this.isHolding()) {
+            return this.lastLine ?? this.track.mousePos;
+        }
+        if (DrawingLines.connected && this.lastLine) {
+            return this.lastLine;
+        }
+        return this.track.lastClick;
     }
 
     /** End of the last drawn line, where the next connected line starts, in world units. */
@@ -55,7 +81,7 @@ export class LineTool extends Tool {
         this.mouseDown = false;
 
         if (!this.isHolding()) {
-            this.addLine(this.track.lastClick);
+            this.addLine(this.lineStart);
         }
     }
 
@@ -82,9 +108,10 @@ export class LineTool extends Tool {
 
     /** Whether the line being drawn has a valid length, measured on its longest axis. */
     private checkLineLength(): boolean {
+        const start = this.lineStart;
         const measure = Math.max(
-            Math.abs(this.track.lastClick.x - this.track.mousePos.x),
-            Math.abs(this.track.lastClick.y - this.track.mousePos.y),
+            Math.abs(start.x - this.track.mousePos.x),
+            Math.abs(start.y - this.track.mousePos.y),
         );
 
         return measure >= MIN_LINE_LENGTH && measure < MAX_LINE_LENGTH;
@@ -118,13 +145,24 @@ export class LineTool extends Tool {
     }
 
     public override render(ctx: CanvasRenderingContext2D): void {
-        const mousePx = this.track.toPixel(this.track.mousePos);
-
-        // Crosshair
         ctx.lineWidth = 2;
         ctx.strokeStyle = '#000';
         ctx.lineCap = 'round';
 
+        // Where the next connected line starts, also once the finger drawing it is lifted
+        const connecting = DrawingLines.connected && !this.mouseDown && !this.isHolding();
+        if (connecting && this.lastLine) {
+            const startPx = this.track.toPixel(this.lastLine);
+            ctx.beginPath();
+            ctx.arc(startPx.x, startPx.y, 5, 0, 2 * Math.PI);
+            ctx.stroke();
+        }
+        if (!this.track.toolManager.showsPointer) {
+            return;
+        }
+
+        // Crosshair
+        const mousePx = this.track.toPixel(this.track.mousePos);
         ctx.beginPath();
         ctx.moveTo(mousePx.x - 10, mousePx.y);
         ctx.lineTo(mousePx.x + 10, mousePx.y);
@@ -152,10 +190,7 @@ export class LineTool extends Tool {
         ctx.strokeStyle = this.checkLineLength() ? '#00f' : '#f00';
         ctx.lineWidth = this.track.zoomFactor * 2;
 
-        let startPos = this.track.lastClick;
-        if (this.isHolding()) {
-            startPos = this.lastLine ?? this.track.mousePos;
-        }
+        const startPos = this.lineStart;
 
         LinePath.render(ctx, [[this.track.toPixel(startPos), mousePx]]);
 
