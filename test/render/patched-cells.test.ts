@@ -1,5 +1,6 @@
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { REDRAW_EDITS } from '../../src/openrider/grid/cell/cell-patcher';
 import type { RenderCell } from '../../src/openrider/grid/cell/render-cell';
 import { SolidLine } from '../../src/openrider/item/line/solid-line';
 import { WorkerPool } from '../../src/openrider/thread/worker-pool';
@@ -110,12 +111,25 @@ describe('Dense cells edited while the workers render them', () => {
         expect(cell.getImage(ZOOM, OPTIONS)?.source).toBe(rendered);
     });
 
-    test('show the stale image as it is past the edits kept', () => {
+    test('draw the copy again entirely past the edits it repaints at once, then repaint again', () => {
         const stale = cell.getImage(ZOOM, OPTIONS)?.source;
-        for (let i = 0; i < 501; i++) {
+        // More edits in a single frame than repainting them is worth
+        for (let i = 0; i <= REDRAW_EDITS; i++) {
             addLine([i % 300, 280], [(i % 300) + 6, 290]);
         }
 
-        expect(cell.getImage(ZOOM, OPTIONS)?.source).toBe(stale);
+        const shown = cell.getImage(ZOOM, OPTIONS)?.source;
+        expect(shown).not.toBe(stale);
+        const [patch] = created;
+        // Cleared, then every line of the cell drawn, without clipping to the edits
+        expect(patch.calls).toContain('clearRect');
+        expect(patch.calls).not.toContain('clip');
+        const strokes = patch.calls.filter((call) => call === 'stroke').length;
+        expect(strokes).toBeGreaterThan(600 + REDRAW_EDITS);
+
+        // The next edit is repainted on the copy
+        addLine([10, 250], [80, 250]);
+        expect(cell.getImage(ZOOM, OPTIONS)?.source).toBe(shown);
+        expect(patch.calls).toContain('clip');
     });
 });

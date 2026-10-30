@@ -90,6 +90,8 @@ beforeEach(() => {
 afterEach(() => {
     drainWorker();
     vi.unstubAllGlobals();
+    // e.g. the clock moved on past the edits
+    vi.restoreAllMocks();
 });
 
 describe('Render cells', () => {
@@ -137,6 +139,11 @@ describe('Render cells', () => {
         const copy = cell.getImage(1, { opacityFactor: 1, fastRender: true })?.source;
         const drawn = vi.mocked((copy as HTMLCanvasElement).getContext('2d')!.drawImage);
         expect(drawn).toHaveBeenCalledWith(bitmap, 0, 0);
+        // Not rendered again while it may still be edited, but once the edits pause
+        expect(worker().tasks).toHaveLength(0);
+        const now = performance.now();
+        vi.spyOn(performance, 'now').mockReturnValue(now + 250);
+        expect(cell.getImage(1, { opacityFactor: 1, fastRender: true })?.source).toBe(copy);
         const newBitmap = worker().reply();
         expect(bitmap.closed).toBe(true);
         expect(cell.getImage(1, { opacityFactor: 1, fastRender: true })?.source).toBe(newBitmap);

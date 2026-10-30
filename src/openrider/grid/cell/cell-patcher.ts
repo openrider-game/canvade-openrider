@@ -4,10 +4,15 @@ import { type CellDrawing, flattenLines, painter } from '../../render/painter';
 import type { CellImage, RenderCell } from './render-cell';
 
 /**
- * Edits of a cell kept to patch its stale images: past it, e.g. a large selection erased, the
- * stale image is displayed as it is until rendered again.
+ * Edits of a cell kept to patch its stale images, bounding their memory: past it, the patched
+ * image is drawn again entirely once (see `CellPatcher.patched`).
  */
-export const MAX_PATCHED_EDITS = 500,
+export const MAX_PATCHED_EDITS = 20_000,
+    /**
+     * Edits drawn on a patched image at once past which drawing it again entirely costs less, e.g.
+     * a large area erased in a single step.
+     */
+    REDRAW_EDITS = 2_000,
     /** Length of the pieces of a line repainted apart, in world units, see `CellPatcher.repaint`. */
     REPAINT_STEP = 40;
 
@@ -46,8 +51,8 @@ export class CellPatcher {
     public constructor(private readonly cell: RenderCell) {}
 
     /**
-     * Keeps an edit of the cell, once it has images to patch: not while the track is parsed, nor
-     * past {@link MAX_PATCHED_EDITS}.
+     * Keeps an edit of the cell, once it has images to patch: not while the track is parsed. Past
+     * {@link MAX_PATCHED_EDITS}, the edits kept are forgotten, the patched images being drawn again.
      */
     public record(object: TrackObject, hasImages: boolean): void {
         const version = this.cell.contentVersion;
@@ -85,11 +90,14 @@ export class CellPatcher {
 
     /**
      * The stale image at its zoom with the edits made since on a copy of it, until the image is
-     * rendered again (see {@link CellPatcher.repaint}). The stale image as it is when the edits
-     * since are not all kept.
+     * rendered again: the edits of each frame are repainted on it (see {@link CellPatcher.repaint}).
+     *
+     * When the edits since the copy are not all kept, or too many to repaint, e.g. in a dense cell
+     * erased for a while, the copy is drawn again entirely from the content of the cell, once, on
+     * the main thread: it then shows every edit, the next ones being repainted again.
      */
     public patched(image: CellImage, opacityFactor: number): CellImage {
-        if (image.version < this.editsFrom || typeof document === 'undefined') {
+        if (typeof document === 'undefined') {
             return image;
         }
         let patch = this.patches.get(image.zoom);
@@ -103,14 +111,29 @@ export class CellPatcher {
         }
 
         const context = patch.source.getContext('2d');
-        const edited = this.edits
-            .filter((edit) => edit.version > patch.upTo)
-            .map((edit) => edit.object);
-        if (context && edited.length) {
-            this.repaint(context, edited, image.zoom, opacityFactor);
+        if (context && patch.upTo !== this.cell.contentVersion) {
+            const edited =
+                patch.upTo < this.editsFrom
+                    ? null
+                    : this.edits
+                          .filter((edit) => edit.version > patch.upTo)
+                          .map((edit) => edit.object);
+            if (edited === null || edited.length > REDRAW_EDITS) {
+                this.redraw(context, image.zoom, opacityFactor);
+            } else if (edited.length) {
+                this.repaint(context, edited, image.zoom, opacityFactor);
+            }
         }
         patch.upTo = this.cell.contentVersion;
         return { source: patch.source, zoom: image.zoom, version: image.version };
+    }
+
+    /** Draws a patched image again entirely, as the cell is now. */
+    private redraw(ctx: CanvasRenderingContext2D, zoom: number, opacityFactor: number): void {
+        ctx.save();
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        painter.drawCell(ctx, this.cell.drawing(zoom, opacityFactor));
+        ctx.restore();
     }
 
     /**
@@ -132,8 +155,31 @@ export class CellPatcher {
         // Half the width of the lines and a pixel of their smoothed edge, in world units
         const pad = (Math.max(2 * zoom, 0.5) / 2 + 1) / zoom;
         const boxes = edited.flatMap((object) => CellPatcher.pieces(object, pad));
+        // Most objects of a dense cell are far from the edits: compared with the area around
+        // every edit first, without creating anything, then with the areas of the edits
+        let [unionLeft, unionTop, unionRight, unionBottom] = [
+            Infinity,
+            Infinity,
+            -Infinity,
+            -Infinity,
+        ];
+        for (const [left, top, right, bottom] of boxes) {
+            unionLeft = Math.min(unionLeft, left);
+            unionTop = Math.min(unionTop, top);
+            unionRight = Math.max(unionRight, right);
+            unionBottom = Math.max(unionBottom, bottom);
+        }
+        const reach = ITEM_SPRITE_MARGIN + pad;
         const crosses = (object: TrackObject) => {
-            const [left, top, right, bottom] = CellPatcher.bounds(object, pad);
+            const { pos, endPos } = object;
+            const item = object.kind === 'item';
+            const left = item ? pos.x - reach : Math.min(pos.x, endPos.x) - pad;
+            const right = item ? pos.x + reach : Math.max(pos.x, endPos.x) + pad;
+            const top = item ? pos.y - reach : Math.min(pos.y, endPos.y) - pad;
+            const bottom = item ? pos.y + reach : Math.max(pos.y, endPos.y) + pad;
+            if (left > unionRight || right < unionLeft || top > unionBottom || bottom < unionTop) {
+                return false;
+            }
             return boxes.some(([l, t, r, b]) => left <= r && right >= l && top <= b && bottom >= t);
         };
 

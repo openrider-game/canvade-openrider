@@ -6,12 +6,44 @@ import type { TrackObject } from '../../item/track-object';
 /**
  * Square area of a grid, listing the track objects crossing it by kind.
  *
- * An object crossing several cells is stored in each of them.
+ * An object crossing several cells is stored in each of them. The lists keep the order the objects
+ * were added in, which the collisions depend on.
+ *
+ * Removing an object rebuilds the list it is in: removing many objects from crowded cells, e.g.
+ * erasing a large area, removes them in a {@link Cell.batch}, each cell rebuilding its lists once.
  */
 export abstract class Cell {
+    /** Nesting of the batches, see {@link Cell.batch}. */
+    private static batching = 0;
+    /** Cells with removals waiting for the end of the batch. */
+    private static readonly pending = new Set<Cell>();
+
     public scenery: SceneryLine[] = [];
     public lines: SolidLine[] = [];
     public objects: Item[] = [];
+    /** Objects removed during a batch, still in the lists until it ends. */
+    private removed: Set<TrackObject> | null = null;
+
+    /**
+     * Runs an action removing many objects, e.g. erasing an area or undoing an edit: the objects
+     * are taken off the lists of each cell at once when it ends, so that removing k objects from
+     * a cell of n costs n rather than k times n.
+     *
+     * Until it ends, the objects removed are still listed by their cells, but off the track (see
+     * `TrackObject.onTrack`). A cell receiving an object meanwhile takes them off first.
+     */
+    public static batch<T>(action: () => T): T {
+        Cell.batching++;
+        try {
+            return action();
+        } finally {
+            Cell.batching--;
+            if (Cell.batching === 0) {
+                Cell.pending.forEach((cell) => cell.flushRemoved());
+                Cell.pending.clear();
+            }
+        }
+    }
 
     /**
      * Creates an empty cell.
@@ -41,6 +73,8 @@ export abstract class Cell {
      * them when it has one (see {@link TrackObject.order}).
      */
     public push(obj: TrackObject): void {
+        // After the objects removed, as without a batch
+        this.flushRemoved();
         switch (obj.kind) {
             case 'scenery':
                 Cell.insert(this.scenery, obj as SceneryLine);
@@ -69,18 +103,38 @@ export abstract class Cell {
     }
 
     public remove(obj: TrackObject): void {
-        switch (obj.kind) {
-            case 'scenery':
-                this.scenery = this.scenery.filter((line) => line !== obj);
-                break;
-            case 'solid':
-                this.lines = this.lines.filter((line) => line !== obj);
-                break;
-            case 'item':
-                this.objects = this.objects.filter((item) => item !== obj);
-                break;
+        if (Cell.batching > 0) {
+            (this.removed ??= new Set()).add(obj);
+            Cell.pending.add(this);
+        } else {
+            switch (obj.kind) {
+                case 'scenery':
+                    this.scenery = this.scenery.filter((line) => line !== obj);
+                    break;
+                case 'solid':
+                    this.lines = this.lines.filter((line) => line !== obj);
+                    break;
+                case 'item':
+                    this.objects = this.objects.filter((item) => item !== obj);
+                    break;
+            }
         }
 
+        this.clear();
+    }
+
+    /** Takes the objects removed during a batch off the lists, keeping their order. */
+    private flushRemoved(): void {
+        const removed = this.removed;
+        if (!removed) {
+            return;
+        }
+        this.removed = null;
+        Cell.pending.delete(this);
+        this.scenery = this.scenery.filter((line) => !removed.has(line));
+        this.lines = this.lines.filter((line) => !removed.has(line));
+        this.objects = this.objects.filter((item) => !removed.has(item));
+        // What was derived from the lists during the batch is outdated
         this.clear();
     }
 

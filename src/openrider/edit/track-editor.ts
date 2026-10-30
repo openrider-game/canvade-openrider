@@ -1,4 +1,5 @@
 import { Vector } from 'canvade';
+import { Cell } from '../grid/cell/cell';
 import { ITEM_MAP } from '../item/item.constants';
 import { SceneryLine } from '../item/line/scenery-line';
 import { SolidLine } from '../item/line/solid-line';
@@ -147,9 +148,13 @@ export class TrackEditor {
 
     /**
      * Applies an edit, without history nor telling it: e.g. made on another screen, see
-     * {@link TrackEdit}.
+     * {@link TrackEdit}. The objects it removes leave their cells at once (see `Cell.batch`).
      */
     public apply(edit: TrackEdit): void {
+        Cell.batch(() => this.applyEdit(edit));
+    }
+
+    private applyEdit(edit: TrackEdit): void {
         const layers = this.track.layers;
         switch (edit.type) {
             case 'add':
@@ -259,6 +264,10 @@ export class TrackEditor {
      * history: e.g. joining the edition of a track.
      */
     public load(snapshot: TrackSnapshot): void {
+        Cell.batch(() => this.loadSnapshot(snapshot));
+    }
+
+    private loadSnapshot(snapshot: TrackSnapshot): void {
         const layers = this.track.layers;
         for (const layer of layers.all) {
             layer.objects().forEach((object) => object.removeFromTrack());

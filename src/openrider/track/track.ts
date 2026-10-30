@@ -1,4 +1,5 @@
 import { Display, Vector, World, WorldVector } from 'canvade';
+import { Cell } from '../grid/cell/cell';
 import { BMX } from '../bike/bmx';
 import type { BikeRunner } from '../bike/runner/bike-runner';
 import type { GhostRunner } from '../bike/runner/ghost-runner';
@@ -335,13 +336,16 @@ export class Track extends World {
             return deleted;
         }
 
-        for (const layer of layers) {
-            const x = Math.floor(eraserPoint.x / layer.grid.cellSize - 0.5);
-            const y = Math.floor(eraserPoint.y / layer.grid.cellSize - 0.5);
-            layer.grid.cellBlockAction(x, y, (cell) => {
-                deleted.push(...cell.checkDelete(eraserPoint, radius, restrict));
-            });
-        }
+        // The objects erased leave their cells at once, see `Cell.batch`
+        Cell.batch(() => {
+            for (const layer of layers) {
+                const x = Math.floor(eraserPoint.x / layer.grid.cellSize - 0.5);
+                const y = Math.floor(eraserPoint.y / layer.grid.cellSize - 0.5);
+                layer.grid.cellBlockAction(x, y, (cell) => {
+                    deleted.push(...cell.checkDelete(eraserPoint, radius, restrict));
+                });
+            }
+        });
 
         return deleted;
     }

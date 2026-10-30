@@ -21,7 +21,12 @@ export const SCENERY_STROKE_STYLE = '#aaa',
      * Images kept by a cell, the least recently displayed ones being dropped past it, but the
      * one of the lowest zoom, a fallback always at hand.
      */
-    MAX_CELL_IMAGES = 6;
+    MAX_CELL_IMAGES = 6,
+    /**
+     * Time without edits after which an edited heavy cell is rendered again by the workers, in
+     * milliseconds: meanwhile, its stale image patched with the edits stands in for it.
+     */
+    EDIT_SETTLE_MS = 200;
 
 /** How a cell gets its image at a zoom, see {@link RenderCell.getImage}. */
 export interface ImageOptions {
@@ -72,7 +77,9 @@ let nextCellId = 0;
  *
  * So that the edits show at once, e.g. a stroke of the brush in a dense cell, the stale image at
  * the current zoom is displayed patched with the edits made since (see {@link CellPatcher}) until
- * the workers render it again.
+ * the workers render it again. A heavy cell is only rendered again once its edits pause (see
+ * {@link EDIT_SETTLE_MS}): an image rendered for each edit, e.g. on each frame of the eraser
+ * dragged, would be outdated at once, and would keep the workers and the GPU busy.
  */
 export class RenderCell extends Cell {
     /** Unique id, used to deduplicate the render requests. */
@@ -87,6 +94,8 @@ export class RenderCell extends Cell {
     private spriteCount: number | null = null;
     /** Patches the stale images with the edits made since. */
     private readonly patcher = new CellPatcher(this);
+    /** Time of the last edit of the cell, see `performance.now()`. */
+    private editedAt = -Infinity;
     /** Sprites of the cell flattened, once for every zoom level, again once the content changes. */
     private packed: ItemSprites | null = null;
     /** Scenery and solid lines of the cell flattened, as the sprites. */
@@ -108,12 +117,26 @@ export class RenderCell extends Cell {
 
     public override push(obj: TrackObject): void {
         super.push(obj);
-        this.patcher.record(obj, this.images.size > 0);
+        this.edited(obj);
     }
 
     public override remove(obj: TrackObject): void {
         super.remove(obj);
-        this.patcher.record(obj, this.images.size > 0);
+        this.edited(obj);
+    }
+
+    /** Records an edit of the cell once it has images, as opposed to filling it, e.g. parsed. */
+    private edited(obj: TrackObject): void {
+        const hasImages = this.images.size > 0;
+        this.patcher.record(obj, hasImages);
+        if (hasImages) {
+            this.editedAt = performance.now();
+        }
+    }
+
+    /** Whether the cell was edited a moment ago, its edits possibly going on. */
+    private get editing(): boolean {
+        return performance.now() - this.editedAt < EDIT_SETTLE_MS;
     }
 
     /** Sprites of the cell, flattened by `packItemSprites`: not to be changed, but copied. */
@@ -223,6 +246,11 @@ export class RenderCell extends Cell {
 
         if (!heavy) {
             return this.renderNow(zoom, opacityFactor);
+        }
+
+        // Edited a moment ago: patched until the edits pause, rather than rendered for each one
+        if (image && this.editing) {
+            return this.patcher.patched(this.used(image), opacityFactor);
         }
 
         WorkerPool.request(this, zoom, opacityFactor, RenderPriority.VISIBLE);
