@@ -44,7 +44,7 @@ class FakeWorker {
         this.listeners.push(listener);
     }
 
-    public postMessage(message: { id: number; task: { zoom: number; x: number } }): void {
+    public postMessage(message: { id: number; task: RenderCellDefinition }): void {
         this.tasks.push(message);
     }
 

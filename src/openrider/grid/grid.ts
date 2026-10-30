@@ -6,6 +6,14 @@ import type { TrackObject } from '../item/track-object';
 import type { Cell } from './cell/cell';
 import { CELL_BLOCK_ACTION_OFFSET_ORDER, MAX_SPREAD } from './grid.constants';
 
+/**
+ * Span of the grid coordinates packed into a number key (see {@link Grid.cellKey}): from
+ * `-KEY_OFFSET` to `KEY_OFFSET - 1` on each axis, billions of world units, the packed keys
+ * staying safe integers.
+ */
+const KEY_SPAN = 2 ** 26,
+    KEY_OFFSET = 2 ** 25;
+
 /** Constructor of a grid cell, taking its world position and size. */
 export interface CellClass<T extends Cell> {
     new (x: number, y: number, size: number): T;
@@ -22,11 +30,8 @@ export interface CellClass<T extends Cell> {
  * as a sprite is stored in every cell its sprite reaches (see `ITEM_SPRITE_MARGIN`).
  */
 export class Grid<T extends Cell> {
-    /** Cells crossed by each segment, by cell size then by segment ends. */
-    private static spreadCache = new Map<number, Map<string, Vector[]>>();
-
-    /** Cells by `x,y` grid coordinates. */
-    public readonly cells = new Map<string, T>();
+    /** Cells by grid coordinates, see {@link Grid.cellKey}. */
+    public readonly cells = new Map<number | string, T>();
 
     /**
      * Objects of the layer by id, including the lines too short or too long to be stored in the
@@ -49,17 +54,25 @@ export class Grid<T extends Cell> {
         private readonly spriteMargin = 0,
     ) {}
 
-    private getKey(x: number, y: number): string {
+    /**
+     * Key of a cell by its grid coordinates: both packed into a number, faster to look up than a
+     * string and allocating nothing, or `x,y` past the span of the packed keys, e.g. for the
+     * absurd coordinates of a malformed track, so that two cells never share a key.
+     */
+    private static cellKey(x: number, y: number): number | string {
+        if (x >= -KEY_OFFSET && x < KEY_OFFSET && y >= -KEY_OFFSET && y < KEY_OFFSET) {
+            return (x + KEY_OFFSET) * KEY_SPAN + (y + KEY_OFFSET);
+        }
         return `${x},${y}`;
     }
 
     public has(x: number, y: number): boolean {
-        return this.cells.has(this.getKey(x, y));
+        return this.cells.has(Grid.cellKey(x, y));
     }
 
     /** Gets the cell at the given grid coordinates, creating it if needed. */
     public cell(x: number, y: number): T {
-        const key = this.getKey(x, y);
+        const key = Grid.cellKey(x, y);
         let cell = this.cells.get(key);
 
         if (!cell) {
@@ -100,15 +113,66 @@ export class Grid<T extends Cell> {
         return cells;
     }
 
+    /** Cell containing a world position, created when needed. */
+    private cellAt(x: number, y: number): T {
+        return this.cell(Math.floor(x / this.cellSize), Math.floor(y / this.cellSize));
+    }
+
     /**
      * Cells crossed by a segment, created when needed, e.g. to store a line where a command block
      * moves it as well (see `CommandRegistry`).
+     *
+     * The segment is walked from one cell border crossing to the next, the crossings being rounded
+     * to integer positions: the cell of the start, then the cell each crossing enters. Computed
+     * again each time rather than cached, which would keep every line of every track.
      */
     public cellsCrossed(from: Vector, to: Vector): T[] {
-        return Grid.spread(from, to, this.cellSize).map((vec) => {
-            const gridCoords = Grid.gridCoords(vec, this.cellSize);
-            return this.cell(gridCoords.x, gridCoords.y);
-        });
+        const cellSize = this.cellSize;
+        const cells = [this.cellAt(from.x, from.y)];
+        if (from.x === to.x && from.y === to.y) {
+            return cells;
+        }
+
+        const firstGridCoord = (sign: number, coord: number): number => {
+            if (sign < 0) {
+                return Math.round(Math.ceil((coord + 1) / cellSize + sign) * cellSize) - 1;
+            }
+            return Math.round(Math.floor(coord / cellSize + sign) * cellSize);
+        };
+
+        const factor = (to.y - from.y) / (to.x - from.x);
+        const signX = from.x < to.x ? 1 : -1;
+        const signY = from.y < to.y ? 1 : -1;
+        const toX = Math.floor(to.x / cellSize);
+        const toY = Math.floor(to.y / cellSize);
+        let x = from.x;
+        let y = from.y;
+
+        for (let i = 0; i < MAX_SPREAD; i++) {
+            if (Math.floor(x / cellSize) === toX && Math.floor(y / cellSize) === toY) {
+                break;
+            }
+
+            // Next crossings of a vertical and of a horizontal cell border, keeping the closest
+            const x1 = firstGridCoord(signX, x);
+            const y1 = Math.round(from.y + (x1 - from.x) * factor);
+            const y2 = firstGridCoord(signY, y);
+            const x2 = Math.round(from.x + (y2 - from.y) / factor);
+
+            const distance1 = (from.x - x1) ** 2 + (from.y - y1) ** 2;
+            const distance2 = (from.x - x2) ** 2 + (from.y - y2) ** 2;
+            if (distance1 < distance2) {
+                x = x1;
+                y = y1;
+            } else {
+                x = x2;
+                y = y2;
+            }
+
+            cells.push(this.cellAt(x, y));
+        }
+
+        return cells;
     }
 
     /**
@@ -124,80 +188,5 @@ export class Grid<T extends Cell> {
     /** Converts a world position to the grid coordinates of the cell containing it. */
     public static gridCoords(vec: Vector, cellSize: number): Vector {
         return new Vector(Math.floor(vec.x / cellSize), Math.floor(vec.y / cellSize));
-    }
-
-    /**
-     * Lists a point in each cell crossed by the segment going from `from` to `to`.
-     *
-     * The segment is walked from one cell border crossing to the next, the crossings being rounded
-     * to integer positions. Results are cached by cell size and segment.
-     *
-     * @returns The start of the segment, then the crossing point entering each next cell.
-     */
-    private static spread(from: Vector, to: Vector, cellSize: number): Vector[] {
-        let currentCache = Grid.spreadCache.get(cellSize);
-        if (!currentCache) {
-            currentCache = new Map();
-            Grid.spreadCache.set(cellSize, currentCache);
-        }
-
-        const key = `${from};${to}`;
-        const cached = currentCache.get(key);
-        if (cached) {
-            return cached;
-        }
-
-        if (from.x === to.x && from.y === to.y) {
-            const single = [new Vector(from.x, from.y)];
-            currentCache.set(key, single);
-            return single;
-        }
-
-        const currentLineCache: Vector[] = [];
-        currentCache.set(key, currentLineCache);
-
-        const getFirstGridCoord = (sign: number, coord: number): number => {
-            if (sign < 0) {
-                return Math.round(Math.ceil((coord + 1) / cellSize + sign) * cellSize) - 1;
-            }
-            return Math.round(Math.floor(coord / cellSize + sign) * cellSize);
-        };
-
-        let current = from.clone();
-        const factor = (to.y - current.y) / (to.x - current.x);
-        const signX = from.x < to.x ? 1 : -1;
-        const signY = from.y < to.y ? 1 : -1;
-
-        currentLineCache.push(from);
-
-        const toGrid = Grid.gridCoords(to, cellSize);
-
-        for (let i = 0; i < MAX_SPREAD; i++) {
-            const fromGrid = Grid.gridCoords(current, cellSize);
-            if (fromGrid.x === toGrid.x && fromGrid.y === toGrid.y) {
-                break;
-            }
-
-            // Next crossings of a vertical and of a horizontal cell border, keeping the closest
-            const to1X = getFirstGridCoord(signX, current.x);
-            const to1Y = Math.round(from.y + (to1X - from.x) * factor);
-            const to1 = new Vector(to1X, to1Y);
-
-            const to2Y = getFirstGridCoord(signY, current.y);
-            const to2X = Math.round(from.x + (to2Y - from.y) / factor);
-            const to2 = new Vector(to2X, to2Y);
-
-            const diff1 = from.sub(to1);
-            const diff2 = from.sub(to2);
-            if (diff1.x ** 2 + diff1.y ** 2 < diff2.x ** 2 + diff2.y ** 2) {
-                current = to1;
-            } else {
-                current = to2;
-            }
-
-            currentLineCache.push(current);
-        }
-
-        return currentLineCache;
     }
 }

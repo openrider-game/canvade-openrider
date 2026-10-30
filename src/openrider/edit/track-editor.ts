@@ -35,8 +35,12 @@ export class TrackEditor {
      */
     public onEdit: ((edit: TrackEdit) => void) | null = null;
     private counter = 0;
-    /** Objects on the track by id: lines, items, groups of linked items. */
-    private readonly objects = new Map<string, TrackObject>();
+    /**
+     * Objects on the track by id: lines, items, groups of linked items. Built on first use (see
+     * {@link TrackEditor.objects}), then followed: null until then, a raced track never needing
+     * it.
+     */
+    private index: Map<string, TrackObject> | null = null;
     /** Objects taken off the track by id, put back when added again. */
     private readonly detached = new Map<string, TrackObject>();
     /** Layers taken off the stack by id, put back when added again. */
@@ -54,24 +58,53 @@ export class TrackEditor {
         return `${this.prefix}${this.counter++}`;
     }
 
+    /**
+     * Objects on the track by id, the index being built from the layers on first use: the
+     * objects on the track with an id, as {@link TrackEditor.added} and
+     * {@link TrackEditor.removed} then keep it.
+     */
+    private get objects(): Map<string, TrackObject> {
+        if (!this.index) {
+            this.index = new Map();
+            for (const layer of this.track.layers.all) {
+                for (const object of layer.objects()) {
+                    const unit = TrackEditor.unitOf(object);
+                    if (unit.uid !== null) {
+                        this.index.set(unit.uid, unit);
+                    }
+                }
+            }
+        }
+        return this.index;
+    }
+
     /** Object of the track with an id, if on the track. */
     public object(uid: string): TrackObject | undefined {
         return this.objects.get(uid);
     }
 
-    /** Follows the objects added to the track, called by `Track.add`. */
+    /** Follows the objects added to the track, called by `Track.add`, once indexed. */
     public added(object: TrackObject): void {
         const unit = TrackEditor.unitOf(object);
-        if (unit.uid !== null) {
-            this.objects.set(unit.uid, unit);
+        if (this.index && unit.uid !== null) {
+            this.index.set(unit.uid, unit);
         }
     }
 
-    /** Follows the objects removed from the track, called by `Track.remove`. */
+    /**
+     * Follows the objects removed from the track, called by `Track.remove`: kept to be put back
+     * when added again, e.g. by undoing.
+     */
     public removed(object: TrackObject): void {
         const unit = TrackEditor.unitOf(object);
-        if (unit.uid !== null && this.objects.get(unit.uid) === unit) {
-            this.objects.delete(unit.uid);
+        if (unit.uid === null) {
+            return;
+        }
+        // Without an index yet, every object with an id is on the track until removed
+        if (!this.index) {
+            this.detached.set(unit.uid, unit);
+        } else if (this.index.get(unit.uid) === unit) {
+            this.index.delete(unit.uid);
             this.detached.set(unit.uid, unit);
         }
     }
@@ -272,7 +305,8 @@ export class TrackEditor {
         for (const layer of layers.all) {
             layer.objects().forEach((object) => object.removeFromTrack());
         }
-        this.objects.clear();
+        // Every object taken off, the index starts empty
+        this.index = new Map();
         this.detached.clear();
         this.detachedLayers.clear();
         this.track.history.clear();

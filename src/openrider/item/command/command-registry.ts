@@ -55,9 +55,32 @@ export class CommandRegistry {
         this.changedBlocks.add(block);
     }
 
-    /** Requests the binding of an object to be checked again, as it was added or removed. */
+    /**
+     * Requests the binding of an object to be checked again, as it was added or removed.
+     *
+     * Without any block, an object stays bound to none, and a block added later binds the
+     * objects of its area from the physics cells (see {@link CommandRegistry.bindArea}): only the
+     * lines kept out of the cells, too short or too long, are still checked. Most tracks have no
+     * blocks, their objects then costing nothing here.
+     */
     public objectChanged(object: TrackObject): void {
+        if (
+            this.blocks.size === 0 &&
+            this.changedBlocks.size === 0 &&
+            object.command === null &&
+            CommandRegistry.inCells(object)
+        ) {
+            return;
+        }
         this.changedObjects.add(object);
+    }
+
+    /** Whether an object is stored in the physics cells, as `Track.add` stores them. */
+    private static inCells(object: TrackObject): boolean {
+        return (
+            !(object instanceof Line) ||
+            (object.len >= MIN_LINE_LENGTH && object.len < MAX_LINE_LENGTH)
+        );
     }
 
     /** Objects bound to a block. */

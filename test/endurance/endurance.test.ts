@@ -512,7 +512,7 @@ describe('Endurance course', () => {
         const grid = course.track.layers.main[0].grid;
         const cells = () =>
             [...grid.cells.entries()]
-                .map(([key, cell]) => [
+                .map(([key, cell]): [number | string, number[]] => [
                     key,
                     [...cell.lines, ...cell.scenery, ...cell.objects].map((object) => object.id),
                 ])
