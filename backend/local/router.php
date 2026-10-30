@@ -57,10 +57,12 @@ if (site_handle($path)) {
 }
 
 // Refused as by the Apache rules: the sources of the site and the database, the shared helpers
-// of the endpoints, the uploads bypassing the accounts of the site, and the files of the project
+// of the endpoints, the migration script, the uploads bypassing the accounts of the site, and
+// the files of the project
 if (
     strpos($path, '/backend/local/') === 0
     || $path === '/backend/db/api.php'
+    || $path === '/backend/migrate-tracks.php'
     || preg_match('#^/backend/db/(trackupload|ghostupload)/#', $path)
     || preg_match('#^/(src|test|node_modules)/|^/\.|\.(md|sql|db|json|ts|mjs|cjs|map)$#', $path)
 ) {

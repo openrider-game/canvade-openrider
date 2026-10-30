@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import { LinkedItem } from '../../src/openrider/item/linked-item';
 import { formatItem } from '../../src/openrider/parser/track-document';
-import { TrackFormat } from '../../src/openrider/parser/track-format';
+import { type TrackCode, TrackFormat } from '../../src/openrider/parser/track-format';
 import { TrackGenerator } from '../../src/openrider/parser/track-generator';
 import { TrackParser } from '../../src/openrider/parser/track-parser';
 import { Track } from '../../src/openrider/track/track';
@@ -19,7 +19,7 @@ const FULL_TRACK =
     '0 1 a 1#0 2 a 2#' +
     'MTB#a -5';
 
-function generate(track: Track): string {
+function generate(track: Track): Uint8Array {
     const generator = new TrackGenerator(track);
     for (let step = 0; !generator.done; step++) {
         if (step > 1000) throw new Error('The track generator does not finish');
@@ -34,7 +34,7 @@ function generate(track: Track): string {
  * to compare codes regardless of the order: the solid lines, the scenery lines and the items of
  * the main layer, then the solid lines and the scenery lines of the foreground layer.
  */
-function entities(code: string, section: number): string[] {
+function entities(code: TrackCode, section: number): string[] {
     const [main, foreground] = TrackFormat.read(code).layers;
     const polylines = (points: number[][]) =>
         points.map((polyline) => polyline.map((value) => value.toString(32)).join(' '));
@@ -179,7 +179,7 @@ describe('Track generator', () => {
         const track = parseTrack(FULL_TRACK);
         const first = generate(track);
 
-        expect(generate(track)).toBe(first);
+        expect(generate(track)).toEqual(first);
     });
 
     test('exports the edits of the track', () => {

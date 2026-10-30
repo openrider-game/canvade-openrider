@@ -11,6 +11,12 @@ import {
     type TrackDocument,
 } from './track-document';
 
+/**
+ * A track as the game passes it around: the bytes of a track file, or a text, the base 64 text
+ * of a track file or a track of an original format (see `LegacyFormat`).
+ */
+export type TrackCode = string | Uint8Array;
+
 /** First bytes of the track files, `OR`. */
 const MAGIC = [0x4f, 0x52],
     /** Version of the track files written by this version of the game. */
@@ -60,7 +66,7 @@ export abstract class TrackFormat {
      * @throws When the track file or an original editor file is invalid; the original track codes
      * are always readable.
      */
-    public static read(code: string | Uint8Array): TrackDocument {
+    public static read(code: TrackCode): TrackDocument {
         const bytes = typeof code === 'string' ? TrackFormat.fromText(code) : code;
         if (bytes && TrackFormat.isBinary(bytes)) {
             return TrackFormat.decode(bytes);
@@ -69,7 +75,7 @@ export abstract class TrackFormat {
     }
 
     /** Whether a track file or code, in any format, is an editor file keeping the layers. */
-    public static isEditorCode(code: string | Uint8Array): boolean {
+    public static isEditorCode(code: TrackCode): boolean {
         const bytes = typeof code === 'string' ? TrackFormat.fromText(code) : code;
         if (bytes && TrackFormat.isBinary(bytes)) {
             return (bytes[3] & EDITOR_FLAG) !== 0;
@@ -142,6 +148,19 @@ export abstract class TrackFormat {
         }
 
         return { layers, bike, origin };
+    }
+
+    /**
+     * Text of a track, to send it in JSON, e.g. to the ghost verifier: the base 64 text of a
+     * track file, or the text of a track of an original format.
+     */
+    public static toCodeText(code: TrackCode): string {
+        if (typeof code === 'string') {
+            return code;
+        }
+        return TrackFormat.isBinary(code)
+            ? TrackFormat.toText(code)
+            : new TextDecoder().decode(code);
     }
 
     /** Base 64 text of a track file, to travel as text. */

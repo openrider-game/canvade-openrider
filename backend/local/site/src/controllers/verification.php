@@ -40,7 +40,7 @@ function site_verification_state(array $upload): string
 
 /**
  * Download endpoint of the game on a verification page, in place of the trackdata endpoint of
- * the backend and with its parameters and response.
+ * the backend and with its parameters and response: the bytes of the track file.
  */
 function site_pending_track_endpoint(int $uploadId): void
 {
@@ -56,7 +56,7 @@ function site_pending_track_endpoint(int $uploadId): void
             openrider_respond(404, ['error' => 'Track does not exist']);
         }
 
-        return ['CODE' => $upload['CODE'], 'THUMBNAIL' => $upload['THUMBNAIL']];
+        openrider_respond_code($upload['CODE']);
     });
 }
 

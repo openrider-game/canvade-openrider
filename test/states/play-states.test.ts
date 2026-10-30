@@ -38,8 +38,8 @@ async function runFrames(frames: number, until?: string): Promise<void> {
 
 function fetchMock() {
     return vi.fn(async (url: string) => {
-        const body = url.includes('trackdata') ? { CODE: RACE_CODE } : { ID: 77 };
-        return new Response(JSON.stringify(body));
+        // The track itself, here of the original format
+        return new Response(url.includes('trackdata') ? RACE_CODE : JSON.stringify({ ID: 77 }));
     });
 }
 
@@ -152,10 +152,12 @@ describe('Upload state', () => {
         (manager.getCurrent() as TrackUploadState).getButtons()[1].action();
         await new Promise((resolve) => setTimeout(resolve, 10));
 
+        // The track file sent as a file
         const params = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
-            .body as URLSearchParams;
-        expect(params.get('trackCode')).toBe(session.trackCode);
-        expect(TrackFormat.read(params.get('trackCode') ?? '').bike).toBe('BMX');
+            .body as FormData;
+        const file = new Uint8Array(await (params.get('trackCode') as Blob).arrayBuffer());
+        expect(file).toEqual(session.trackCode);
+        expect(TrackFormat.read(file).bike).toBe('BMX');
         expect(params.get('thumbnail')).toBe('THUMBNAIL');
         expect(location.href).toBe('?track=77');
     });

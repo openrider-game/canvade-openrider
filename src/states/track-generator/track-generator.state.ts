@@ -60,7 +60,7 @@ export class TrackGeneratorState extends OpenRiderState {
         } else {
             const editor = session.exportFormat === 'editor';
             TrackGeneratorState.download(
-                generator.getFile(editor),
+                editor ? generator.getEditorCode() : generator.getCode(),
                 editor ? EDITOR_FILE_NAME : TRACK_FILE_NAME,
             );
         }

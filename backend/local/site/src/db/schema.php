@@ -37,10 +37,10 @@ function site_db(): PDO
 /** Creates the tables and columns of the site missing from the backend database. */
 function site_create_tables(PDO $db): void
 {
-    // SQLite and PostgreSQL do not share a syntax for auto-incremented ids
-    $id = $db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'pgsql'
-        ? 'SERIAL PRIMARY KEY'
-        : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    // SQLite and PostgreSQL do not share a syntax for auto-incremented ids, nor a binary type
+    $pgsql = $db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'pgsql';
+    $id = $pgsql ? 'SERIAL PRIMARY KEY' : 'INTEGER PRIMARY KEY AUTOINCREMENT';
+    $bytes = $pgsql ? 'BYTEA' : 'BLOB';
 
     $db->exec(
         'CREATE TABLE IF NOT EXISTS "LOCAL_USERS" ('
@@ -63,7 +63,7 @@ function site_create_tables(PDO $db): void
     // Title and description stay null until an editor file is saved as a draft
     $db->exec(
         'CREATE TABLE IF NOT EXISTS "LOCAL_UPLOADS" ('
-        . "\"ID\" $id, \"CODE\" TEXT NOT NULL, \"THUMBNAIL\" TEXT,"
+        . "\"ID\" $id, \"CODE\" $bytes NOT NULL, \"THUMBNAIL\" TEXT,"
         . ' "TITLE" TEXT, "DESCRIPTION" TEXT)'
     );
     // Time as a Unix timestamp

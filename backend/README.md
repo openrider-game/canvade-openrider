@@ -1,16 +1,23 @@
 # OpenRider backend
 
-PHP endpoints storing the published tracks and the ghosts, called by the game with url-encoded
-POST requests (see `src/openrider/constants/request.constants.ts`). They answer in JSON, with a
-400 status for invalid parameters, 404 for an unknown track or ghost, 405 for other methods and
-500 for server errors (logged with `error_log`).
+PHP endpoints storing the published tracks and the ghosts, called by the game with POST requests
+(see `src/openrider/constants/request.constants.ts`). They answer in JSON, but the download of a
+track, with a 400 status for invalid parameters, 404 for an unknown track or ghost, 405 for other
+methods and 500 for server errors (logged with `error_log`).
 
-| Endpoint          | Parameters                        | Response                  |
-| ----------------- | --------------------------------- | ------------------------- |
-| `db/trackdata/`   | `id`                              | `{ "CODE", "THUMBNAIL" }` |
-| `db/trackupload/` | `trackCode`, `thumbnail` (base64) | `{ "ID" }`                |
-| `db/ghostdata/`   | `trackId`, `id`                   | `{ "GHOSTSTRING" }`       |
-| `db/ghostupload/` | `ghostString`, `trackId`, `time`  | `{ "ID" }`                |
+| Endpoint          | Parameters                                     | Response                      |
+| ----------------- | ---------------------------------------------- | ----------------------------- |
+| `db/trackdata/`   | `id`                                           | The track file, as bytes      |
+| `db/trackupload/` | `trackCode` (a file), `thumbnail` (base64)     | `{ "ID" }`                    |
+| `db/ghostdata/`   | `trackId`, `id`                                | `{ "GHOSTSTRING" }`           |
+| `db/ghostupload/` | `ghostString`, `trackId`, `time`               | `{ "ID" }`                    |
+
+The tracks are track files, the binary format of the game (see `TrackFormat`): stored as bytes
+(`CODE`, `BYTEA` with PostgreSQL, `BLOB` with SQLite), downloaded as bytes
+(`application/octet-stream`, with their size in `X-File-Size`) and uploaded as the file of a
+multipart form. Their header, uncompressed, gives the bike and whether a track is an editor file
+without reading the rest (`openrider_track_header()` of `db/api.php`). The tracks saved in the
+original text formats are still read everywhere, until migrated (see "Migrating the tracks").
 
 ## Requirements
 
@@ -128,7 +135,7 @@ an account.
 - `/drafts/<id>/` runs the game editing the draft (`data-track-mode="edit"`). Uploading its
   editor file again saves the changes to the draft, uploading its track code publishes it as a
   new track, keeping the draft. Its editor file also downloads from
-  `/uploads/<id>/track.openrider.json`.
+  `/uploads/<id>/track-editor.ortrack`.
 
 The uploads and drafts are only seen by their own account, and the tracks waiting for
 verification by their author and verifier.
@@ -174,8 +181,9 @@ before the titles holds none: delete `openrider.db` to start over with the sampl
   version of the generator, which measures their distance: the distance claimed by the game is
   not trusted. Each run is saved with its version (`VERSION`, 1 for the runs saved before the
   versions), an account keeping one run on each seed and version.
-- Uploads: a track code or editor file holds 16 MB at most (with `post_max_size` large enough in
-  the PHP configuration), and its thumbnail must be a 500x300 PNG.
+- Uploads: a track code or editor file holds 16 MB at most (with `upload_max_filesize` and
+  `post_max_size` large enough in the PHP configuration, 2 MB and 8 MB by default), and its
+  thumbnail must be a 500x300 PNG.
 - Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads, 60 ghosts or endurance runs and 120 thumbs up
   given or taken back an hour per account, 5 new accounts an hour per address, and 20 failed
   logins per address and 10 per user name over 15 minutes, after which even the right password
@@ -340,8 +348,8 @@ tracks of its editors weigh 16 MB at most, and it keeps 20,000 edits at most.
 
 The site is served by Apache with PHP, at the root of a domain (its links start with `/`):
 
-1. Build the game with `npm run build`, which writes `dist/main.js`, `dist/verify-ghost.cjs`
-   and `dist/live-server.cjs`.
+1. Build the game with `npm run build`, which writes `dist/main.js`, `dist/verify-ghost.cjs`,
+   `dist/live-server.cjs` and `dist/convert-tracks.cjs` (see "Migrating the tracks").
 2. Upload the root of the project, keeping its structure: `.htaccess`, `index.html`,
    `styles.css`, `dist/`, `media/` and `backend/` (without `backend/local/openrider.db`). The
    sources (`src/`, `test/`), `node_modules/` and the other files of the project are not needed.
@@ -390,6 +398,34 @@ ProxyPass "/live/" "ws://127.0.0.1:8090/"
 ```
 
 The server only listens on `127.0.0.1`: the riders reach it through Apache, over HTTPS.
+
+### Migrating the tracks
+
+The tracks saved before the track files are in the original text formats, about five times
+larger. `migrate-tracks.php` converts them, from the root of the deployed site, with the
+configuration of the site (the database and `OPENRIDER_NODE`) and the converter built with the
+game, `dist/convert-tracks.cjs`:
+
+```sh
+# 1. Back the database up, e.g. with PostgreSQL:
+pg_dump -Fc -f openrider-before-track-files.dump <database>
+
+# 2. Deploy the new build (dist/ and backend/), then from the root of the site, as the user of
+#    the web server, with the variables of the configuration:
+php backend/migrate-tracks.php --dry-run    # converts and checks every track, writes nothing
+php backend/migrate-tracks.php              # converts them
+
+# To go back: pg_restore --clean -d <database> openrider-before-track-files.dump
+```
+
+With PostgreSQL, the `CODE` columns of `TRACKS` and `LOCAL_UPLOADS` become `BYTEA` first, which
+the new endpoints need: deploy and migrate at once. SQLite stores bytes in its columns as they
+are. Each track code becomes a track code and each editor file an editor file, read back and
+compared to the original track before it is written, by batches each in a transaction. A track
+that cannot be converted keeps its text, which the game and the site still read, and is listed
+at the end, the script then exiting with 1. The tracks already converted are skipped: the script
+can run again, e.g. for the tracks uploaded during the migration. The ghosts stay valid, the
+tracks being the same.
 
 ### Game alone
 

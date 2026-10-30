@@ -220,7 +220,8 @@ function site_verify_ghost(string $trackCode, string $ghostString, int $time): ?
     }
 
     $verdict = site_run_verifier([
-        'trackCode' => $trackCode,
+        // The base 64 text of a track file, which the game reads as the file
+        'trackCode' => openrider_code_text($trackCode),
         'ghostString' => $ghostString,
         'time' => $time,
     ]);

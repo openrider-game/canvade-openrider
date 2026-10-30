@@ -9,7 +9,8 @@ RewriteEngine On
 # The /tracks/<id>/ pages redirect to the game page racing the track
 RewriteRule ^tracks/([0-9]+)/?$ index.html?track=$1 [R=301,L]
 
-# The shared helpers of the endpoints are not endpoints themselves
+# The shared helpers of the endpoints are not endpoints themselves, nor is the migration script
 RewriteRule ^backend/db/api\.php$ - [F,L]
+RewriteRule ^backend/migrate-tracks\.php$ - [F,L]
 # Nor are the sources of the sample website
 RewriteRule ^backend/local/ - [F,L]

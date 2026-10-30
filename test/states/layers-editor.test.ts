@@ -225,7 +225,7 @@ describe('Layers panel', () => {
     test('is not displayed while racing', async () => {
         vi.stubGlobal(
             'fetch',
-            vi.fn(async () => new Response(JSON.stringify({ CODE: EDITOR_CODE }))),
+            vi.fn(async () => new Response(EDITOR_CODE)),
         );
         session.trackId = 3;
         manager.push(STATE_TRACK_FETCHER);
@@ -343,10 +343,10 @@ describe('Editor files', () => {
             'Ramps',
         ]);
 
-        // A track file, kept as base 64 text in the session
+        // A track file, kept as bytes in the session
         const file = TrackFormat.encode(TrackFormat.read(EDITOR_CODE), true);
         importFile(file);
-        expect(session.trackCode).toBe(TrackFormat.toText(file));
+        expect(session.trackCode).toEqual(file);
         await runUntil(STATE_TRACK_EDITING);
         expect(session.track.layers.all.map((layer) => layer.name)).toEqual([
             'Ground',
@@ -376,7 +376,8 @@ describe('Editor files', () => {
             upload.getButtons()[button].action();
             await new Promise((resolve) => setTimeout(resolve, 10));
             const [, request] = fetch.mock.calls.at(-1) as unknown as [string, RequestInit];
-            return (request.body as URLSearchParams).get('trackCode') ?? '';
+            const file = (request.body as FormData).get('trackCode') as Blob;
+            return new Uint8Array(await file.arrayBuffer());
         };
 
         expect(upload.getButtons().map((button) => button.label)).toEqual([

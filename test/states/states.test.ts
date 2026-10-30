@@ -920,11 +920,12 @@ describe('Racing a track', () => {
         vi.stubGlobal(
             'fetch',
             vi.fn(async (url: string) => {
+                // The track itself, here of the original format
                 const body = url.includes('trackdata')
-                    ? { CODE: RACE_CODE }
-                    : { GHOSTSTRING: '0,,,,,500,MTB,Speedy' };
-                return new Response(JSON.stringify(body), {
-                    headers: { 'content-length': String(JSON.stringify(body).length) },
+                    ? RACE_CODE
+                    : JSON.stringify({ GHOSTSTRING: '0,,,,,500,MTB,Speedy' });
+                return new Response(body, {
+                    headers: { 'content-length': String(body.length) },
                 });
             }),
         );
@@ -962,7 +963,8 @@ describe('Racing a track', () => {
         manager.push(STATE_TRACK_FETCHER);
         await runUntil(STATE_TRACK_EDITING);
 
-        expect(session.trackCode).toBe(RACE_CODE);
+        // The bytes downloaded, here of a track of the original format
+        expect(session.trackCode).toEqual(new TextEncoder().encode(RACE_CODE));
         // Edited as a new track: finishing it offers no ghost to save
         expect(session.track.isRace()).toBe(false);
         expect(session.track.targets.size).toBe(1);

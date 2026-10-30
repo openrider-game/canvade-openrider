@@ -11,6 +11,32 @@ export abstract class Requests {
     }
 
     /**
+     * Posts a multipart form, e.g. with the bytes of a track file as a file, and parses the JSON
+     * response.
+     *
+     * @param params - Text parameters, or files given as bytes.
+     * @throws See {@link Requests.check}.
+     */
+    public static async postFormJson<T>(
+        url: string,
+        params: Record<string, string | number | Uint8Array<ArrayBuffer>>,
+    ): Promise<T> {
+        const body = new FormData();
+        for (const [key, value] of Object.entries(params)) {
+            if (value instanceof Uint8Array) {
+                body.set(key, new Blob([value], { type: 'application/octet-stream' }), key);
+            } else {
+                body.set(key, value.toString());
+            }
+        }
+
+        const response = await fetch(url, { method: 'POST', body });
+        await Requests.check(response);
+
+        return (await response.json()) as T;
+    }
+
+    /**
      * Posts form parameters and parses the JSON response.
      *
      * @throws See {@link Requests.check}.

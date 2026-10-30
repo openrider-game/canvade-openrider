@@ -23,7 +23,7 @@
     <span class="track-card__info">
         <span class="track-card__title"><?= h(site_track_title($track)) ?></span>
         <span class="track-card__meta">
-            <?= h(site_track_bike($track['CODE'])) ?>
+            <?= h(site_track_bike($track['CODEHEAD'])) ?>
             <?php if ($track['AUTHOR'] !== null): ?>
                 &middot; by <?= h(implode(', ', [$track['AUTHOR'], ...$track['COAUTHORS']])) ?>
             <?php endif; ?>

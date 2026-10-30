@@ -386,6 +386,7 @@ holding its `name`, `type` (`main` or `foreground`), `visible` flag, and its `so
 .htaccess             Apache rules of the deployed sample website (see backend/README.md)
 backend/              PHP backend: endpoints, database tables, local server and sample website
 server/               Node command lines of the backend, built in dist/
+├── convert/          converter of the tracks to the track files, for the migration (dist/convert-tracks.cjs)
 ├── live/             session server of the live races (dist/live-server.cjs)
 └── verify/           ghost verifier, replaying the ghosts and endurance runs (dist/verify-ghost.cjs)
 src/

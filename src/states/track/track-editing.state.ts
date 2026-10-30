@@ -119,14 +119,9 @@ export class TrackEditingState extends TrackPlayState {
 
             const reader = new FileReader();
             reader.addEventListener('load', () => {
-                const bytes = new Uint8Array(reader.result as ArrayBuffer);
-                let code: string;
+                const code = new Uint8Array(reader.result as ArrayBuffer);
                 try {
-                    TrackFormat.read(bytes);
-                    // The session holds codes as text, the original formats as they are
-                    code = TrackFormat.isBinary(bytes)
-                        ? TrackFormat.toText(bytes)
-                        : new TextDecoder().decode(bytes);
+                    TrackFormat.read(code);
                 } catch (e) {
                     alert(`This file cannot be imported: ${e instanceof Error ? e.message : e}`);
                     return;

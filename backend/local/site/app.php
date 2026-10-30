@@ -13,7 +13,7 @@
  * | `/register/`, `/login/`, `/logout/`  | the account forms                                     |
  * | `/create/`                           | the game editing a new track                          |
  * | `/uploads/<id>/`                     | the form sending an upload to verification, or a draft |
- * | `/uploads/<id>/track.openrider.json` | the editor file of a draft, to download               |
+ * | `/uploads/<id>/track-editor.ortrack` | the editor file of a draft, to download               |
  * | `/drafts/`                           | the drafts of the account, and the tracks to verify   |
  * | `/drafts/<id>/`                      | the game editing a draft                              |
  * | `/verify/<id>/`                      | the game racing a track waiting for verification      |
@@ -127,7 +127,10 @@ function site_handle(string $path): bool
         site_endurance_page();
     } elseif (preg_match('#^/uploads/([0-9]+)/?$#', $path, $match)) {
         site_upload_page((int) $match[1]);
-    } elseif (preg_match('#^/uploads/([0-9]+)/track\.openrider\.json$#', $path, $match)) {
+    } elseif (
+        // Also at its former name, from the time the editor files were JSON
+        preg_match('#^/uploads/([0-9]+)/track(-editor\.ortrack|\.openrider\.json)$#', $path, $match)
+    ) {
         site_editor_file((int) $match[1]);
     } elseif ($path === '/drafts/') {
         site_drafts_page();

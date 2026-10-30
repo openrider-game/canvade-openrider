@@ -292,8 +292,8 @@ describe('Layered tracks', () => {
             ['Foreground', []],
         ]);
         // Exporting again gives the same files
-        expect(generate(track).getEditorCode()).toBe(generator.getEditorCode());
-        expect(generate(track).getFile(true)).toEqual(generator.getFile(true));
+        expect(generate(track).getEditorCode()).toEqual(generator.getEditorCode());
+        expect(generate(track).getCode()).toEqual(generator.getCode());
     });
 
     test('convert a track code of the original format into an editor file', () => {

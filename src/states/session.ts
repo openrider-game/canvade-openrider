@@ -1,3 +1,4 @@
+import type { TrackCode } from '../openrider/parser/track-format';
 import { Track } from '../openrider/track/track';
 import { TRACK_MODE_EDITING, TrackMode } from '../openrider/track/track.constants';
 
@@ -38,20 +39,20 @@ export class Session {
      * Code of the track to parse, a track code or an editor file, or the track code generated to
      * be uploaded; `null` until fetched.
      */
-    public get trackCode(): string | null {
-        return (this.shared.get(TRACK_CODE) as string | undefined) ?? null;
+    public get trackCode(): TrackCode | null {
+        return (this.shared.get(TRACK_CODE) as TrackCode | undefined) ?? null;
     }
 
-    public set trackCode(trackCode: string | null) {
+    public set trackCode(trackCode: TrackCode | null) {
         this.shared.set(TRACK_CODE, trackCode);
     }
 
     /** Editor file generated to be uploaded, along with {@link Session.trackCode}. */
-    public get editorCode(): string | null {
-        return (this.shared.get(EDITOR_CODE) as string | undefined) ?? null;
+    public get editorCode(): TrackCode | null {
+        return (this.shared.get(EDITOR_CODE) as TrackCode | undefined) ?? null;
     }
 
-    public set editorCode(editorCode: string | null) {
+    public set editorCode(editorCode: TrackCode | null) {
         this.shared.set(EDITOR_CODE, editorCode);
     }
 

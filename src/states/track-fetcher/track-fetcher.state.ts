@@ -75,33 +75,41 @@ export class TrackFetcherState extends OpenRiderState {
             );
             this.total = contentLength ? parseInt(contentLength, 10) : 0;
 
-            const data = JSON.parse(await this.readBody(response)) as { CODE: string } | false;
-            if (!data) {
+            const code = await this.readBody(response);
+            // Backends answering without a 404 status for an unknown track
+            if (code.length === 0 || new TextDecoder().decode(code) === 'false') {
                 throw new Error('Track does not exist');
             }
 
-            this.session.trackCode = data.CODE;
+            this.session.trackCode = code;
             this.done = true;
         } catch (error) {
             this.error = error instanceof Error ? error.message : String(error);
         }
     }
 
-    /** Reads the response chunk by chunk to follow the download progress. */
-    private async readBody(response: Response): Promise<string> {
+    /**
+     * Reads the track file of the response chunk by chunk to follow the download progress: its
+     * bytes, or those of a track saved in an original format, both read by `TrackFormat`.
+     */
+    private async readBody(response: Response): Promise<Uint8Array> {
         const reader = response.body?.getReader();
         if (!reader) {
-            return response.text();
+            return new Uint8Array(await response.arrayBuffer());
         }
 
-        const decoder = new TextDecoder();
-        let body = '';
-
+        const chunks: Uint8Array[] = [];
         for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
             this.progress += chunk.value.byteLength;
-            body += decoder.decode(chunk.value, { stream: true });
+            chunks.push(chunk.value);
         }
 
-        return body + decoder.decode();
+        const body = new Uint8Array(this.progress);
+        let offset = 0;
+        for (const chunk of chunks) {
+            body.set(chunk, offset);
+            offset += chunk.byteLength;
+        }
+        return body;
     }
 }

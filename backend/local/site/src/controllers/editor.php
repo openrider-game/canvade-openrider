@@ -102,7 +102,7 @@ function site_upload_endpoint(?int $draftId): void
         $user = site_require_api_user('Log in to upload your track');
         site_check_post_size();
 
-        $code = openrider_string_param('trackCode');
+        $code = openrider_code_param('trackCode');
         if (strlen($code) > SITE_TRACK_MAX_BYTES) {
             openrider_respond(413, ['error' => 'The track is too large']);
         }
@@ -137,7 +137,7 @@ function site_upload_endpoint(?int $draftId): void
 
 /**
  * Download endpoint of the game editing a draft, in place of the trackdata endpoint of the
- * backend and with its parameters and response.
+ * backend and with its parameters and response: the bytes of the track file.
  */
 function site_draft_endpoint(int $draftId): void
 {
@@ -153,7 +153,7 @@ function site_draft_endpoint(int $draftId): void
             openrider_respond(404, ['error' => 'Draft not found']);
         }
 
-        return ['CODE' => $draft['CODE'], 'THUMBNAIL' => $draft['THUMBNAIL']];
+        openrider_respond_code($draft['CODE']);
     });
 }
 
@@ -238,8 +238,14 @@ function site_editor_file(int $uploadId): void
         return;
     }
 
-    header('Content-Type: application/json');
-    header('Content-Disposition: attachment; filename="track.openrider.json"');
+    // As the game names them, the drafts saved before the track files being JSON
+    if (openrider_is_track_file($upload['CODE'])) {
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="track-editor.ortrack"');
+    } else {
+        header('Content-Type: application/json');
+        header('Content-Disposition: attachment; filename="track.openrider.json"');
+    }
     echo $upload['CODE'];
 }
 
