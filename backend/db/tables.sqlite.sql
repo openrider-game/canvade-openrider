@@ -2,7 +2,8 @@
 
 CREATE TABLE "TRACKS" (
     "ID" INTEGER PRIMARY KEY AUTOINCREMENT,
-    "CODE" TEXT NOT NULL,
+    -- Track file, see api.php
+    "CODE" BLOB NOT NULL,
     -- Base64 PNG, without the data URL prefix
     "THUMBNAIL" TEXT
 );

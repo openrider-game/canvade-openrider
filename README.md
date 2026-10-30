@@ -421,6 +421,7 @@ holding its `name`, `type` (`main` or `foreground`), `visible` flag, and its `so
 backend/              PHP backend: endpoints, database tables, local server and sample website
 media/                icons of the interface
 server/               Node command lines of the backend, built in dist/
+├── convert/          converter of the tracks to the track files, for the migration (dist/convert-tracks.cjs)
 ├── live/             session server of the live races (dist/live-server.cjs)
 └── verify/           ghost verifier, replaying the ghosts and endurance runs (dist/verify-ghost.cjs)
 src/

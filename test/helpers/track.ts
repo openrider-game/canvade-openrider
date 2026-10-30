@@ -1,3 +1,4 @@
+import type { TrackCode } from '../../src/openrider/parser/track-format';
 import { Keyboard, Vector } from 'canvade';
 import { TrackParser } from '../../src/openrider/parser/track-parser';
 import { Track } from '../../src/openrider/track/track';
@@ -19,7 +20,7 @@ export type PlayerKey = keyof typeof PLAYER_KEYS;
  *
  * The tracks of the tests have no dense cell, so the parser never needs the render workers.
  */
-export function parseTrack(code: string, id: number | null = null): Track {
+export function parseTrack(code: TrackCode, id: number | null = null): Track {
     const track = new Track(id);
     const parser = new TrackParser(track);
     parser.init(code);

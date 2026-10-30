@@ -69,7 +69,7 @@ if ($collab !== null) {
     <p class="game-help muted">
         Upload the editor file of the track to save your changes to this draft, or its track code
         to publish it with a title and a description, keeping the draft.
-        <a href="/uploads/<?= (int) $draft['ID'] ?>/track.openrider.json" download>Download the
+        <a href="/uploads/<?= (int) $draft['ID'] ?>/track-editor.ortrack" download>Download the
         editor file</a> to keep a copy.
     </p>
 

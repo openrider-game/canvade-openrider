@@ -23,12 +23,12 @@ function site_insert_upload(
         'INSERT INTO "LOCAL_UPLOADS" ("USERID", "CODE", "THUMBNAIL", "COLLABORATORS")'
         . ' VALUES (:userId, :code, :thumbnail, :collaborators) RETURNING "ID"'
     );
-    $statement->execute([
+    openrider_execute($statement, [
         'userId' => $userId,
         'code' => $code,
         'thumbnail' => $thumbnail,
         'collaborators' => $collaborators,
-    ]);
+    ], ['code']);
 
     return (int) $statement->fetchColumn();
 }
@@ -61,12 +61,27 @@ function site_find_any_upload(PDO $db, int $uploadId): ?array
         . ' WHERE up."ID" = :id'
     );
     $statement->execute(['id' => $uploadId]);
+    $upload = $statement->fetch(PDO::FETCH_ASSOC);
 
-    return $statement->fetch(PDO::FETCH_ASSOC) ?: null;
+    return $upload ? ['CODE' => openrider_bytes($upload['CODE'])] + $upload : null;
 }
 
-/** Condition on `LOCAL_UPLOADS up` keeping the editor files, which never start like track codes. */
-const SITE_EDITOR_FILE = 'LTRIM(up."CODE") LIKE \'{%\'';
+/**
+ * Uploads selected with the head of their code (`CODEHEAD`, see site_code_head()), keeping the
+ * editor files or the track codes, without their heads.
+ */
+function site_filter_uploads(array $uploads, bool $editorFiles): array
+{
+    $kept = array_filter(
+        $uploads,
+        fn (array $upload) => site_is_editor_file((string) openrider_bytes($upload['CODEHEAD']))
+            === $editorFiles
+    );
+    return array_values(array_map(function (array $upload) {
+        unset($upload['CODEHEAD']);
+        return $upload;
+    }, $kept));
+}
 
 /**
  * The drafts of an account: its editor files saved with a title, newest first.
@@ -76,13 +91,14 @@ const SITE_EDITOR_FILE = 'LTRIM(up."CODE") LIKE \'{%\'';
 function site_find_drafts(PDO $db, int $userId): array
 {
     $statement = $db->prepare(
-        'SELECT up."ID", up."THUMBNAIL", up."TITLE", up."DESCRIPTION" FROM "LOCAL_UPLOADS" up'
-        . ' WHERE up."TITLE" IS NOT NULL AND up."USERID" = :userId AND ' . SITE_EDITOR_FILE
+        'SELECT up."ID", up."THUMBNAIL", up."TITLE", up."DESCRIPTION", '
+        . site_code_head('up."CODE"') . ' AS "CODEHEAD" FROM "LOCAL_UPLOADS" up'
+        . ' WHERE up."TITLE" IS NOT NULL AND up."USERID" = :userId'
         . ' ORDER BY up."ID" DESC'
     );
     $statement->execute(['userId' => $userId]);
 
-    return $statement->fetchAll(PDO::FETCH_ASSOC);
+    return site_filter_uploads($statement->fetchAll(PDO::FETCH_ASSOC), true);
 }
 
 /**
@@ -96,17 +112,18 @@ function site_find_pending_tracks(PDO $db, int $userId): array
 {
     $statement = $db->prepare(
         'SELECT up."ID", up."THUMBNAIL", up."TITLE", up."USERID", u."NAME" AS "AUTHOR",'
-        . ' up."VERIFIERID", v."NAME" AS "VERIFIER", up."VERIFICATIONTIME", up."REVIEW"'
+        . ' up."VERIFIERID", v."NAME" AS "VERIFIER", up."VERIFICATIONTIME", up."REVIEW", '
+        . site_code_head('up."CODE"') . ' AS "CODEHEAD"'
         . ' FROM "LOCAL_UPLOADS" up'
         . ' LEFT JOIN "LOCAL_USERS" u ON u."ID" = up."USERID"'
         . ' LEFT JOIN "LOCAL_USERS" v ON v."ID" = up."VERIFIERID"'
-        . ' WHERE up."TITLE" IS NOT NULL AND NOT ' . SITE_EDITOR_FILE
+        . ' WHERE up."TITLE" IS NOT NULL'
         . ' AND (up."USERID" = :userId OR up."VERIFIERID" = :verifierId)'
         . ' ORDER BY up."ID" DESC'
     );
     $statement->execute(['userId' => $userId, 'verifierId' => $userId]);
 
-    return $statement->fetchAll(PDO::FETCH_ASSOC);
+    return site_filter_uploads($statement->fetchAll(PDO::FETCH_ASSOC), false);
 }
 
 /**
@@ -209,12 +226,12 @@ function site_update_draft(
         'UPDATE "LOCAL_UPLOADS" SET "CODE" = :code, "THUMBNAIL" = :thumbnail,'
         . ' "COLLABORATORS" = :collaborators WHERE "ID" = :id'
     );
-    $statement->execute([
+    openrider_execute($statement, [
         'id' => $draftId,
         'code' => $code,
         'thumbnail' => $thumbnail,
         'collaborators' => $merged,
-    ]);
+    ], ['code']);
 }
 
 /** Ids separated with commas, of both lists, each once, sorted. */
@@ -240,7 +257,11 @@ function site_publish_verified(PDO $db, array $upload): int
         $statement = $db->prepare(
             'INSERT INTO "TRACKS" ("CODE", "THUMBNAIL") VALUES (:code, :thumbnail) RETURNING "ID"'
         );
-        $statement->execute(['code' => $upload['CODE'], 'thumbnail' => $upload['THUMBNAIL']]);
+        openrider_execute(
+            $statement,
+            ['code' => $upload['CODE'], 'thumbnail' => $upload['THUMBNAIL']],
+            ['code']
+        );
         $trackId = (int) $statement->fetchColumn();
         // Closes the statement, SQLite refusing to commit while it is still running
         $statement->closeCursor();

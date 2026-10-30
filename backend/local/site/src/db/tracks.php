@@ -26,7 +26,8 @@ const SITE_REVIEWED_GHOST = 'g."ID" NOT IN (SELECT "GHOSTID" FROM "LOCAL_GHOST_R
 function site_find_tracks(PDO $db, ?int $userId = null, bool $mostLiked = false): array
 {
     $statement = $db->prepare(
-        'SELECT t."ID", t."CODE", t."THUMBNAIL", d."TITLE", d."VERIFIERID", d."COLLABORATORS",'
+        'SELECT t."ID", ' . site_code_head('t."CODE"') . ' AS "CODEHEAD", t."THUMBNAIL",'
+        . ' d."TITLE", d."VERIFIERID", d."COLLABORATORS",'
         . ' u."NAME" AS "AUTHOR", COUNT(g."ID") AS "GHOSTS", MIN(g."TIME") AS "BEST", '
         . site_thumbs_column('track', 't."ID"')
         . ' FROM "TRACKS" t'
@@ -35,7 +36,8 @@ function site_find_tracks(PDO $db, ?int $userId = null, bool $mostLiked = false)
         . ' LEFT JOIN "GHOSTS" g ON g."TRACKID" = t."ID" AND ' . SITE_REVIEWED_GHOST
         . ($userId === null ? '' : ' WHERE d."USERID" = :userId'
             . ' OR \',\' || d."COLLABORATORS" || \',\' LIKE :coauthor')
-        . ' GROUP BY t."ID", t."CODE", t."THUMBNAIL", d."TITLE", d."VERIFIERID", d."COLLABORATORS",'
+        . ' GROUP BY t."ID", ' . site_code_head('t."CODE"') . ', t."THUMBNAIL", d."TITLE",'
+        . ' d."VERIFIERID", d."COLLABORATORS",'
         . ' u."NAME"'
         . ' ORDER BY ' . ($mostLiked ? '"THUMBS" DESC, ' : '') . 't."ID" DESC'
     );
@@ -44,7 +46,8 @@ function site_find_tracks(PDO $db, ?int $userId = null, bool $mostLiked = false)
     );
 
     return array_map(
-        fn (array $track) => $track + ['COAUTHORS' => site_coauthors($db, $track)],
+        fn (array $track) => ['CODEHEAD' => openrider_bytes($track['CODEHEAD'])] + $track
+            + ['COAUTHORS' => site_coauthors($db, $track)],
         $statement->fetchAll(PDO::FETCH_ASSOC)
     );
 }
@@ -70,7 +73,10 @@ function site_find_track(PDO $db, int $trackId): ?array
     $statement->execute(['id' => $trackId]);
     $track = $statement->fetch(PDO::FETCH_ASSOC);
 
-    return $track ? $track + ['COAUTHORS' => site_coauthors($db, $track)] : null;
+    return $track
+        ? ['CODE' => openrider_bytes($track['CODE'])] + $track
+            + ['COAUTHORS' => site_coauthors($db, $track)]
+        : null;
 }
 
 /**

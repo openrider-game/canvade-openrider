@@ -19,12 +19,30 @@ function site_track_title(array $track): string
 
 /**
  * Whether an uploaded code is an editor file, keeping the layers of the editor but not raceable,
- * rather than a track code, which never starts with `{` (see TrackFormat of the game).
+ * rather than a track code: the flag of its header, or for the original text formats a JSON
+ * editor file, as a track code never starts with `{` (see TrackFormat of the game).
+ *
+ * @param string $code The code, or only its first bytes (see site_code_head()).
  */
 function site_is_editor_file(string $code): bool
 {
-    return strpos(ltrim($code), '{') === 0;
+    $header = openrider_track_header($code);
+    return $header !== null ? $header['editor'] : strpos(ltrim($code), '{') === 0;
 }
+
+/**
+ * First bytes of the track codes selected by a query, enough for site_is_editor_file() and
+ * site_track_bike(): the whole codes are of no use to the lists.
+ *
+ * @param string $column Code column, e.g. `up."CODE"`.
+ */
+function site_code_head(string $column): string
+{
+    return "substr($column, 1, " . SITE_CODE_HEAD_BYTES . ')';
+}
+
+/** Bytes of the codes read by site_code_head(): the header of a track file with its bike. */
+const SITE_CODE_HEAD_BYTES = 64;
 
 /** Whether an upload is a draft: an editor file saved with its title and description. */
 function site_is_saved_draft(array $upload): bool
@@ -37,12 +55,23 @@ const SITE_NO_TARGET_MESSAGE = 'The track has no target: add at least one, or up
     . ' editor file to keep it as a draft';
 
 /**
- * Number of targets of a track code, from its items, the third `#` section: counted as the game
- * reads them (see TrackFormat.targetCount), an item being a letter followed by at least two
- * values, `T` for a target.
+ * Number of targets of a track code. A track file is read by the game itself, with Node (see
+ * site_run_verifier()), its layers being compressed; a track code of the original text format is
+ * read here, from its items, the third `#` section, an item being a letter followed by at least
+ * two values, `T` for a target, as the game reads them.
+ *
+ * @throws RuntimeException When the game cannot read a track file.
  */
 function site_track_targets(string $trackCode): int
 {
+    if (openrider_is_track_file($trackCode)) {
+        $answer = site_run_verifier(['trackCode' => openrider_code_text($trackCode), 'count' => 'targets']);
+        if (!isset($answer['targets'])) {
+            throw new RuntimeException('Cannot read the track: ' . ($answer['reason'] ?? ''));
+        }
+        return (int) $answer['targets'];
+    }
+
     $items = explode('#', $trackCode)[2] ?? '';
     $count = 0;
     foreach (explode(',', $items) as $item) {
@@ -55,9 +84,17 @@ function site_track_targets(string $trackCode): int
     return $count;
 }
 
-/** Bike of a track, from the next to last `#` section of its track code. */
+/**
+ * Bike of a track, from the header of its track file, or from the next to last `#` section of a
+ * track code of the original format: the default bike of the game when it has none, or when only
+ * the first bytes of an original code are given.
+ */
 function site_track_bike(string $trackCode): string
 {
+    $header = openrider_track_header($trackCode);
+    if ($header !== null) {
+        return $header['bike'] !== '' ? $header['bike'] : 'BMX';
+    }
     $sections = explode('#', $trackCode);
     return count($sections) >= 7 && $sections[5] !== '' ? $sections[5] : 'BMX';
 }

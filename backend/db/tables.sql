@@ -2,7 +2,8 @@
 
 CREATE TABLE "TRACKS" (
     "ID" SERIAL NOT NULL PRIMARY KEY,
-    "CODE" TEXT NOT NULL,
+    -- Track file, see api.php
+    "CODE" BYTEA NOT NULL,
     -- Base64 PNG, without the data URL prefix
     "THUMBNAIL" TEXT
 );

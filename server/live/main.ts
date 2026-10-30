@@ -16,22 +16,26 @@
  * production.
  */
 import { join } from 'node:path';
+import { TrackFormat } from '../../src/openrider/parser/track-format';
 import { LiveServer } from './live-server';
 import { createVerifier } from './verifier';
 
 /** Secret of the local site when `OPENRIDER_LIVE_SECRET` is not set, never in production. */
 const DEV_SECRET = 'openrider-local-live-secret';
 
+/**
+ * Downloads the track file of a published track, as text for the ghost verifier: its base 64
+ * text, or the text of a track saved in an original format.
+ */
 async function loadTrackCode(siteUrl: string, trackId: number): Promise<string> {
     const response = await fetch(new URL('backend/db/trackdata/', siteUrl), {
         method: 'POST',
         body: new URLSearchParams({ id: String(trackId) }),
     });
-    const data = (await response.json()) as { CODE?: unknown };
-    if (!response.ok || typeof data.CODE !== 'string') {
+    if (!response.ok) {
         throw new Error(`Cannot download track ${trackId} (${response.status})`);
     }
-    return data.CODE;
+    return TrackFormat.toCodeText(new Uint8Array(await response.arrayBuffer()));
 }
 
 async function main(): Promise<void> {

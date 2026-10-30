@@ -134,22 +134,16 @@ export class TrackGenerator {
         };
     }
 
-    /** Track code of the track, its layers of each type merged, once every step is done. */
-    public getCode(): string {
-        return TrackFormat.toTrackCode(this.getDocument());
-    }
-
-    /** Editor file of the track, keeping its layers, once every step is done. */
-    public getEditorCode(): string {
-        return TrackFormat.toEditorCode(this.getDocument());
-    }
-
     /**
-     * Bytes of the track file, once every step is done.
-     *
-     * @param editor - Whether to keep the layers, as an editor file, else as a track code.
+     * Track file of the track, its layers of each type merged (a track code), once every step is
+     * done.
      */
-    public getFile(editor: boolean): Uint8Array<ArrayBuffer> {
-        return TrackFormat.encode(this.getDocument(), editor);
+    public getCode(): Uint8Array<ArrayBuffer> {
+        return TrackFormat.encode(this.getDocument(), false);
+    }
+
+    /** Track file of the track keeping its layers (an editor file), once every step is done. */
+    public getEditorCode(): Uint8Array<ArrayBuffer> {
+        return TrackFormat.encode(this.getDocument(), true);
     }
 }

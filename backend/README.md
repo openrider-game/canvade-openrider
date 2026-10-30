@@ -1,16 +1,23 @@
 # OpenRider backend
 
-PHP endpoints storing the published tracks and the ghosts, called by the game with url-encoded POST
-requests (see `src/openrider/constants/request.constants.ts`). They answer in JSON, with a 400
-status for invalid parameters, 404 for an unknown track or ghost, 405 for other methods and 500 for
-server errors (logged with `error_log`).
+PHP endpoints storing the published tracks and the ghosts, called by the game with POST requests
+(see `src/openrider/constants/request.constants.ts`). They answer in JSON, but the download of a
+track, with a 400 status for invalid parameters, 404 for an unknown track or ghost, 405 for other
+methods and 500 for server errors (logged with `error_log`).
 
-| Endpoint          | Parameters                        | Response                  |
-| ----------------- | --------------------------------- | ------------------------- |
-| `db/trackdata/`   | `id`                              | `{ "CODE", "THUMBNAIL" }` |
-| `db/trackupload/` | `trackCode`, `thumbnail` (base64) | `{ "ID" }`                |
-| `db/ghostdata/`   | `trackId`, `id`                   | `{ "GHOSTSTRING" }`       |
-| `db/ghostupload/` | `ghostString`, `trackId`, `time`  | `{ "ID" }`                |
+| Endpoint          | Parameters                                     | Response                      |
+| ----------------- | ---------------------------------------------- | ----------------------------- |
+| `db/trackdata/`   | `id`                                           | The track file, as bytes      |
+| `db/trackupload/` | `trackCode` (a file), `thumbnail` (base64)     | `{ "ID" }`                    |
+| `db/ghostdata/`   | `trackId`, `id`                                | `{ "GHOSTSTRING" }`           |
+| `db/ghostupload/` | `ghostString`, `trackId`, `time`               | `{ "ID" }`                    |
+
+The tracks are track files, the binary format of the game (see `TrackFormat`): stored as bytes
+(`CODE`, `BYTEA` with PostgreSQL, `BLOB` with SQLite), downloaded as bytes
+(`application/octet-stream`, with their size in `X-File-Size`) and uploaded as the file of a
+multipart form. Their header, uncompressed, gives the bike and whether a track is an editor file
+without reading the rest (`openrider_track_header()` of `db/api.php`). The tracks saved in the
+original text formats are still read everywhere, until migrated (see "Migrating the tracks").
 
 ## Requirements
 
@@ -93,10 +100,11 @@ account.
 - `/templates/` lists the templates of the account logged in, which it makes public or private and
   deletes, then the public templates of every account, newest first. A template is a group of
   objects saved from the select tool of the editor, at most 5000 (`SITE_TEMPLATE_MAX_OBJECTS`, the
-  most the tool selects), written as the first three sections of a track code. Each template is a
+  most the tool selects), stored as a track file holding them (`ObjectClipboard` of the game);
+  those saved before the track files are the first three sections of a track code. Each template is a
   card showing its thumbnail (`/templates/<id>/thumbnail/`, "No preview" for a template saved
   without one); its Copy code button copies its code (`public/js/templates.js`, from
-  `/templates/<id>/code/`), to paste in the editor with Ctrl+V;
+  `/templates/<id>/code/`, the base 64 text of its track file), to paste in the editor with Ctrl+V;
 - `/tracks/<id>/` runs the game racing the track, under its title, author, description and verifier,
   with its leaderboard under it, in two tabs: the 10 best riders, ranked by their best ghost (a
   rider holding several of the best times counts once), their other ghosts folded under it; and the
@@ -128,11 +136,12 @@ account.
   draft instead;
 - `/verify/<id>/` runs the game racing a track waiting for verification, for its author, its
   verifier and the admins only (see "Verification");
-- `/drafts/` lists the tracks waiting for verification that the account made or verifies, then its
-  drafts, each one opening its editor page;
-- `/drafts/<id>/` runs the game editing the draft (`data-track-mode="edit"`). Uploading its editor
-  file again saves the changes to the draft, uploading its track code publishes it as a new track,
-  keeping the draft. Its editor file also downloads from `/uploads/<id>/track.openrider.json`.
+- `/drafts/` lists the tracks waiting for verification that the account made or verifies, then
+  its drafts, each one opening its editor page;
+- `/drafts/<id>/` runs the game editing the draft (`data-track-mode="edit"`). Uploading its
+  editor file again saves the changes to the draft, uploading its track code publishes it as a
+  new track, keeping the draft. Its editor file also downloads from
+  `/uploads/<id>/track-editor.ortrack`.
 
 The uploads and drafts are only seen by their own account, and the tracks waiting for verification
 by their author and verifier.
@@ -175,18 +184,20 @@ ghost string. The first account created takes over the drafts without an account
   is another site are refused.
 - Ghosts: their string must have the format the game writes, and its time must be the one posted.
   The site then replays the ghost on its track with `dist/verify-ghost.cjs` (the physics of the
-  game, see `src/verify/` of the game), and refuses it unless it reaches every target exactly at its
-  time: a forged time or ghost string does not. A ghost of a large track takes a few seconds, and
-  the verification gives up after 60 seconds or for runs over two hours.
-- Endurance runs: checked as the ghosts, and replayed on their track, their seed on their version of
-  the generator, which measures their distance: the distance claimed by the game is not trusted.
-  Each run is saved with its version (`VERSION`), an account keeping one run on each seed and
-  version.
-- Uploads: a track code or editor file holds 16 MB at most (with `post_max_size` large enough in the
-  PHP configuration), and its thumbnail must be a 500x300 PNG.
-- Templates: a template holds 5000 objects and 500 KB at most, its code made of the three sections
-  of a track code (base 32 numbers, the items starting with their letter), and its name 60
-  characters at most. Its thumbnail, when it has one, is a 500x300 PNG as the track thumbnails. An
+  game, see `src/verify/` of the game), and refuses it unless it reaches every target exactly at
+  its time: a forged time or ghost string does not. A ghost of a large track takes a few seconds,
+  and the verification gives up after 60 seconds or for runs over two hours.
+- Endurance runs: checked as the ghosts, and replayed on their track, their seed on their
+  version of the generator, which measures their distance: the distance claimed by the game is
+  not trusted. Each run is saved with its version (`VERSION`, 1 for the runs saved before the
+  versions), an account keeping one run on each seed and version.
+- Uploads: a track code or editor file holds 16 MB at most (with `upload_max_filesize` and
+  `post_max_size` large enough in the PHP configuration, 2 MB and 8 MB by default), and its
+  thumbnail must be a 500x300 PNG.
+- Templates: a template holds 5000 objects and 500 KB at most, its code being a track code (read by
+  the game with Node, as the ghosts, to count its objects) or, from a page opened before the track
+  files, the three sections of an original track code (base 32 numbers, the items starting with
+  their letter), and its name 60 characters at most. Its thumbnail, when it has one, is a 500x300 PNG as the track thumbnails. An
   account sees its own templates and the public ones only.
 - Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads, 60 ghosts or endurance runs, 30 templates and 120
   thumbs up given or taken back an hour per account, 5 new accounts an hour per address, and 20
@@ -354,15 +365,15 @@ editors weigh 16 MB at most, and it keeps 20,000 edits at most.
 
 The site is served by Apache with PHP, at the root of a domain (its links start with `/`):
 
-1. Build the game with `npm run build`, which writes `dist/main.js`, `dist/verify-ghost.cjs` and
-   `dist/live-server.cjs`.
-2. Upload the root of the project, keeping its structure: `.htaccess`, `index.html`, `styles.css`,
-   `dist/`, `media/` and `backend/` (without `backend/local/openrider.db`). The sources (`src/`,
-   `test/`), `node_modules/` and the other files of the project are not needed.
-3. Create the tables of the backend in the database, `db/tables.sql` for PostgreSQL: the site adds
-   its own on the first request. Without the local router, no sample data is loaded.
-4. Set the environment variables of the configuration: the database, the Node executable when `node`
-   is not in the path of the web server, and the admins.
+1. Build the game with `npm run build`, which writes `dist/main.js`, `dist/verify-ghost.cjs`,
+   `dist/live-server.cjs` and `dist/convert-tracks.cjs` (see "Migrating the tracks").
+2. Upload the root of the project, keeping its structure: `.htaccess`, `index.html`,
+   `styles.css`, `dist/`, `media/` and `backend/` (without `backend/local/openrider.db`). The
+   sources (`src/`, `test/`), `node_modules/` and the other files of the project are not needed.
+3. Create the tables of the backend in the database, `db/tables.sql` for PostgreSQL: the site
+   adds its own on the first request. Without the local router, no sample data is loaded.
+4. Set the environment variables of the configuration: the database, the Node executable when
+   `node` is not in the path of the web server, and the admins.
 5. Serve the site over HTTPS.
 
 `.htaccess`, at the root of the project, sends the pages to `backend/site.php`, the front controller
@@ -418,6 +429,34 @@ Each `npm run build` gives the game and the session server the same version, whi
 when it connects (`?version=`): the server refuses the games of another build, e.g. a tab opened
 before a deploy, asking the rider to reload the page (close code `4010`). Deploy `dist/` and
 restart the server together.
+
+### Migrating the tracks
+
+The tracks saved before the track files are in the original text formats, about five times
+larger. `migrate-tracks.php` converts them, from the root of the deployed site, with the
+configuration of the site (the database and `OPENRIDER_NODE`) and the converter built with the
+game, `dist/convert-tracks.cjs`:
+
+```sh
+# 1. Back the database up, e.g. with PostgreSQL:
+pg_dump -Fc -f openrider-before-track-files.dump <database>
+
+# 2. Deploy the new build (dist/ and backend/), then from the root of the site, as the user of
+#    the web server, with the variables of the configuration:
+php backend/migrate-tracks.php --dry-run    # converts and checks every track, writes nothing
+php backend/migrate-tracks.php              # converts them
+
+# To go back: pg_restore --clean -d <database> openrider-before-track-files.dump
+```
+
+With PostgreSQL, the `CODE` columns of `TRACKS` and `LOCAL_UPLOADS` become `BYTEA` first, which
+the new endpoints need: deploy and migrate at once. SQLite stores bytes in its columns as they
+are. Each track code becomes a track code and each editor file an editor file, read back and
+compared to the original track before it is written, by batches each in a transaction. A track
+that cannot be converted keeps its text, which the game and the site still read, and is listed
+at the end, the script then exiting with 1. The tracks already converted are skipped: the script
+can run again, e.g. for the tracks uploaded during the migration. The ghosts stay valid, the
+tracks being the same.
 
 ### Game alone
 

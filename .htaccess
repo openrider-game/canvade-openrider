@@ -9,9 +9,10 @@ RewriteEngine On
 # endpoints, and the files of the project that are not part of the game
 RewriteRule ^backend/local/ - [F,L]
 RewriteRule ^backend/db/api\.php$ - [F,L]
+RewriteRule ^backend/migrate-tracks\.php$ - [F,L]
 RewriteRule ^(src|test|node_modules)/ - [F,L]
 RewriteRule (^|/)\. - [F,L]
-# Files only: the drafts of the site download from /uploads/<id>/track.openrider.json
+# Files only: the drafts of the site download from /uploads/<id>/track-editor.ortrack
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule \.(md|sql|db|json|ts|mjs|cjs|map)$ - [F,L]
 
