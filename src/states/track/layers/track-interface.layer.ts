@@ -10,19 +10,19 @@ import {
 } from 'canvade';
 import { ToolGroupTool } from '../../../openrider/tool/group/tool-group.tool';
 import { CameraTool } from '../../../openrider/tool/misc/camera.tool';
-import { MoreTool } from '../../../openrider/tool/misc/more.tool';
 import { Tool } from '../../../openrider/tool/tool';
 import { ToolCollection } from '../../../openrider/tool/tool-collection';
 import { TouchControls, TouchInsets } from '../../../openrider/touch/touch-controls';
 import type { TrackViewState } from '../track-view.state';
-import { ButtonDefinition, ToolbarSide } from '../track-view.definitions';
+import { ButtonDefinition } from '../track-view.definitions';
 import { DebugPanel } from '../ui/debug-panel';
 import { ActionsMenu } from '../ui/actions-menu';
 import { ControlsPanel } from '../ui/controls-panel';
 import { LayersPanel } from '../ui/layers-panel';
 import { OptionsDrawer } from '../ui/options-drawer';
 import { ToolTooltip } from '../ui/tool-tooltip';
-import { TOOL_ELEMENT_TYPE, UIToolButton } from '../ui/ui-tool-button';
+import { Toolbars } from '../ui/toolbars';
+import { TOOL_ELEMENT_TYPE } from '../ui/ui-tool-button';
 // Registers the riding buttons element
 import '../ui/ui-touch-button';
 import {
@@ -59,60 +59,11 @@ function baseStyles(toolSize: number): UIStyleDefinition {
     };
 }
 
-/** Layout of the tools of an open group, see {@link layoutGroup}. */
-export interface GroupLayout {
-    /** Position of the first row from the top of the canvas, in UI pixels. */
-    top: number;
-    rows: number;
-    columns: number;
-}
-
-/**
- * Lays out the tools of an open group in as few columns as the canvas height allows, the rows
- * balanced between the columns: next to the group button when they fit under it, else moved up
- * just enough to fit in the canvas.
- *
- * @param count - Number of tools of the group.
- * @param buttonTop - Position of the group button from the top of the canvas, in UI pixels.
- * @param height - Height of the canvas in UI pixels, `Infinity` while it is unknown.
- * @param toolSize - Side of the tool buttons, in UI pixels.
- */
-export function layoutGroup(
-    count: number,
-    buttonTop: number,
-    height: number,
-    toolSize = uiMetrics().toolSize,
-): GroupLayout {
-    // A single column while the height is unknown
-    const maxRows = Math.max(1, Math.min(count, Math.floor(height / toolSize)));
-    const columns = Math.ceil(count / maxRows);
-    const rows = Math.ceil(count / columns);
-    const top = Math.max(0, Math.min(buttonTop, height - rows * toolSize));
-
-    return { top, rows, columns };
-}
-
-/** Toolbar with the tools created when entering the state. */
-interface Toolbar {
-    side: ToolbarSide;
-    tools: Array<Tool | null>;
-    /** Last button of the toolbar when its tools do not fit the canvas, on touch screens. */
-    more: MoreTool;
-}
-
-/** Buttons of a toolbar as laid out, see {@link TrackInterfaceLayer.layoutToolbar}. */
-interface ToolbarLayout {
-    /** Tools of the buttons, from the top, `null` leaving an empty space. */
-    slots: Array<Tool | null>;
-    /** Tools that do not fit, displayed next to the `More` button while it is toggled. */
-    overflow: Tool[];
-}
-
 /**
  * Top layer of the track states: toolbars with their tooltips, options of the current tool and
  * text buttons, built declaratively with the canvade UI from the definitions of the state.
  *
- * The options are in the {@link OptionsDrawer}. States editing the layers of the track also get
+ * The toolbars are laid out by {@link Toolbars}, the options are in the {@link OptionsDrawer}. States editing the layers of the track also get
  * the {@link LayersPanel}, and states allowing the debug mode get the {@link DebugPanel} while it
  * is enabled.
  *
@@ -122,7 +73,7 @@ interface ToolbarLayout {
  * `TrackMainLayer`.
  */
 export class TrackInterfaceLayer extends Layer {
-    private toolbars: Toolbar[] = [];
+    private readonly toolbars = new Toolbars();
     private root: UIElement | null = null;
     /** Height of the canvas the interface was built for, in UI pixels. */
     private builtHeight = Infinity;
@@ -134,8 +85,6 @@ export class TrackInterfaceLayer extends Layer {
     private builtTouchControls: string | null = null;
     /** Whether the interface was built in touch mode, with its larger sizes. */
     private builtTouchMode = false;
-    /** Sides of the toolbars whose tools that do not fit are displayed. */
-    private readonly overflowOpen = new Set<ToolbarSide>();
 
     public constructor(private readonly state: TrackViewState) {
         super();
@@ -187,22 +136,8 @@ export class TrackInterfaceLayer extends Layer {
         const track = this.state.track;
         track.toolCollection = new ToolCollection();
 
-        this.toolbars = this.state.getToolbars().map(({ side, tools }) => ({
-            side,
-            tools: tools.map((toolClass) => (toolClass ? new toolClass(track) : null)),
-            more: new MoreTool(
-                track,
-                () => this.toggleOverflow(side),
-                () => this.overflowOpen.has(side),
-            ),
-        }));
-
-        for (const toolbar of this.toolbars) {
-            for (const tool of toolbar.tools) {
-                if (tool) {
-                    this.registerTool(tool);
-                }
-            }
+        for (const tool of this.toolbars.create(track, this.state.getToolbars())) {
+            this.registerTool(tool);
         }
 
         const cameraTool = track.toolCollection.getByToolName(CameraTool.toolName) ?? null;
@@ -237,8 +172,9 @@ export class TrackInterfaceLayer extends Layer {
         // The toolbars of touch screens fit the canvas height too
         const resized =
             height !== this.builtHeight &&
-            (this.hasOpenGroup() ||
-                this.toolbarsFit(height) !== this.toolbarsFit(this.builtHeight));
+            (this.toolbars.hasOpenGroup() ||
+                this.toolbars.fit(height, this.builtTouchMode) !==
+                    this.toolbars.fit(this.builtHeight, this.builtTouchMode));
         const touchControlsMoved = this.touchControlsLayout() !== this.builtTouchControls;
         const touchModeChanged = TouchControls.enabled !== this.builtTouchMode;
         if (track.uiInvalidated || resized || touchControlsMoved || touchModeChanged) {
@@ -281,9 +217,7 @@ export class TrackInterfaceLayer extends Layer {
 
     /** Space taken by the toolbars, the bottom buttons and the layers panel. */
     private touchInsets(): TouchInsets {
-        const sides = new Set(
-            this.toolbars.filter(({ tools }) => tools.some(Boolean)).map(({ side }) => side),
-        );
+        const sides = this.toolbars.sides;
         const buttons = this.state.getButtons();
         const bottomButtons = buttons.filter((button) => button.verticalAlign === 'bottom');
         const menuButtons = this.menuButtons(buttons);
@@ -306,29 +240,9 @@ export class TrackInterfaceLayer extends Layer {
         };
     }
 
-    /**
-     * Number of buttons of each toolbar fitting a canvas height in touch mode, an empty string
-     * with a mouse, the toolbars then not depending on the height.
-     */
-    private toolbarsFit(height: number): string {
-        if (!this.builtTouchMode) {
-            return '';
-        }
-        return this.toolbars
-            .map((toolbar) => this.layoutToolbar(toolbar, true, height).slots.length)
-            .join();
-    }
-
     /** Buttons of the state held by the {@link ActionsMenu}: none with a mouse. */
     private menuButtons(buttons: ButtonDefinition[]): ButtonDefinition[] {
         return TouchControls.enabled ? ActionsMenu.buttonsOf(buttons) : [];
-    }
-
-    /** Whether the tools of a group are displayed, one of them being the current tool. */
-    private hasOpenGroup(): boolean {
-        return this.toolbars.some(({ tools }) =>
-            tools.some((tool) => tool instanceof ToolGroupTool && tool.isActive()),
-        );
     }
 
     /** Height of the canvas in UI pixels, `Infinity` before the first render. */
@@ -353,63 +267,7 @@ export class TrackInterfaceLayer extends Layer {
         this.builtHeight = this.uiHeight();
         this.builtTouchMode = touchMode;
 
-        // Next to the toolbar from a position, in columns going away from the toolbar when they do
-        // not fit in the canvas height
-        const pushColumns = (className: string, tools: Tool[], top: number, side: ToolbarSide) => {
-            const layout = layoutGroup(tools.length, top, this.builtHeight, toolSize);
-            for (let column = 0; column < layout.columns; column++) {
-                const columnTools = tools.slice(column * layout.rows, (column + 1) * layout.rows);
-                const columnClass = `${className}-${column}`;
-                openGroups.push({
-                    [`container.overlay.group.${columnClass}`]: columnTools.map((tool) => ({
-                        [TOOL_ELEMENT_TYPE]: this.toolElement(tool),
-                    })),
-                });
-                styles[`.${columnClass}`] = {
-                    x: toolSize + 4 + column * toolSize,
-                    y: layout.top,
-                    height: columnTools.length * toolSize,
-                    horizontalAlign: side,
-                };
-            }
-        };
-
-        // Toolbars, along with the tools of the open groups
-        for (const toolbar of this.toolbars) {
-            const { side, more } = toolbar;
-            const { slots, overflow } = this.layoutToolbar(toolbar, touchMode, this.builtHeight);
-            const overflowOpen = overflow.length > 0 && this.overflowOpen.has(side);
-
-            slots.forEach((tool, index) => {
-                if (!tool) {
-                    return;
-                }
-
-                const className = `${side}-${index}`;
-                structure.push({
-                    [`${TOOL_ELEMENT_TYPE}.overlay.${className}`]: this.toolElement(tool),
-                });
-                styles[`.${className}`] = { y: index * toolSize, horizontalAlign: side };
-            });
-
-            // The tools that do not fit, in place of the open groups of the toolbar, ending at the
-            // bottom of the `More` button, the last one
-            if (overflowOpen) {
-                const top = Math.max(0, (slots.length - overflow.length) * toolSize);
-                pushColumns(`${side}-more`, overflow, top, side);
-                continue;
-            }
-
-            // The tools of a group are displayed while one of them is the current tool, next to
-            // the group button, or to the `More` button when it does not fit
-            for (const tool of [...slots, ...overflow]) {
-                if (tool instanceof ToolGroupTool && tool.isActive()) {
-                    const index = slots.includes(tool) ? slots.indexOf(tool) : slots.indexOf(more);
-                    const top = index * toolSize;
-                    pushColumns(`${side}-${index}-group`, tool.instances, top, side);
-                }
-            }
-        }
+        this.toolbars.build(touchMode, this.builtHeight, structure, openGroups, styles);
 
         this.optionsDrawer.build(this.state.track, structure, styles);
         if (this.state.editsLayers()) {
@@ -460,64 +318,6 @@ export class TrackInterfaceLayer extends Layer {
         this.root = root;
         // Rendered once the whole UI tree is, so that the tooltip is drawn over the toolbars
         root.subscribe('renderTree', (e) => ToolTooltip.render(e.detail.ctx, root));
-    }
-
-    /**
-     * Buttons of a toolbar: its tools and empty spaces as defined with a mouse. On touch screens,
-     * the empty spaces and the keyboard tools are left out, and the tools that do not fit the
-     * canvas height are replaced with the `More` button.
-     *
-     * @param height - Height of the canvas in UI pixels, `Infinity` while it is unknown.
-     */
-    private layoutToolbar(
-        { tools, more }: Toolbar,
-        touchMode: boolean,
-        height: number,
-    ): ToolbarLayout {
-        if (!touchMode) {
-            return { slots: tools, overflow: [] };
-        }
-
-        const shown = tools.filter(
-            (tool): tool is Tool => tool !== null && !tool.toolClass.keyboardOnly,
-        );
-        const capacity = Math.max(2, Math.floor(height / uiMetrics().toolSize));
-        if (shown.length <= capacity) {
-            return { slots: shown, overflow: [] };
-        }
-        return {
-            slots: [...shown.slice(0, capacity - 1), more],
-            overflow: shown.slice(capacity - 1),
-        };
-    }
-
-    /** Opens or closes the tools of a toolbar that do not fit, closing the other toolbar's. */
-    private toggleOverflow(side: ToolbarSide): void {
-        const open = !this.overflowOpen.has(side);
-        this.overflowOpen.clear();
-        if (open) {
-            this.overflowOpen.add(side);
-        }
-        this.state.track.invalidateUI();
-    }
-
-    /**
-     * Element of a tool button, the tool being read from its data by {@link UIToolButton}. Running
-     * a tool closes the tools that do not fit, unless it is the `More` button. A button held long
-     * on a touch screen shows its tooltip instead of running its tool.
-     */
-    private toolElement(tool: Tool) {
-        const click = (_x: number, _y: number, button: UIElement) => {
-            if (button instanceof UIToolButton && button.heldLong) {
-                return;
-            }
-            if (!(tool instanceof MoreTool) && this.overflowOpen.size > 0) {
-                this.overflowOpen.clear();
-                this.state.track.invalidateUI();
-            }
-            tool.run();
-        };
-        return { data: { tool }, events: { click } };
     }
 
     /** Follows the primary pointer, the one `Mouse` follows. */

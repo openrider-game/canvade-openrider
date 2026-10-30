@@ -1,3 +1,5 @@
+import type { Line } from '../item/line/line';
+
 /**
  * Drawing of a render cell, flattened so that it can be sent to a worker: its lines as
  * `[x1, y1, x2, y2, ...]` and its item sprites as `packItemSprites` does, in world units.
@@ -13,6 +15,13 @@ export interface CellDrawing {
     sprites: Float64Array;
     /** Fill colors of the sprites, by their color index. */
     spriteColors: string[];
+}
+
+/** Lines flattened as `[x1, y1, x2, y2, ...]` in world units, as a {@link CellDrawing} has them. */
+export function flattenLines(lines: readonly Line[]): Int32Array {
+    return new Int32Array(
+        lines.flatMap((line) => [line.pos.x, line.pos.y, line.endPos.x, line.endPos.y]),
+    );
 }
 
 /** Draws the lines and the items of the tracks, see {@link createPainter}. */

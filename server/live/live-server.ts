@@ -6,9 +6,9 @@ import {
     ClientMessage,
     LIVE_CLOSE_CODES,
     LiveResult,
-    parseClientMessage,
     ServerMessage,
 } from '../../src/openrider/live/protocol';
+import { parseClientMessage } from '../../src/openrider/live/protocol-parse';
 import { RunLog } from '../../src/openrider/live/run-log';
 import type { TrackEdit, TrackSnapshot } from '../../src/openrider/edit/track-edit';
 import { LiveToken, LiveTrack, readToken, signPayload, trackKey } from './token';

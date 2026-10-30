@@ -10,7 +10,7 @@ import {
 } from '../../src/states/state-names';
 import States from '../../src/states/states';
 import { TrackEditingState } from '../../src/states/track/track-editing.state';
-import { layoutGroup } from '../../src/states/track/layers/track-interface.layer';
+import { layoutGroup } from '../../src/states/track/ui/toolbars';
 import { ToolGroupTool } from '../../src/openrider/tool/group/tool-group.tool';
 import { TrackUploadState } from '../../src/states/track-upload/track-upload.state';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';

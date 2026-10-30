@@ -1,13 +1,13 @@
 import type { Item } from '../../item/item';
 import { type ItemSprites, packItemSprites } from '../../item/item-sprite';
-import type { Line } from '../../item/line/line';
 import type { TrackObject } from '../../item/track-object';
-import { type CellDrawing, painter } from '../../render/painter';
+import { type CellDrawing, flattenLines, painter } from '../../render/painter';
 import { RenderPriority, WorkerPool } from '../../thread/worker-pool';
 import { MIN_ZOOM } from '../../track/track.constants';
 import type { Track } from '../../track/track';
 import { Zoom } from '../../track/zoom';
 import { Cell } from './cell';
+import { CellPatcher } from './cell-patcher';
 
 /** Stroke colors of the scenery and solid lines in the cell images, as `createPainter` draws them. */
 export const SCENERY_STROKE_STYLE = '#aaa',
@@ -21,12 +21,7 @@ export const SCENERY_STROKE_STYLE = '#aaa',
      * Images kept by a cell, the least recently displayed ones being dropped past it, but the
      * one of the lowest zoom, a fallback always at hand.
      */
-    MAX_CELL_IMAGES = 6,
-    /**
-     * Edits of a cell kept to patch its stale images: past it, e.g. a large selection erased, the
-     * stale image is displayed as it is until rendered again.
-     */
-    MAX_PATCHED_EDITS = 500;
+    MAX_CELL_IMAGES = 6;
 
 /** How a cell gets its image at a zoom, see {@link RenderCell.getImage}. */
 export interface ImageOptions {
@@ -43,23 +38,6 @@ export interface ImageOptions {
     settled?: boolean;
     /** Pixel zoom the view eases to, e.g. asked by a command block, null without. */
     targetZoom?: number | null;
-}
-
-/** Object added to or removed from a cell, see {@link RenderCell.patched}. */
-interface CellEdit {
-    /** Content version of the cell once edited. */
-    version: number;
-    object: TrackObject;
-    added: boolean;
-}
-
-/** Copy of a stale image of a cell, with the edits made since drawn on it. */
-interface PatchedImage {
-    source: HTMLCanvasElement;
-    /** Version of the stale image copied. */
-    base: number;
-    /** Version of the last edit drawn on the copy. */
-    upTo: number;
 }
 
 /** Image of a cell: a canvas when rendered synchronously, a bitmap when rendered by a worker. */
@@ -93,8 +71,8 @@ let nextCellId = 0;
  * at the zoom once it settles, and a cell keeps a few images only (see {@link MAX_CELL_IMAGES}).
  *
  * So that the edits show at once, e.g. a stroke of the brush in a dense cell, the stale image at
- * the current zoom is displayed patched with the edits made since (see
- * {@link RenderCell.patched}) until the workers render it again.
+ * the current zoom is displayed patched with the edits made since (see {@link CellPatcher}) until
+ * the workers render it again.
  */
 export class RenderCell extends Cell {
     /** Unique id, used to deduplicate the render requests. */
@@ -107,12 +85,8 @@ export class RenderCell extends Cell {
     private live: Item[] | null = null;
     /** Number of items drawn as sprites, counted again once the content changes. */
     private spriteCount: number | null = null;
-    /** Edits since the content version {@link RenderCell.editsFrom}, in their order. */
-    private edits: CellEdit[] = [];
-    /** Version from which the edits are all kept: older images cannot be patched. */
-    private editsFrom = 0;
-    /** Patched copies of the stale images, by zoom. */
-    private readonly patches = new Map<number, PatchedImage>();
+    /** Patches the stale images with the edits made since. */
+    private readonly patcher = new CellPatcher(this);
     /** Sprites of the cell flattened, once for every zoom level, again once the content changes. */
     private packed: ItemSprites | null = null;
     /** Scenery and solid lines of the cell flattened, as the sprites. */
@@ -134,113 +108,12 @@ export class RenderCell extends Cell {
 
     public override push(obj: TrackObject): void {
         super.push(obj);
-        this.recordEdit(obj, true);
+        this.patcher.record(obj, this.images.size > 0);
     }
 
     public override remove(obj: TrackObject): void {
         super.remove(obj);
-        this.recordEdit(obj, false);
-    }
-
-    /**
-     * Keeps an edit to patch the stale images with, once the cell has images: not while the track
-     * is parsed, nor past {@link MAX_PATCHED_EDITS}.
-     */
-    private recordEdit(object: TrackObject, added: boolean): void {
-        if (this.images.size === 0 || this.edits.length >= MAX_PATCHED_EDITS) {
-            this.edits = [];
-            this.editsFrom = this.version;
-            return;
-        }
-        this.edits.push({ version: this.version, object, added });
-    }
-
-    /**
-     * The stale image at its zoom with the edits made since drawn on a copy of it: the objects
-     * added drawn as on the final image, the objects removed cut out of it, along with what they
-     * covered in the cell, e.g. the lines they crossed, until the image is rendered again. The
-     * stale image as it is when the edits since are not all kept.
-     */
-    private patched(image: CellImage, opacityFactor: number): CellImage {
-        if (image.version < this.editsFrom || typeof document === 'undefined') {
-            return image;
-        }
-        let patch = this.patches.get(image.zoom);
-        if (!patch || patch.base !== image.version) {
-            const source = document.createElement('canvas');
-            source.width = image.source.width;
-            source.height = image.source.height;
-            source.getContext('2d')?.drawImage(image.source, 0, 0);
-            patch = { source, base: image.version, upTo: image.version };
-            this.patches.set(image.zoom, patch);
-        }
-
-        const context = patch.source.getContext('2d');
-        const pending = this.edits.filter((edit) => edit.version > patch.upTo);
-        if (context && pending.length) {
-            // The successive additions, then removals, drawn together in their order
-            let run: CellEdit[] = [];
-            for (const edit of pending) {
-                if (run.length && run[0].added !== edit.added) {
-                    this.drawEdits(context, run, image.zoom, opacityFactor);
-                    run = [];
-                }
-                run.push(edit);
-            }
-            this.drawEdits(context, run, image.zoom, opacityFactor);
-        }
-        patch.upTo = this.version;
-        return { source: patch.source, zoom: image.zoom, version: image.version };
-    }
-
-    /** Draws objects added on a patched image, or cuts out objects removed. */
-    private drawEdits(
-        ctx: CanvasRenderingContext2D,
-        edits: CellEdit[],
-        zoom: number,
-        opacityFactor: number,
-    ): void {
-        const objects = edits.map((edit) => edit.object);
-        const ofKind = <T extends TrackObject>(kind: TrackObject['kind']) =>
-            objects.filter((object): object is T => object.kind === kind);
-        const { buffer, colors } = packItemSprites(ofKind<Item>('item'));
-        const drawing: CellDrawing = {
-            zoom,
-            opacityFactor,
-            offsetLeft: this.x * zoom - 1,
-            offsetTop: this.y * zoom - 1,
-            scenery: RenderCell.flatten(ofKind<Line>('scenery')),
-            lines: RenderCell.flatten(ofKind<Line>('solid')),
-            sprites: new Float64Array(buffer),
-            spriteColors: colors,
-        };
-
-        ctx.save();
-        if (edits[0].added) {
-            painter.drawCell(ctx, drawing);
-        } else {
-            // Cut out entirely, a pixel wider to leave no faint edge
-            ctx.globalCompositeOperation = 'destination-out';
-            painter.drawCell(ctx, { ...drawing, opacityFactor: 1 });
-            ctx.lineWidth = Math.max(2 * zoom, 0.5) + 2;
-            ctx.lineCap = 'round';
-            ctx.strokeStyle = '#000';
-            for (const lines of [drawing.scenery, drawing.lines]) {
-                for (let i = 0; i + 3 < lines.length; i += 4) {
-                    ctx.beginPath();
-                    ctx.moveTo(
-                        lines[i] * zoom - drawing.offsetLeft,
-                        lines[i + 1] * zoom - drawing.offsetTop,
-                    );
-                    ctx.lineTo(
-                        lines[i + 2] * zoom - drawing.offsetLeft,
-                        lines[i + 3] * zoom - drawing.offsetTop,
-                    );
-                    ctx.stroke();
-                }
-            }
-        }
-        ctx.restore();
+        this.patcher.record(obj, this.images.size > 0);
     }
 
     /** Sprites of the cell, flattened by `packItemSprites`: not to be changed, but copied. */
@@ -257,8 +130,8 @@ export class RenderCell extends Cell {
      */
     public drawing(zoom: number, opacityFactor: number): CellDrawing {
         this.packedLines ??= {
-            scenery: RenderCell.flatten(this.scenery),
-            lines: RenderCell.flatten(this.lines),
+            scenery: flattenLines(this.scenery),
+            lines: flattenLines(this.lines),
         };
         const { buffer, colors } = this.packedSprites;
         return {
@@ -272,13 +145,6 @@ export class RenderCell extends Cell {
             sprites: new Float64Array(buffer),
             spriteColors: colors,
         };
-    }
-
-    /** Lines flattened as `[x1, y1, x2, y2, ...]`, in world units. */
-    private static flatten(lines: readonly Line[]): Int32Array {
-        return new Int32Array(
-            lines.flatMap((line) => [line.pos.x, line.pos.y, line.endPos.x, line.endPos.y]),
-        );
     }
 
     /** Items of the cell without a sprite, drawn on every frame, e.g. the command blocks. */
@@ -366,7 +232,7 @@ export class RenderCell extends Cell {
 
         // The stale image of the zoom, with the edits since, or another zoom as it is
         if (image) {
-            return this.patched(this.used(image), opacityFactor);
+            return this.patcher.patched(this.used(image), opacityFactor);
         }
         const fallback = this.getClosestImage(zoom);
         return fallback && this.used(fallback);
@@ -457,16 +323,9 @@ export class RenderCell extends Cell {
             RenderCell.release(current.source);
             this.images.delete(zoom);
         }
-        this.images.set(zoom, { source, zoom, version });
-        if (version === this.version) {
-            this.patches.delete(zoom);
-        }
-        // Only the edits newer than every image can still patch one
-        const oldest = Math.min(...[...this.images.values()].map((image) => image.version));
-        if (oldest > this.editsFrom) {
-            this.edits = this.edits.filter((edit) => edit.version > oldest);
-            this.editsFrom = oldest;
-        }
+        const stored = { source, zoom, version };
+        this.images.set(zoom, stored);
+        this.patcher.stored(stored, this.images.values());
 
         // The least recently displayed images first, the one of the lowest zoom always kept
         const lowest = Math.min(...this.images.keys());
@@ -485,9 +344,7 @@ export class RenderCell extends Cell {
     public releaseImages(): void {
         this.images.forEach((image) => RenderCell.release(image.source));
         this.images.clear();
-        this.patches.clear();
-        this.edits = [];
-        this.editsFrom = this.version;
+        this.patcher.reset();
     }
 
     private static release(source: CellImageSource): void {

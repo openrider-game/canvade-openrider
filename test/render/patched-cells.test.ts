@@ -77,20 +77,27 @@ describe('Dense cells edited while the workers render them', () => {
         expect(patch.calls.length).toBe(calls);
     });
 
-    test('cut the erased lines out of the copy', () => {
-        const line = addLine([10, 250], [80, 250]);
+    test('repaint the area of an erased line, the lines it crossed drawn again', () => {
+        // Across the column of short lines starting at x = 100, one every 10 units down to 190
+        const line = addLine([102, -5], [102, 195]);
         cell.getImage(ZOOM, OPTIONS);
         const [patch] = created;
-        const operations: string[] = [];
-        Object.defineProperty(patch.context, 'globalCompositeOperation', {
-            set: (value: string) => operations.push(value),
-            get: () => operations.at(-1) ?? 'source-over',
-        });
+        const moves = vi.mocked(patch.context.moveTo);
+        moves.mockClear();
 
         line.removeFromTrack();
         cell.getImage(ZOOM, OPTIONS);
 
-        expect(operations).toContain('destination-out');
+        // Cleared within the area of the line, then drawn again in it
+        expect(patch.calls).toEqual(expect.arrayContaining(['clip', 'clearRect', 'stroke']));
+        const starts = moves.mock.calls.map(([x, y]) => `${x},${y}`);
+        // The crossed lines, in canvas pixels of the image, bleeding by 1px
+        for (const y of [0, 50, 190]) {
+            expect(starts).toContain(`101,${y + 1}`);
+        }
+        // Not the erased line, nor the lines far from it
+        expect(starts).not.toContain('103,-4');
+        expect(starts.some((start) => start.startsWith('281,'))).toBe(false);
     });
 
     test('show the image of the workers once rendered, without patching it', () => {
