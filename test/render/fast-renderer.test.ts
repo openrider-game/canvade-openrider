@@ -306,7 +306,9 @@ describe('Render worker', () => {
         expect(message.id).toBe(7);
         expect(message.bitmap).toMatchObject({ width: 202, height: 202 });
         expect(transfer).toEqual([message.bitmap]);
-        expect(vi.mocked(context.stroke)).toHaveBeenCalledTimes(3);
+        // The scenery line, then the two solid lines, each kind as a single path
+        expect(vi.mocked(context.stroke)).toHaveBeenCalledTimes(2);
+        expect(vi.mocked(context.lineTo)).toHaveBeenCalledTimes(3);
         expect(context.globalAlpha).toBe(0.5);
     });
 });

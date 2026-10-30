@@ -288,7 +288,11 @@ export function createPainter(): Painter {
         ctx.restore();
     };
 
-    /** Strokes lines flattened as `[x1, y1, x2, y2, ...]`, in world units. */
+    /**
+     * Strokes lines flattened as `[x1, y1, x2, y2, ...]`, in world units, as a single path: the
+     * lines of a translucent layer do not darken where they cross, the layer being seen through
+     * as a whole.
+     */
     const drawLines = (
         ctx: PainterContext,
         lines: Int32Array,
@@ -296,12 +300,15 @@ export function createPainter(): Painter {
         offsetLeft: number,
         offsetTop: number,
     ) => {
+        if (lines.length < 4) {
+            return;
+        }
+        ctx.beginPath();
         for (let i = 0; i + 3 < lines.length; i += 4) {
-            ctx.beginPath();
             ctx.moveTo(lines[i] * zoom - offsetLeft, lines[i + 1] * zoom - offsetTop);
             ctx.lineTo(lines[i + 2] * zoom - offsetLeft, lines[i + 3] * zoom - offsetTop);
-            ctx.stroke();
         }
+        ctx.stroke();
     };
 
     const drawCell: Painter['drawCell'] = (ctx, drawing) => {

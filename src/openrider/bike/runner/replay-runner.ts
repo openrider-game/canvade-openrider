@@ -1,4 +1,5 @@
 import { Color } from '../../numeric/color';
+import { FlatAlpha } from '../../render/flat-alpha';
 import type { Track } from '../../track/track';
 import { Bike, BikeClass } from '../bike';
 import { BikeRunner } from './bike-runner';
@@ -62,7 +63,10 @@ export abstract class ReplayRunner extends BikeRunner {
             return;
         }
 
-        bike.render(ctx, this.opacity);
+        // As one shape: its strokes do not darken where they overlap
+        FlatAlpha.draw(ctx, this.opacity, bike.pixelArea(), (target, opacity) =>
+            bike.render(target, opacity),
+        );
 
         const bikePos = this.track.toPixel(
             bike.backWheel.displayPos

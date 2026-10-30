@@ -1,4 +1,5 @@
 import { Vector } from 'canvade';
+import { FlatAlpha } from '../../render/flat-alpha';
 import { Explosion } from '../../entity/explosion';
 import { Ragdoll } from '../../entity/ragdoll';
 import { MODIFIERS } from '../../item/modifiers';
@@ -359,7 +360,12 @@ export abstract class BikeRunner {
             this.renderInstance(ctx);
         }
 
-        // In the color of the bike, as it was ridden
-        this.deadObject?.render(ctx, this.opacity);
+        // In the color of the bike, as it was ridden, as one shape (see `FlatAlpha`)
+        const deadObject = this.deadObject;
+        if (deadObject) {
+            FlatAlpha.draw(ctx, this.opacity, null, (target, opacity) =>
+                deadObject.render(target, opacity),
+            );
+        }
     }
 }

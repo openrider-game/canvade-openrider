@@ -124,8 +124,8 @@ describe('Dense cells edited while the workers render them', () => {
         // Cleared, then every line of the cell drawn, without clipping to the edits
         expect(patch.calls).toContain('clearRect');
         expect(patch.calls).not.toContain('clip');
-        const strokes = patch.calls.filter((call) => call === 'stroke').length;
-        expect(strokes).toBeGreaterThan(600 + REDRAW_EDITS);
+        const lines = patch.calls.filter((call) => call === 'lineTo').length;
+        expect(lines).toBeGreaterThan(600 + REDRAW_EDITS);
 
         // The next edit is repainted on the copy
         addLine([10, 250], [80, 250]);

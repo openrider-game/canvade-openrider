@@ -1,4 +1,5 @@
 import { Vector } from 'canvade';
+import type { PixelArea } from '../render/flat-alpha';
 import { Part } from '../entity/part';
 import { Wheel } from '../entity/wheel';
 import type { Track } from '../track/track';
@@ -112,6 +113,24 @@ export abstract class Bike {
      * @param opacityFactor - Global opacity, lower for ghosts.
      */
     public abstract render(ctx: CanvasRenderingContext2D, opacityFactor: number): void;
+
+    /**
+     * Area the bike and its rider are drawn in, in canvas pixels: around its wheels and head,
+     * with room for the limbs, the wheels and the glow of the status effects.
+     */
+    public pixelArea(): PixelArea {
+        const track = this.track;
+        const points = [this.backWheel, this.frontWheel, this.hitbox].map((part) =>
+            track.toPixel(part.displayPos),
+        );
+        const pad = 60 * track.zoomFactor + 12;
+        return [
+            Math.min(...points.map(({ x }) => x)) - pad,
+            Math.min(...points.map(({ y }) => y)) - pad,
+            Math.max(...points.map(({ x }) => x)) + pad,
+            Math.max(...points.map(({ y }) => y)) + pad,
+        ];
+    }
 
     /**
      * Applies the runner controls to the bike (turn, engine, lean), once per physics tick before
