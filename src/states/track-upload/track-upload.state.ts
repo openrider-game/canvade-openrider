@@ -1,5 +1,6 @@
 import { Layer } from 'canvade';
 import { GameConfig } from '../../openrider/config/game-config';
+import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from '../../openrider/constants/game.constants';
 import { TRACKUPLOAD_PATH } from '../../openrider/constants/request.constants';
 import { LiveEditSession } from '../../openrider/live/live-edit-session';
 import { Requests } from '../../openrider/request/requests';
@@ -10,7 +11,7 @@ import { TrackMainLayer } from '../track/layers/track-main.layer';
 import { ButtonDefinition, ToolbarDefinition } from '../track/track-view.definitions';
 import { TrackViewState } from '../track/track-view.state';
 import type { ExportFormat } from '../session';
-import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH, TrackUploadLayer } from './layers/track-upload.layer';
+import { TrackUploadLayer } from './layers/track-upload.layer';
 
 /**
  * Lets the player frame the thumbnail of the track before uploading it, pushed by the generator

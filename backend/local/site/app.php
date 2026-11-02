@@ -148,6 +148,8 @@ function site_handle(string $path): bool
         site_templates_page();
     } elseif (preg_match('#^/templates/([0-9]+)/code/$#', $path, $match)) {
         site_template_code((int) $match[1]);
+    } elseif (preg_match('#^/templates/([0-9]+)/thumbnail/$#', $path, $match)) {
+        site_template_thumbnail((int) $match[1]);
     } elseif (preg_match('#^/templates/([0-9]+)/(public|private|delete)/$#', $path, $match)) {
         site_template_action((int) $match[1], $match[2]);
     } elseif ($path === '/reviews/') {

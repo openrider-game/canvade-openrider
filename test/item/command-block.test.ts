@@ -389,11 +389,11 @@ describe('Command block tool', () => {
     test('places a move block in three steps, and cycles the commands and durations', () => {
         const tool = select();
         // Show, then move
-        tool.getOptions()[0].action();
-        tool.getOptions()[0].action();
+        tool.getOptions()[0].action!();
+        tool.getOptions()[0].action!();
         expect(tool.getOptions()[0].label).toBe('Command: move area');
         expect(tool.getOptions()[1].label).toBe('Duration: 1 s');
-        tool.getOptions()[1].action();
+        tool.getOptions()[1].action!();
 
         click(150, 40);
         drag(new Vector(280, -120), new Vector(320, 60));
@@ -423,8 +423,8 @@ describe('Command block tool', () => {
 
     test('previews the block being placed only, not the offset of the previous one', () => {
         const tool = select();
-        tool.getOptions()[0].action();
-        tool.getOptions()[0].action();
+        tool.getOptions()[0].action!();
+        tool.getOptions()[0].action!();
         click(150, 40);
         drag(new Vector(280, -120), new Vector(320, 60));
         click(300, -330);
@@ -441,8 +441,8 @@ describe('Command block tool', () => {
 
         // A camera block links to the mouse, not to the point of the previous one
         track.toolManager.onMouseUp(mouseEvent());
-        tool.getOptions()[0].action();
-        tool.getOptions()[0].action();
+        tool.getOptions()[0].action!();
+        tool.getOptions()[0].action!();
         click(150, 40);
         click(800, -100);
         click(150, 40);
@@ -455,11 +455,11 @@ describe('Command block tool', () => {
         const tool = select();
         // Zoom, after cycling through every command
         for (let option = 0; option < 3; option++) {
-            tool.getOptions()[0].action();
+            tool.getOptions()[0].action!();
         }
         expect(tool.getOptions()[0].label).toBe('Command: zoom');
         click(100, 40);
-        tool.getOptions()[0].action();
+        tool.getOptions()[0].action!();
         click(150, 40);
         click(800, -100);
 

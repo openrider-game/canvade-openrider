@@ -10,7 +10,8 @@
  *
  * - `list`: the templates of the account, then the public ones of the others, without their code;
  * - `get` with an `id`: the code of a template the account sees;
- * - `save` with a `name`, a `code` and `public` (`1` or `0`): saves a template of the account.
+ * - `save` with a `name`, a `code`, `public` (`1` or `0`) and optionally a `thumbnail`, a base64
+ *   500x300 PNG as the thumbnails of the tracks: saves a template of the account.
  */
 function site_templates_endpoint(): void
 {
@@ -66,12 +67,26 @@ function site_templates_endpoint(): void
                     'error' => 'A template holds at most ' . SITE_TEMPLATE_MAX_OBJECTS . ' objects',
                 ]);
             }
+            $thumbnail = $_POST['thumbnail'] ?? null;
+            if ($thumbnail !== null && (!is_string($thumbnail) || !site_check_thumbnail($thumbnail))) {
+                openrider_reject('The thumbnail must be a 500x300 PNG');
+            }
             if (!site_take_rate_limit($db, 'template', (string) $user['ID'])) {
                 openrider_respond(429, ['error' => 'Too many templates saved, try again later']);
             }
 
             $public = ($_POST['public'] ?? '') === '1';
-            return ['ID' => site_insert_template($db, $user['ID'], $name, $code, $objects, $public)];
+            return [
+                'ID' => site_insert_template(
+                    $db,
+                    $user['ID'],
+                    $name,
+                    $code,
+                    $objects,
+                    $public,
+                    $thumbnail
+                ),
+            ];
         }
 
         openrider_reject('Invalid parameter: action');
@@ -107,6 +122,24 @@ function site_template_code(int $templateId): void
 
     header('Content-Type: text/plain; charset=UTF-8');
     echo $template['CODE'];
+}
+
+/** Thumbnail of a template the account sees, as a PNG image, cached by the browser. */
+function site_template_thumbnail(int $templateId): void
+{
+    $template = site_find_template(site_db(), $templateId, site_user()['ID'] ?? null);
+    $png = $template === null || $template['THUMBNAIL'] === null
+        ? false
+        : base64_decode($template['THUMBNAIL'], true);
+    if ($png === false) {
+        site_not_found();
+        return;
+    }
+
+    // A template is never edited: its thumbnail stays the same
+    header('Content-Type: image/png');
+    header('Cache-Control: private, max-age=86400');
+    echo $png;
 }
 
 /**

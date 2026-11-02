@@ -69,18 +69,25 @@ function site_base32_integers(array $values): bool
     return true;
 }
 
-/** Saves a template of an account, returning its id. */
+/**
+ * Saves a template of an account, returning its id.
+ *
+ * @param ?string $thumbnail Its thumbnail as base64 PNG data, checked by site_check_thumbnail(), or
+ *                           null without one.
+ */
 function site_insert_template(
     PDO $db,
     int $userId,
     string $name,
     string $code,
     int $objects,
-    bool $public
+    bool $public,
+    ?string $thumbnail
 ): int {
     $statement = $db->prepare(
-        'INSERT INTO "LOCAL_TEMPLATES" ("USERID", "NAME", "CODE", "OBJECTS", "PUBLIC", "CREATED")'
-        . ' VALUES (:userId, :name, :code, :objects, :public, :created) RETURNING "ID"'
+        'INSERT INTO "LOCAL_TEMPLATES"'
+        . ' ("USERID", "NAME", "CODE", "OBJECTS", "PUBLIC", "CREATED", "THUMBNAIL")'
+        . ' VALUES (:userId, :name, :code, :objects, :public, :created, :thumbnail) RETURNING "ID"'
     );
     $statement->execute([
         'userId' => $userId,
@@ -89,6 +96,7 @@ function site_insert_template(
         'objects' => $objects,
         'public' => $public ? 1 : 0,
         'created' => time(),
+        'thumbnail' => $thumbnail,
     ]);
 
     return (int) $statement->fetchColumn();
@@ -96,15 +104,16 @@ function site_insert_template(
 
 /**
  * Templates of an account, private ones included, or the public templates of every account, the
- * newest first, without their code: `ID`, `NAME`, `OBJECTS`, `PUBLIC`, `CREATED`, `USERID` and
- * `AUTHOR`, the name of its account.
+ * newest first, without their code nor thumbnail: `ID`, `NAME`, `OBJECTS`, `PUBLIC`, `CREATED`,
+ * `USERID`, `AUTHOR`, the name of its account, and `HASTHUMBNAIL` (1 or 0).
  */
 function site_find_template_list(PDO $db, ?int $userId): array
 {
     $mine = $userId !== null;
     $statement = $db->prepare(
         'SELECT t."ID", t."NAME", t."OBJECTS", t."PUBLIC", t."CREATED", t."USERID",'
-        . ' u."NAME" AS "AUTHOR" FROM "LOCAL_TEMPLATES" t'
+        . ' u."NAME" AS "AUTHOR", t."THUMBNAIL" IS NOT NULL AS "HASTHUMBNAIL"'
+        . ' FROM "LOCAL_TEMPLATES" t'
         . ' JOIN "LOCAL_USERS" u ON u."ID" = t."USERID"'
         . ($mine ? ' WHERE t."USERID" = :userId' : ' WHERE t."PUBLIC" = 1')
         . ' ORDER BY t."ID" DESC LIMIT ' . SITE_TEMPLATES_LISTED

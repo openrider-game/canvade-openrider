@@ -2,6 +2,7 @@ import { Control, DELETE, BACKSPACE, ESCAPE, KEYS, Vector } from 'canvade';
 import { MAX_SELECTED_OBJECTS } from '../../edit/edit-limits';
 import { ClipObject, ObjectClipboard } from '../../edit/object-clipboard';
 import { ObjectTransform } from '../../edit/object-transform';
+import { templateThumbnail } from '../../edit/template-thumbnail';
 import { TrackEditor } from '../../edit/track-editor';
 import type { CommandArea } from '../../item/command/command-block';
 import { LinkedItemGroup } from '../../item/linked-item-group';
@@ -305,6 +306,7 @@ export class SelectTool extends Tool {
     /**
      * Saves the selection as a template, private or public as chosen in the options, named in a
      * dialog of the browser: a text field of the canvas would not open the keyboard of a phone.
+     * Its thumbnail shows the area of the selection, see `templateThumbnail`.
      */
     public async saveTemplate(): Promise<void> {
         const objects = ObjectClipboard.copy(this.selected);
@@ -316,7 +318,12 @@ export class SelectTool extends Tool {
             return;
         }
         try {
-            await TemplateService.save(name, ObjectClipboard.toText(objects), this.publicTemplates);
+            await TemplateService.save(
+                name,
+                ObjectClipboard.toText(objects),
+                this.publicTemplates,
+                templateThumbnail(this.selected),
+            );
             this.notice = `Saved the template ${name}`;
         } catch (error) {
             this.notice = (error as Error).message;

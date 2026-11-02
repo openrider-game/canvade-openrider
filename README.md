@@ -369,8 +369,10 @@ Besides the targets, checkpoints and teleporters, the items act on the bikes tou
   `Ctrl+X`, `Ctrl+V`, `Delete`, `Escape`); the objects pasted follow the pointer until placed. The
   clipboard of the browser holds them as the first three sections of a track code, so they are
   pasted in another tab, and any track code pasted gives its lines and items. With the website, the
-  selection is saved as a template, private or public, and the Templates option lists the templates
-  of the player and the public ones, a page at a time, to paste one (see the README of the backend).
+  selection is saved as a template, private or public, with a thumbnail of the size of the track
+  thumbnails showing the area of the selection, scaled to fit within a padding and centered
+  (`templateThumbnail`); the Templates option lists the templates of the player and the public ones,
+  a page at a time, to paste one (see the README of the backend).
 - The editor imports track codes and editor files, exports either of them, and uploads either of
   them with a thumbnail.
 - The debug mode (`Ctrl+D`) opens a panel choosing its overlays: the grids, the collision checks,

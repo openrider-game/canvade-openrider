@@ -112,7 +112,7 @@ describe('Line tools', () => {
         expect(line.getOptions()[0].label).toBe('Lines: solid');
         expect(line.getIcon()).toBe(SOLID_LINE_ICON);
 
-        line.getOptions()[0].action();
+        line.getOptions()[0].action!();
         drag(new Vector(0, 0), new Vector(100, 0));
         expect(solidLines()).toHaveLength(0);
         expect(sceneryLines()).toHaveLength(1);
@@ -124,7 +124,7 @@ describe('Line tools', () => {
         // Their icons drawn with the color of the lines
         expect(select(CircleTool).getIcon()).toBe(SCENERY_CIRCLE_ICON);
         expect(select(CurveTool).getIcon()).toBe(SCENERY_CURVE_ICON);
-        select(CurveTool).getOptions()[0].action();
+        select(CurveTool).getOptions()[0].action!();
         expect(select(CurveTool).getIcon()).toBe(SOLID_CURVE_ICON);
         expect(select(CircleTool).getIcon()).toBe(SOLID_CIRCLE_ICON);
     });
@@ -144,14 +144,14 @@ describe('Line tools', () => {
         expect(option().label).toBe('Size: 10');
 
         // Clicking it goes to the next size, the smallest after the largest one
-        option().action();
-        option().action();
-        option().action();
-        option().action();
+        option().action!();
+        option().action!();
+        option().action!();
+        option().action!();
         expect(option().label).toBe('Size: 160');
         option().steps?.up();
         expect(option().label).toBe('Size: 160');
-        option().action();
+        option().action!();
         expect(option().label).toBe('Size: 4');
     });
 
@@ -212,7 +212,7 @@ describe('Line tools', () => {
         drag(new Vector(-300, 0), new Vector(-200, 0));
         expect(connect().label).toBe('Connect: off');
 
-        connect().action();
+        connect().action!();
         expect(connect().label).toBe('Connect: on');
         // Switched on, the first line starts afresh, then each one at the end of the previous one,
         // wherever the pointer is pressed
@@ -236,9 +236,7 @@ describe('Line tools', () => {
 
     test('mark the start of the next connected line, also once the finger is lifted', () => {
         const line = select(LineTool);
-        line.getOptions()
-            .find(({ label }) => label.startsWith('Connect'))!
-            .action();
+        line.getOptions().find(({ label }) => label.startsWith('Connect'))!.action!();
         drag(new Vector(0, 0), new Vector(50, 0));
         /** Arcs and strokes the tool draws, the pointer out of the canvas as a lifted finger. */
         const drawn = () => {
@@ -251,18 +249,13 @@ describe('Line tools', () => {
         expect(drawn()).toContain('arc');
         // No crosshair without a pointer: only the marker
         expect(drawn().filter((call) => call === 'stroke')).toHaveLength(1);
-        line.getOptions()
-            .find(({ label }) => label.startsWith('Connect'))!
-            .action();
+        line.getOptions().find(({ label }) => label.startsWith('Connect'))!.action!();
         expect(drawn()).toEqual([]);
     });
 
     test('start each brush stroke at the end of the previous one with the connect option', () => {
         const brush = select(BrushTool);
-        brush
-            .getOptions()
-            .find(({ label }) => label.startsWith('Connect'))!
-            .action();
+        brush.getOptions().find(({ label }) => label.startsWith('Connect'))!.action!();
         // Idle until the first stroke, which starts where it is pressed
         moveMouse(track, 500, 500);
         brush.update(0, 16);
@@ -333,7 +326,7 @@ describe('Eraser', () => {
             'Scenery: active',
             'Object: active',
         ]);
-        options[2].action();
+        options[2].action!();
         expect(tool.getOptions()[2].label).toBe('Line: inactive');
         options[0].steps?.down();
         expect(tool.getOptions()[0].label).toBe('Size: 10');
@@ -364,7 +357,7 @@ describe('Tools on layers', () => {
         drag(new Vector(0, 0), new Vector(0, 0), 1);
         expect(lines.map((line) => line.onTrack)).toEqual([true, false, true]);
 
-        tool.getOptions()[1].action();
+        tool.getOptions()[1].action!();
         expect(tool.getOptions()[1].label).toBe('Layers: all visible');
         drag(new Vector(0, 0), new Vector(0, 0), 1);
         expect(lines.map((line) => line.onTrack)).toEqual([false, false, true]);
@@ -782,7 +775,7 @@ describe('Shape tools', () => {
         expect(solidLines()).toHaveLength(0);
 
         expect(circle.getOptions()[0].label).toBe('Lines: solid');
-        circle.getOptions()[0].action();
+        circle.getOptions()[0].action!();
         expect(circle.getOptions()[0].label).toBe('Lines: scenery');
         drag(new Vector(0, 0), new Vector(0, 40));
         expect(solidLines()).toHaveLength(0);
@@ -790,7 +783,7 @@ describe('Shape tools', () => {
 
         // Shared by the shape tools
         expect(select(CurveTool).getOptions()[0].label).toBe('Lines: scenery');
-        circle.getOptions()[0].action();
+        circle.getOptions()[0].action!();
     });
 
     test('draw a curve from its start to its end, through the point clicked then', () => {

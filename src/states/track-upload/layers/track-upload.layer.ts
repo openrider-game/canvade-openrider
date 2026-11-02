@@ -1,13 +1,11 @@
 import { Display, GameRenderEvent, Layer } from 'canvade';
+import { THUMBNAIL_HEIGHT, THUMBNAIL_WIDTH } from '../../../openrider/constants/game.constants';
 import { InterfaceScale } from '../../../openrider/numeric/interface-scale';
 
 /**
- * Size of the uploaded thumbnail in pixels. The frame displays it at half its size, so the
- * thumbnail is rendered at twice the zoom of the view.
+ * Size of the frame showing the thumbnail, half its size: the thumbnail is rendered at twice the
+ * zoom of the view.
  */
-export const THUMBNAIL_WIDTH = 500,
-    THUMBNAIL_HEIGHT = 300;
-
 const FRAME_WIDTH = THUMBNAIL_WIDTH / 2,
     FRAME_HEIGHT = THUMBNAIL_HEIGHT / 2,
     HELPER_TEXT = 'Use your mouse to drag & fit an interesting part of your track in the thumbnail';

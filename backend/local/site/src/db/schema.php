@@ -135,13 +135,14 @@ function site_create_tables(PDO $db): void
     site_add_column($db, 'LOCAL_UPLOADS', 'REVIEW', 'TEXT');
 
     // The templates of the accounts, public ones seen by everyone (1), their creation as a Unix
-    // timestamp
+    // timestamp, and their thumbnail as base64 PNG data, null without one
     $db->exec(
         'CREATE TABLE IF NOT EXISTS "LOCAL_TEMPLATES" ('
         . "\"ID\" $id, \"USERID\" INTEGER NOT NULL REFERENCES \"LOCAL_USERS\" (\"ID\"),"
         . ' "NAME" TEXT NOT NULL, "CODE" TEXT NOT NULL, "OBJECTS" INTEGER NOT NULL,'
-        . ' "PUBLIC" INTEGER NOT NULL DEFAULT 0, "CREATED" INTEGER NOT NULL)'
+        . ' "PUBLIC" INTEGER NOT NULL DEFAULT 0, "CREATED" INTEGER NOT NULL, "THUMBNAIL" TEXT)'
     );
+    site_add_column($db, 'LOCAL_TEMPLATES', 'THUMBNAIL', 'TEXT');
     $db->exec(
         'CREATE INDEX IF NOT EXISTS idx_local_templates_user ON "LOCAL_TEMPLATES" ("USERID")'
     );

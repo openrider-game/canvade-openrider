@@ -48,6 +48,7 @@ export function createCanvasMock(width = 700, height = 400): CanvasMock {
     Object.assign(canvas, {
         getContext: () => context,
         transferControlToOffscreen: vi.fn(),
+        toDataURL: () => 'data:image/png;base64,iVBORw0KGgo=',
     });
 
     return { canvas, context, calls };

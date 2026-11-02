@@ -239,15 +239,15 @@ describe('Select tool', () => {
             serve({ save: { ID: 4 } });
             vi.stubGlobal('window', { prompt: () => ' Bridge ' });
             drag([-10, -10], [110, 30]);
-            tool.getOptions()
-                .find(({ label }) => label === 'Template: private')!
-                .action();
+            tool.getOptions().find(({ label }) => label === 'Template: private')!.action!();
 
             await tool.saveTemplate();
 
             expect(posted).toHaveLength(1);
             expect(posted[0]).toMatchObject({ action: 'save', name: 'Bridge', public: '1' });
             expect(ObjectClipboard.fromText(posted[0].code)).toHaveLength(3);
+            // The thumbnail, as base64 PNG data without its prefix
+            expect(posted[0].thumbnail).toBe('iVBORw0KGgo=');
             expect(labels()[0]).toBe('Saved the template Bridge');
         });
 

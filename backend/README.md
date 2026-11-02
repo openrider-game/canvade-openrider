@@ -93,9 +93,10 @@ account.
 - `/templates/` lists the templates of the account logged in, which it makes public or private and
   deletes, then the public templates of every account, newest first. A template is a group of
   objects saved from the select tool of the editor, at most 5000 (`SITE_TEMPLATE_MAX_OBJECTS`, the
-  most the tool selects), written as the first three sections of a track code; its Copy code button
-  copies it (`public/js/templates.js`, from `/templates/<id>/code/`), to paste in the editor with
-  Ctrl+V;
+  most the tool selects), written as the first three sections of a track code. Each template is a
+  card showing its thumbnail (`/templates/<id>/thumbnail/`, "No preview" for a template saved
+  without one); its Copy code button copies its code (`public/js/templates.js`, from
+  `/templates/<id>/code/`), to paste in the editor with Ctrl+V;
 - `/tracks/<id>/` runs the game racing the track, under its title, author, description and verifier,
   with its leaderboard under it, in two tabs: the 10 best riders, ranked by their best ghost (a
   rider holding several of the best times counts once), their other ghosts folded under it; and the
@@ -152,10 +153,10 @@ The endurance page only answers its `enduranceupload` and `ghostdata` endpoints,
 its leaderboard. Every page answers the `templates` endpoint of the select tool, posted with an
 `action`: `list` (the templates of the account, then the public ones of the others, without their
 code), `get` with an `id` (the code of a template the account sees) and `save` with a `name`, a
-`code` and `public` (`1` or `0`). The backend shipped with the game has no such endpoint: without
-the site, the select tool tells the error instead of the templates. The other requests reach the
-backend endpoints and the icons under the page. The `trackupload` and `ghostupload` endpoints of
-`backend/db/` are refused, which would bypass the accounts.
+`code`, `public` (`1` or `0`) and optionally a `thumbnail`. The backend shipped with the game has no
+such endpoint: without the site, the select tool tells the error instead of the templates. The other
+requests reach the backend endpoints and the icons under the page. The `trackupload` and
+`ghostupload` endpoints of `backend/db/` are refused, which would bypass the accounts.
 
 The backend stores no account, title nor description: the site keeps them in its own tables
 (`LOCAL_USERS`, `LOCAL_TRACK_DETAILS`, `LOCAL_GHOST_OWNERS`, `LOCAL_GHOST_REVIEWS`, `LOCAL_THUMBS`,
@@ -183,7 +184,8 @@ ghost string. The first account created takes over the drafts without an account
   PHP configuration), and its thumbnail must be a 500x300 PNG.
 - Templates: a template holds 5000 objects and 500 KB at most, its code made of the three sections
   of a track code (base 32 numbers, the items starting with their letter), and its name 60
-  characters at most. An account sees its own templates and the public ones only.
+  characters at most. Its thumbnail, when it has one, is a 500x300 PNG as the track thumbnails. An
+  account sees its own templates and the public ones only.
 - Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads, 60 ghosts or endurance runs, 30 templates and 120
   thumbs up given or taken back an hour per account, 5 new accounts an hour per address, and 20
   failed logins per address and 10 per user name over 15 minutes, after which even the right
@@ -276,7 +278,7 @@ local/
 └── site/
     ├── app.php           front controller: routes of the site and static files
     ├── src/              accounts, security, database queries, formatting, template rendering
-    ├── templates/        layout, pages and partials (track card, game host element, delete button)
+    ├── templates/        layout, pages and partials (track and template cards, game host element, delete button)
     └── public/           static files served under /assets/: css/, js/ and the favicon
 ```
 

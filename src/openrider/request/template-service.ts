@@ -63,14 +63,22 @@ export abstract class TemplateService {
     /**
      * Saves a template of the player.
      *
+     * @param thumbnail - Its thumbnail, as base64 PNG data of the size of the track thumbnails
+     * (see `templateThumbnail`), or null without one.
      * @returns Its id.
      */
-    public static async save(name: string, code: string, isPublic: boolean): Promise<number> {
+    public static async save(
+        name: string,
+        code: string,
+        isPublic: boolean,
+        thumbnail: string | null = null,
+    ): Promise<number> {
         const { ID } = await Requests.postJson<{ ID: number }>(GameConfig.url(TEMPLATES_PATH), {
             action: 'save',
             name,
             code,
             public: isPublic ? 1 : 0,
+            ...(thumbnail === null ? {} : { thumbnail }),
         });
         return ID;
     }

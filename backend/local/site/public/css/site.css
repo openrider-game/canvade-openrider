@@ -371,6 +371,23 @@ a {
     font-size: 14px;
 }
 
+/* Templates page: cards of the templates, with their buttons under their name */
+
+.template-card:hover {
+    background: none;
+}
+
+.template-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 12px 12px;
+}
+
+.template-card__actions form {
+    margin: 0;
+}
+
 /* Track page: leaderboard under the game */
 
 .leaderboard,
