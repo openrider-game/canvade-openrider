@@ -1,14 +1,20 @@
 import { ClipObject, ObjectClipboard } from '../../edit/object-clipboard';
 import { templateThumbnail } from '../../edit/template-thumbnail';
 import type { TrackObject } from '../../item/track-object';
-import { TemplateService, TemplateSummary } from '../../request/template-service';
+import { TemplateSection, TemplateService, TemplateSummary } from '../../request/template-service';
 import type { Track } from '../../track/track';
 import type { ToolOption } from '../tool';
 
-/** Templates listed in each page of the options. */
-const TEMPLATES_PER_PAGE = 6,
-    /** Longest name of a template, as the website takes them. */
-    TEMPLATE_NAME_LENGTH = 60;
+/** Longest name of a template, as the website takes them. */
+const TEMPLATE_NAME_LENGTH = 60,
+    /** Time without typing after which the templates are searched, in milliseconds. */
+    SEARCH_DELAY = 300;
+
+/** Titles of the sections of the templates, by section. */
+export const TEMPLATE_SECTIONS: Record<TemplateSection, string> = {
+    mine: 'Your templates',
+    public: 'Public templates',
+};
 
 /** What the template browser asks of the select tool. */
 export interface TemplateHost {
@@ -19,31 +25,121 @@ export interface TemplateHost {
 }
 
 /**
- * Templates of the select tool, with the website: saves a selection as a template, private or
- * public, and lists the templates of the player and the public ones in the options, a page at a
- * time, to paste one (see `TemplateService`).
+ * Templates of the select tool, with the website (see `TemplateService`): saves a selection as a
+ * template, private or public, and browses the templates to paste one.
+ *
+ * The templates are browsed in a panel over the track (see `TemplatePanel`), by section: the
+ * templates of the player, private or public, or every public template. The search, typed in the
+ * panel, is sent once the typing pauses; the templates found are shown a page at a time, of
+ * {@link TemplateBrowser.pageSize} templates as many as the panel holds.
+ *
+ * Its state changes in two ways: those changing the layout of the panel, as opening it or another
+ * section, rebuild the interface (`Track.invalidateUI`); the templates found and the pages only
+ * change {@link TemplateBrowser.version}, the panel showing them in place, so that the field of
+ * the search keeps the focus, and the keyboard of a phone stays open.
  */
 export class TemplateBrowser {
+    /** Whether the panel is open. */
+    public open = false;
+    /** Section browsed. */
+    public section: TemplateSection = 'mine';
+    /** Search typed, empty for every template. */
+    public query = '';
+    /** Templates found in the section, null until they are. */
+    public results: TemplateSummary[] | null = null;
+    /** Why no template is shown, e.g. while loading them, null when some are. */
+    public status: string | null = null;
+    /** Page shown, from 0. */
+    public page = 0;
+    /** Templates in a page, as many as the panel holds, set by it. */
+    public pageSize = 6;
+    /** Incremented each time the templates shown change, see the class comment. */
+    public version = 0;
     /** Whether the next templates saved are public, else private. */
     private publicTemplates = false;
-    /** Templates listed in the options, null while they are not browsed. */
-    private templates: TemplateSummary[] | null = null;
-    /** Page of the templates listed, from 0. */
-    private page = 0;
+    /** Number of the last request, the answers of the earlier ones being outdated. */
+    private request = 0;
+    private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
     public constructor(
         private readonly track: Track,
         private readonly host: TemplateHost,
     ) {}
 
-    /** Whether the templates are listed, the options of the tool then listing them. */
-    public get browsing(): boolean {
-        return this.templates !== null;
+    /** Number of pages of the templates found, 1 at least. */
+    public get pages(): number {
+        return Math.max(1, Math.ceil((this.results?.length ?? 0) / this.pageSize));
     }
 
-    /** Stops listing the templates. */
+    /** Templates of the page shown. */
+    public get shown(): TemplateSummary[] {
+        const page = Math.min(this.page, this.pages - 1);
+        return (this.results ?? []).slice(page * this.pageSize, (page + 1) * this.pageSize);
+    }
+
+    /** Opens the panel on the section browsed, loading its templates. */
+    public browse(): Promise<void> {
+        this.open = true;
+        this.track.invalidateUI();
+        return this.load();
+    }
+
+    /** Closes the panel. */
     public close(): void {
-        this.templates = null;
+        this.cancelSearch();
+        if (this.open) {
+            this.open = false;
+            this.track.invalidateUI();
+        }
+    }
+
+    /** Browses a section, from its first page. */
+    public showSection(section: TemplateSection): Promise<void> {
+        this.section = section;
+        this.page = 0;
+        // The tabs show the section
+        this.track.invalidateUI();
+        return this.load();
+    }
+
+    /** Searches the templates once the typing pauses, see {@link SEARCH_DELAY}. */
+    public search(query: string): void {
+        this.query = query;
+        this.cancelSearch();
+        this.searchTimer = setTimeout(() => {
+            this.searchTimer = null;
+            this.page = 0;
+            void this.load();
+        }, SEARCH_DELAY);
+    }
+
+    /** Turns the pages, the first one after the last one. */
+    public turn(by: number): void {
+        const pages = this.pages;
+        this.page = (((this.page + by) % pages) + pages) % pages;
+        this.version++;
+    }
+
+    /** Loads the templates of the section for the search, the latest request winning. */
+    public async load(): Promise<void> {
+        const request = ++this.request;
+        this.status = 'Loading the templates…';
+        this.version++;
+        try {
+            const results = await TemplateService.list(this.section, this.query);
+            if (request !== this.request) {
+                return;
+            }
+            this.results = results;
+            this.status = results.length ? null : this.emptyStatus();
+        } catch (error) {
+            if (request !== this.request) {
+                return;
+            }
+            this.results = [];
+            this.status = (error as Error).message;
+        }
+        this.version++;
     }
 
     /**
@@ -80,29 +176,14 @@ export class TemplateBrowser {
         this.track.invalidateUI();
     }
 
-    /** Lists the templates of the player and the public ones in the options. */
-    public async browse(): Promise<void> {
-        this.templates = [];
-        this.page = 0;
-        this.host.notify('Loading the templates');
-        this.track.invalidateUI();
-        try {
-            this.templates = await TemplateService.list();
-            this.host.notify(this.templates.length ? null : 'No template yet');
-        } catch (error) {
-            this.host.notify((error as Error).message);
-        }
-        this.track.invalidateUI();
-    }
-
-    /** Pastes a template: it follows the pointer, as objects copied. */
+    /** Pastes a template: the panel closes, and the template follows the pointer. */
     public async insert(template: TemplateSummary): Promise<void> {
+        this.close();
         try {
             const objects = ObjectClipboard.fromText(await TemplateService.code(template.id));
             if (objects === null) {
                 this.host.notify(`The template ${template.name} cannot be read`);
             } else {
-                this.templates = null;
                 this.host.paste(objects);
             }
         } catch (error) {
@@ -125,44 +206,20 @@ export class TemplateBrowser {
         ];
     }
 
-    /** Options listing a page of the templates, to paste one, with the pages around. */
-    public listOptions(): ToolOption[] {
-        const templates = this.templates ?? [];
-        const pages = Math.max(1, Math.ceil(templates.length / TEMPLATES_PER_PAGE));
-        const page = Math.min(this.page, pages - 1);
-        const turn = (to: number) => {
-            this.page = (to + pages) % pages;
-            this.track.invalidateUI();
-        };
-        const options: ToolOption[] = [
-            {
-                label: 'Back',
-                action: () => {
-                    this.templates = null;
-                    this.host.notify(null);
-                    this.track.invalidateUI();
-                },
-            },
-        ];
-        const shown = templates.slice(page * TEMPLATES_PER_PAGE, (page + 1) * TEMPLATES_PER_PAGE);
-        for (const template of shown) {
-            const owner = template.mine
-                ? template.public
-                    ? ', public'
-                    : ''
-                : `, by ${template.author}`;
-            options.push({
-                label: `${template.name} (${template.objects}${owner})`,
-                action: () => void this.insert(template),
-            });
+    /** Why a section shows no template. */
+    private emptyStatus(): string {
+        if (this.query.trim()) {
+            return `No template matches “${this.query.trim()}”`;
         }
-        if (pages > 1) {
-            options.push({
-                label: `Page ${page + 1} / ${pages}`,
-                action: () => turn(page + 1),
-                steps: { down: () => turn(page - 1), up: () => turn(page + 1) },
-            });
+        return this.section === 'mine'
+            ? 'No template yet: select objects, then save them as a template'
+            : 'No public template yet';
+    }
+
+    private cancelSearch(): void {
+        if (this.searchTimer !== null) {
+            clearTimeout(this.searchTimer);
+            this.searchTimer = null;
         }
-        return options;
     }
 }

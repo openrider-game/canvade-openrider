@@ -10,6 +10,8 @@ import {
 } from 'canvade';
 import { ToolGroupTool } from '../../../openrider/tool/group/tool-group.tool';
 import { CameraTool } from '../../../openrider/tool/misc/camera.tool';
+import { SelectTool } from '../../../openrider/tool/misc/select.tool';
+import type { TemplateBrowser } from '../../../openrider/tool/misc/template-browser';
 import { Tool } from '../../../openrider/tool/tool';
 import { ToolCollection } from '../../../openrider/tool/tool-collection';
 import { TouchControls, TouchInsets } from '../../../openrider/touch/touch-controls';
@@ -21,6 +23,7 @@ import { ActionsMenu } from '../ui/actions-menu';
 import { ControlsPanel } from '../ui/controls-panel';
 import { LayersPanel } from '../ui/layers-panel';
 import { OptionsDrawer } from '../ui/options-drawer';
+import { TemplatePanel } from '../ui/template-panel';
 import { ToolTooltip } from '../ui/tool-tooltip';
 import { Toolbars } from '../ui/toolbars';
 import { TOOL_ELEMENT_TYPE } from '../ui/ui-tool-button';
@@ -68,7 +71,8 @@ function baseStyles(toolSize: number): UIStyleDefinition {
  * the {@link LayersPanel}, and states allowing the debug mode get the {@link DebugPanel} while it
  * is enabled. The dialogs of the track (see `TrackDialogs`) show over everything, in the
  * {@link DialogPanel}: Enter confirms them, Escape cancels them, and no other key reaches the
- * controls meanwhile.
+ * controls meanwhile. The templates of the select tool are browsed in the {@link TemplatePanel},
+ * closed with Escape, and under the dialogs.
  *
  * Layers receive the input events top layer first, so this layer syncs the track mouse positions
  * with the canvade `Mouse.worldPos` before the other layers handle the mouse events. A mouse event
@@ -80,6 +84,8 @@ export class TrackInterfaceLayer extends Layer {
     private root: UIElement | null = null;
     /** Height of the canvas the interface was built for, in UI pixels. */
     private builtHeight = Infinity;
+    /** Width of the canvas the interface was built for, in UI pixels. */
+    private builtWidth = Infinity;
     private readonly optionsDrawer = new OptionsDrawer();
     private readonly layersPanel = new LayersPanel();
     private readonly controlsPanel = new ControlsPanel();
@@ -90,6 +96,9 @@ export class TrackInterfaceLayer extends Layer {
     private builtTouchMode = false;
     /** Dialog shown when the interface was last built, its text field focused when it shows. */
     private builtDialog: unknown = null;
+    private readonly templatePanel = new TemplatePanel();
+    /** Whether the templates were browsed when the interface was last built. */
+    private builtTemplates = false;
 
     public constructor(private readonly state: TrackViewState) {
         super();
@@ -112,9 +121,10 @@ export class TrackInterfaceLayer extends Layer {
                 this.state.track.focalPoint = null;
             }
         });
-        // While a dialog shows, the keys its text field did not take reach no control either
+        // While a dialog or the templates show, the keys their fields did not take reach no
+        // control either
         this.subscribe('keyDown', (e) => {
-            if (this.state.track.dialogs.current) {
+            if (this.state.track.dialogs.current || this.templates()?.open) {
                 e.detail.consumed = true;
             }
         });
@@ -141,13 +151,23 @@ export class TrackInterfaceLayer extends Layer {
         const track = this.state.track;
         const dialog = track.dialogs.current;
         const key = e.detail.keyboardEvent.key;
+        const templates = this.templates();
         if (dialog && (key === 'Enter' || key === 'Escape')) {
             // Escape dismisses a dialog only telling something
             track.dialogs.answer(key === 'Enter' || dialog.cancel === null);
             e.detail.consumed = true;
+        } else if (!dialog && templates?.open && key === 'Escape') {
+            templates.close();
+            e.detail.consumed = true;
         } else if (this.controlsPanel.handleKey(track, e.detail.keyboardEvent)) {
             e.detail.consumed = true;
         }
+    }
+
+    /** Templates of the current tool, browsed in the {@link TemplatePanel}: of the select tool. */
+    private templates(): TemplateBrowser | null {
+        const tool = this.state.track.toolManager.tool;
+        return tool instanceof SelectTool ? tool.templates : null;
     }
 
     /** Creates the tools of the state toolbars, the camera being the default tool. */
@@ -196,10 +216,22 @@ export class TrackInterfaceLayer extends Layer {
                     this.toolbars.fit(this.builtHeight, this.builtTouchMode));
         const touchControlsMoved = this.touchControlsLayout() !== this.builtTouchControls;
         const touchModeChanged = TouchControls.enabled !== this.builtTouchMode;
-        if (track.uiInvalidated || resized || touchControlsMoved || touchModeChanged) {
+        // The dialogs and the templates are laid out from the size of the canvas
+        const panelResized =
+            (this.builtDialog !== null || this.builtTemplates) &&
+            (height !== this.builtHeight || this.uiWidth() !== this.builtWidth);
+        if (
+            track.uiInvalidated ||
+            resized ||
+            panelResized ||
+            touchControlsMoved ||
+            touchModeChanged
+        ) {
             track.uiInvalidated = false;
             this.buildInterface();
         }
+        // The templates found, shown in place
+        this.templatePanel.refresh();
     }
 
     /**
@@ -290,6 +322,7 @@ export class TrackInterfaceLayer extends Layer {
         // Added last, drawn over the panels while open
         const openGroups: UIStructureDefinition = [];
         this.builtHeight = this.uiHeight();
+        this.builtWidth = this.uiWidth();
         this.builtTouchMode = touchMode;
 
         this.toolbars.build(touchMode, this.builtHeight, structure, openGroups, styles);
@@ -338,11 +371,27 @@ export class TrackInterfaceLayer extends Layer {
         if (controlsOpen) {
             this.controlsPanel.build(this.state.track, structure, styles, this.builtHeight);
         }
+        const templates = this.templates();
+        const browsing = templates?.open === true;
+        this.templatePanel.build(
+            browsing ? templates : null,
+            structure,
+            styles,
+            this.uiWidth(),
+            this.builtHeight,
+        );
         const dialog = this.state.track.dialogs.current;
         DialogPanel.build(this.state.track, structure, styles, this.uiWidth());
 
         const root = this.uiRenderer.setUI(structure, styles);
         this.root = root;
+        this.templatePanel.attach(root);
+        // The search of the templates just shown takes the keys typed
+        const search = this.templatePanel.search;
+        if (browsing && !this.builtTemplates && !dialog && search) {
+            root.setFocusedElement(search);
+        }
+        this.builtTemplates = browsing;
         // The text field of a dialog just shown takes the keys typed, Enter confirming it
         if (dialog && dialog !== this.builtDialog) {
             const input = root.children

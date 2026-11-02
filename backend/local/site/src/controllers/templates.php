@@ -8,7 +8,10 @@
 /**
  * Endpoint of the editor pages, posted with an `action`:
  *
- * - `list`: the templates of the account, then the public ones of the others, without their code;
+ * - `list`: the templates of the account, then the public ones of the others, without their code,
+ *   with the URL of their thumbnail (`THUMBNAIL`, null without); with a `section`, the templates
+ *   of the account only (`mine`) or every public template (`public`), the account's included,
+ *   and with a `query`, only those whose name holds it, or for the public ones their account;
  * - `get` with an `id`: the code of a template the account sees;
  * - `save` with a `name`, a `code`, `public` (`1` or `0`) and optionally a `thumbnail`, a base64
  *   500x300 PNG as the thumbnails of the tracks: saves a template of the account.
@@ -21,11 +24,12 @@ function site_templates_endpoint(): void
         $action = openrider_string_param('action');
 
         if ($action === 'list') {
-            $mine = site_find_template_list($db, $user['ID']);
-            $others = array_filter(
-                site_find_template_list($db, null),
-                fn (array $template) => (int) $template['USERID'] !== (int) $user['ID']
-            );
+            $section = $_POST['section'] ?? '';
+            $query = $_POST['query'] ?? '';
+            if (!in_array($section, ['', 'mine', 'public'], true) || !is_string($query)) {
+                openrider_reject('Invalid parameter: section or query');
+            }
+            $query = mb_substr($query, 0, SITE_TEMPLATE_NAME_MAX, 'UTF-8');
             $format = fn (array $template) => [
                 'ID' => (int) $template['ID'],
                 'NAME' => $template['NAME'],
@@ -33,8 +37,23 @@ function site_templates_endpoint(): void
                 'PUBLIC' => (bool) $template['PUBLIC'],
                 'AUTHOR' => $template['AUTHOR'],
                 'MINE' => (int) $template['USERID'] === (int) $user['ID'],
+                // From the root of the site, whatever the page of the game
+                'THUMBNAIL' => $template['HASTHUMBNAIL']
+                    ? '/templates/' . (int) $template['ID'] . '/thumbnail/'
+                    : null,
             ];
-            return ['TEMPLATES' => array_map($format, [...$mine, ...array_values($others)])];
+            if ($section === 'mine') {
+                $templates = site_find_template_list($db, $user['ID'], $query);
+            } elseif ($section === 'public') {
+                $templates = site_find_template_list($db, null, $query);
+            } else {
+                $others = array_filter(
+                    site_find_template_list($db, null, $query),
+                    fn (array $template) => (int) $template['USERID'] !== (int) $user['ID']
+                );
+                $templates = [...site_find_template_list($db, $user['ID'], $query), ...$others];
+            }
+            return ['TEMPLATES' => array_values(array_map($format, $templates))];
         }
 
         if ($action === 'get') {

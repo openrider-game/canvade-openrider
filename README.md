@@ -371,8 +371,10 @@ Besides the targets, checkpoints and teleporters, the items act on the bikes tou
   pasted in another tab, and any track code pasted gives its lines and items. With the website, the
   selection is saved as a template, private or public, with a thumbnail of the size of the track
   thumbnails showing the area of the selection, scaled to fit within a padding and centered
-  (`templateThumbnail`); the Templates option lists the templates of the player and the public ones,
-  a page at a time, to paste one (see the README of the backend).
+  (`templateThumbnail`). The Templates option opens a panel over the track with two tabs, "Your
+  templates" and "Public templates", a search (by name, and by author in the public ones) sent once
+  the typing pauses, and the cards of the templates with their thumbnail, a page at a time; tapping
+  a card pastes its template (see the README of the backend).
 - The editor imports track codes and editor files, exports either of them, and uploads either of
   them with a thumbnail.
 - The debug mode (`Ctrl+D`) opens a panel choosing its overlays: the grids, the collision checks,

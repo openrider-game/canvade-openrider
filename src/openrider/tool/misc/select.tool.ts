@@ -43,8 +43,8 @@ type Gesture = 'none' | 'select' | 'move' | 'rotate' | 'place';
  *
  * Objects being pasted follow the pointer, placed where it is released, then selected.
  *
- * With the website, the selection is saved as a template, and the templates are listed in the
- * options to paste one, see {@link TemplateBrowser}. The drawing of the selection is in
+ * With the website, the selection is saved as a template, and the templates are browsed in a
+ * panel over the track to paste one, see {@link TemplateBrowser}. The drawing of the selection is in
  * `selection-drawing.ts`.
  */
 export class SelectTool extends Tool {
@@ -63,7 +63,8 @@ export class SelectTool extends Tool {
     private pasting: TrackObject[] | null = null;
     /** Message of the last action, e.g. a selection too large, shown in the options. */
     private notice: string | null = null;
-    private readonly templates = new TemplateBrowser(this.track, {
+    /** Templates of the website, browsed in a panel of the interface (see `TemplatePanel`). */
+    public readonly templates = new TemplateBrowser(this.track, {
         notify: (notice) => (this.notice = notice),
         paste: (objects) => this.paste(objects),
     });
@@ -307,7 +308,7 @@ export class SelectTool extends Tool {
         return this.templates.save(this.selected);
     }
 
-    /** Lists the templates in the options, see `TemplateBrowser.browse`. */
+    /** Opens the panel of the templates, see `TemplateBrowser.browse`. */
     public browseTemplates(): Promise<void> {
         return this.templates.browse();
     }
@@ -337,10 +338,6 @@ export class SelectTool extends Tool {
             );
             return options;
         }
-        if (this.templates.browsing) {
-            return [...options, ...this.templates.listOptions()];
-        }
-
         const count = this.selected.length;
         if (count) {
             options.push(

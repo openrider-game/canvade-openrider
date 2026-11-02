@@ -16,6 +16,8 @@ export const UI_BACKGROUND_COLOR = '#fff',
     UI_SELECTED_TEXT_COLOR = '#fff',
     /** Background of an enabled toggle tool. */
     UI_TOGGLED_BACKGROUND_COLOR = '#077',
+    /** Shade over the track under a panel over it, e.g. a dialog, also catching the pointer. */
+    UI_BACKDROP_COLOR = 'rgba(0, 0, 0, 0.25)',
     /** Text of an action that cannot be done. */
     UI_DISABLED_TEXT_COLOR = '#999',
     /** Space between the border of a panel and its rows, in pixels. */

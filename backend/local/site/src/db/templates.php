@@ -104,21 +104,41 @@ function site_insert_template(
 
 /**
  * Templates of an account, private ones included, or the public templates of every account, the
- * newest first, without their code nor thumbnail: `ID`, `NAME`, `OBJECTS`, `PUBLIC`, `CREATED`,
- * `USERID`, `AUTHOR`, the name of its account, and `HASTHUMBNAIL` (1 or 0).
+ * newest first, at most `SITE_TEMPLATES_LISTED`, without their code nor thumbnail: `ID`, `NAME`,
+ * `OBJECTS`, `PUBLIC`, `CREATED`, `USERID`, `AUTHOR`, the name of its account, and
+ * `HASTHUMBNAIL` (1 or 0).
+ *
+ * @param string $query Text the name of the template holds, whatever its case, or for the public
+ *   templates the name of their account, the templates of an account all being its own; empty
+ *   for every template.
  */
-function site_find_template_list(PDO $db, ?int $userId): array
+function site_find_template_list(PDO $db, ?int $userId, string $query = ''): array
 {
     $mine = $userId !== null;
+    $params = $mine ? ['userId' => $userId] : [];
+    $search = '';
+    if (trim($query) !== '') {
+        // The wildcards of LIKE typed are searched as they are
+        $escaped = addcslashes(mb_strtolower(trim($query), 'UTF-8'), '\\%_');
+        $params['name'] = "%$escaped%";
+        $search = ' AND (LOWER(t."NAME") LIKE :name ESCAPE \'\\\'';
+        if (!$mine) {
+            // A placeholder each, PDO not taking the same twice without emulating the statements
+            $params['author'] = "%$escaped%";
+            $search .= ' OR LOWER(u."NAME") LIKE :author ESCAPE \'\\\'';
+        }
+        $search .= ')';
+    }
     $statement = $db->prepare(
         'SELECT t."ID", t."NAME", t."OBJECTS", t."PUBLIC", t."CREATED", t."USERID",'
         . ' u."NAME" AS "AUTHOR", t."THUMBNAIL" IS NOT NULL AS "HASTHUMBNAIL"'
         . ' FROM "LOCAL_TEMPLATES" t'
         . ' JOIN "LOCAL_USERS" u ON u."ID" = t."USERID"'
         . ($mine ? ' WHERE t."USERID" = :userId' : ' WHERE t."PUBLIC" = 1')
+        . $search
         . ' ORDER BY t."ID" DESC LIMIT ' . SITE_TEMPLATES_LISTED
     );
-    $statement->execute($mine ? ['userId' => $userId] : []);
+    $statement->execute($params);
 
     return $statement->fetchAll(PDO::FETCH_ASSOC);
 }

@@ -256,34 +256,67 @@ describe('Select tool', () => {
             expect(labels()[0]).toBe('Saved the template Bridge');
         });
 
-        test('lists the templates a page at a time, and pastes one', async () => {
+        test('browses a section a page at a time, searched once the typing pauses', async () => {
             const rows = Array.from({ length: 8 }, (_, i) => ({
                 ID: i + 1,
                 NAME: `Jump ${i + 1}`,
                 OBJECTS: 2,
                 PUBLIC: i > 0,
-                AUTHOR: i < 2 ? 'Me' : 'Other',
-                MINE: i < 2,
+                AUTHOR: 'Me',
+                MINE: true,
+                THUMBNAIL: i === 0 ? null : `/templates/${i + 1}/thumbnail/`,
             }));
             serve({ list: { TEMPLATES: rows }, get: { CODE: '0 0 a 0##T 0 -a' } });
+            const templates = tool.templates;
 
+            // The templates of the player first
             await tool.browseTemplates();
-            expect(labels()).toEqual([
-                'Back',
-                'Jump 1 (2)',
-                'Jump 2 (2, public)',
-                'Jump 3 (2, by Other)',
-                'Jump 4 (2, by Other)',
-                'Jump 5 (2, by Other)',
-                'Jump 6 (2, by Other)',
-                'Page 1 / 2',
+            expect(templates.open).toBe(true);
+            expect(posted.at(-1)).toEqual({ action: 'list', section: 'mine' });
+            expect(templates.shown.map(({ name }) => name)).toEqual([
+                'Jump 1',
+                'Jump 2',
+                'Jump 3',
+                'Jump 4',
+                'Jump 5',
+                'Jump 6',
             ]);
-            tool.getOptions().at(-1)!.steps!.up();
-            expect(labels().slice(1)).toEqual([
-                'Jump 7 (2, by Other)',
-                'Jump 8 (2, by Other)',
-                'Page 2 / 2',
-            ]);
+            expect(templates.shown[1].thumbnail).toBe('/templates/2/thumbnail/');
+            expect(templates.pages).toBe(2);
+            templates.turn(1);
+            expect(templates.shown.map(({ name }) => name)).toEqual(['Jump 7', 'Jump 8']);
+            // The first page after the last one
+            templates.turn(1);
+            expect(templates.page).toBe(0);
+
+            await templates.showSection('public');
+            expect(posted.at(-1)).toEqual({ action: 'list', section: 'public' });
+
+            vi.useFakeTimers();
+            try {
+                templates.search('ju');
+                templates.search('jump 8');
+                await vi.advanceTimersByTimeAsync(299);
+                expect(posted).toHaveLength(2);
+                await vi.advanceTimersByTimeAsync(1);
+                // Once, with the whole search
+                expect(posted).toHaveLength(3);
+                expect(posted.at(-1)).toEqual({
+                    action: 'list',
+                    section: 'public',
+                    query: 'jump 8',
+                });
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        test('pastes a template, closing the panel', async () => {
+            serve({ list: { TEMPLATES: [] }, get: { CODE: '0 0 a 0##T 0 -a' } });
+            await tool.browseTemplates();
+            expect(tool.templates.status).toBe(
+                'No template yet: select objects, then save them as a template',
+            );
 
             await tool.insertTemplate({
                 id: 8,
@@ -292,8 +325,11 @@ describe('Select tool', () => {
                 public: true,
                 author: 'Other',
                 mine: false,
+                thumbnail: null,
             });
+
             expect(posted.at(-1)).toMatchObject({ action: 'get', id: '8' });
+            expect(tool.templates.open).toBe(false);
             expect(tool.pasted).toHaveLength(2);
         });
 
@@ -310,7 +346,8 @@ describe('Select tool', () => {
 
             await tool.browseTemplates();
 
-            expect(labels()).toEqual(['Log in to use the templates', 'Back']);
+            expect(tool.templates.status).toBe('Log in to use the templates');
+            expect(tool.templates.shown).toEqual([]);
         });
     });
 });

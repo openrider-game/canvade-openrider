@@ -14,7 +14,12 @@ export interface TemplateSummary {
     author: string;
     /** Whether it is a template of the account of the player. */
     mine: boolean;
+    /** URL of its thumbnail, a PNG of the size of the track thumbnails, null without one. */
+    thumbnail: string | null;
 }
+
+/** Templates listed: those of the player, private or public, or every public one. */
+export type TemplateSection = 'mine' | 'public';
 
 /** Template as the endpoint answers it. */
 interface TemplateRow {
@@ -24,6 +29,7 @@ interface TemplateRow {
     PUBLIC: boolean;
     AUTHOR: string;
     MINE: boolean;
+    THUMBNAIL?: string | null;
 }
 
 /**
@@ -35,11 +41,23 @@ interface TemplateRow {
  * requests fail, their error telling it.
  */
 export abstract class TemplateService {
-    /** The templates of the player, then the public ones of the others, the newest first. */
-    public static async list(): Promise<TemplateSummary[]> {
+    /**
+     * Templates the player sees, the newest first: those of a section, else those of the player
+     * then the public ones of the others.
+     *
+     * @param query - Text the name of the template or of its author holds, whatever its case.
+     */
+    public static async list(
+        section: TemplateSection | null = null,
+        query = '',
+    ): Promise<TemplateSummary[]> {
         const { TEMPLATES } = await Requests.postJson<{ TEMPLATES: TemplateRow[] }>(
             GameConfig.url(TEMPLATES_PATH),
-            { action: 'list' },
+            {
+                action: 'list',
+                ...(section === null ? {} : { section }),
+                ...(query.trim() === '' ? {} : { query: query.trim() }),
+            },
         );
         return TEMPLATES.map((row) => ({
             id: row.ID,
@@ -48,6 +66,7 @@ export abstract class TemplateService {
             public: row.PUBLIC,
             author: row.AUTHOR,
             mine: row.MINE,
+            thumbnail: row.THUMBNAIL ?? null,
         }));
     }
 

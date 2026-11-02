@@ -1,7 +1,8 @@
-import { UI_FONT_FAMILY, UIStructureDefinition, UIStyleDefinition, wrapText } from 'canvade';
+import { UIStructureDefinition, UIStyleDefinition, wrapText } from 'canvade';
 import type { Dialog } from '../../../openrider/track/track-dialogs';
 import type { Track } from '../../../openrider/track/track';
-import { UI_BORDER_COLOR, uiMetrics } from './ui-theme';
+import { measureText } from './text-measure';
+import { UI_BACKDROP_COLOR, UI_BORDER_COLOR, uiMetrics } from './ui-theme';
 
 /** Widest dialog, and space kept around it on narrow canvases, in UI pixels. */
 const MAX_WIDTH = 360,
@@ -9,30 +10,7 @@ const MAX_WIDTH = 360,
     PADDING = 12,
     GAP = 10,
     /** Distance between two lines of the message, as a multiple of the font size. */
-    LINE_HEIGHT = 1.3,
-    /** Shade over the track while a dialog is shown, which also catches the pointer. */
-    BACKDROP_COLOR = 'rgba(0, 0, 0, 0.25)';
-
-/** Context measuring the lines of the messages, null without canvas, e.g. in the tests. */
-let measureContext: CanvasRenderingContext2D | null | undefined;
-
-/** Width of a text at a font size, in UI pixels, estimated without a canvas. */
-function measure(text: string, fontSize: number): number {
-    if (measureContext === undefined) {
-        measureContext =
-            typeof document === 'undefined'
-                ? null
-                : (document.createElement('canvas').getContext?.('2d') ?? null);
-    }
-    if (measureContext) {
-        measureContext.font = `${fontSize}px ${UI_FONT_FAMILY}`;
-        const width = measureContext.measureText(text)?.width;
-        if (typeof width === 'number') {
-            return width;
-        }
-    }
-    return text.length * fontSize * 0.55;
-}
+    LINE_HEIGHT = 1.3;
 
 /**
  * Dialog of a track (see `TrackDialogs`) in the interface of the track states: a panel centered
@@ -65,7 +43,7 @@ export abstract class DialogPanel {
         const { fontSize, actionHeight } = uiMetrics();
         const panelWidth = Math.max(160, Math.min(MAX_WIDTH, width - 2 * MARGIN));
         const innerWidth = panelWidth - 2 * PADDING;
-        const lines = wrapText(dialog.message, innerWidth, (text) => measure(text, fontSize));
+        const lines = wrapText(dialog.message, innerWidth, (text) => measureText(text, fontSize));
         const messageHeight = Math.ceil(lines.length * fontSize * LINE_HEIGHT);
         const rows = [messageHeight, ...(dialog.input ? [actionHeight] : []), actionHeight];
 
@@ -102,7 +80,7 @@ export abstract class DialogPanel {
                 y: 0,
                 width: '100%',
                 height: '100%',
-                backgroundColor: BACKDROP_COLOR,
+                backgroundColor: UI_BACKDROP_COLOR,
             },
             '.dialog': {
                 horizontalAlign: 'center',

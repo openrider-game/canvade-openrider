@@ -152,7 +152,9 @@ endpoint itself, leaving out the ghosts waiting for an admin but for their accou
 The endurance page only answers its `enduranceupload` and `ghostdata` endpoints, with the runs of
 its leaderboard. Every page answers the `templates` endpoint of the select tool, posted with an
 `action`: `list` (the templates of the account, then the public ones of the others, without their
-code), `get` with an `id` (the code of a template the account sees) and `save` with a `name`, a
+code but with the URL of their thumbnail; with a `section`, `mine` or `public`, only the templates
+of the account or every public one, and with a `query`, only those whose name holds it, or for the
+public ones their account), `get` with an `id` (the code of a template the account sees) and `save` with a `name`, a
 `code`, `public` (`1` or `0`) and optionally a `thumbnail`. The backend shipped with the game has no
 such endpoint: without the site, the select tool tells the error instead of the templates. The other
 requests reach the backend endpoints and the icons under the page. The `trackupload` and
