@@ -40,16 +40,27 @@ export function flattenLines(lines: readonly Line[]): Int32Array {
  * lines of a color in their order, over those of the colors before.
  */
 export function flattenScenery(lines: readonly Line[]): Int32Array {
-    const sorted = [...lines].sort((a, b) => a.color - b.color);
-    return new Int32Array(
-        sorted.flatMap((line) => [
-            line.pos.x,
-            line.pos.y,
-            line.endPos.x,
-            line.endPos.y,
-            line.color,
-        ]),
-    );
+    // Counted by color, then filled in place by color, each in the order of the lines: as a
+    // stable sort, without an array per line
+    const starts: number[] = [];
+    for (const { color } of lines) {
+        starts[color] = (starts[color] ?? 0) + 1;
+    }
+    let start = 0;
+    starts.forEach((count, color) => {
+        starts[color] = start;
+        start += count;
+    });
+    const flat = new Int32Array(lines.length * 5);
+    for (const { pos, endPos, color } of lines) {
+        const i = starts[color]++ * 5;
+        flat[i] = pos.x;
+        flat[i + 1] = pos.y;
+        flat[i + 2] = endPos.x;
+        flat[i + 3] = endPos.y;
+        flat[i + 4] = color;
+    }
+    return flat;
 }
 
 /** Draws the lines and the items of the tracks, see {@link createPainter}. */

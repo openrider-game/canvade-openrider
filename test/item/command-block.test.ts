@@ -119,11 +119,8 @@ describe('Command blocks', () => {
     });
 
     test('read a zoom block without a duration, zooming for 1 second', () => {
-        // Zoom 1.5, without a duration
-        const parsed = ITEM_MAP.get('A')?.createInstance(
-            ['A', '50', '10', '0', '4m'],
-            track,
-        ) as CommandBlock;
+        // At 160 32, zoom 1.5, without a duration: `A 50 10 0 4m` in base 32
+        const parsed = ITEM_MAP.get('A')?.createInstance([160, 32, 0, 150], track) as CommandBlock;
 
         expect(parsed.settings).toMatchObject({ kind: 'zoom', zoom: 1.5, duration: GAME_UPS });
         expect(parsed.toString()).toBe(`A 50 10 0 4m ${GAME_UPS.toString(32)}`);

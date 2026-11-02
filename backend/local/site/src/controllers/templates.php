@@ -61,7 +61,8 @@ function site_templates_endpoint(): void
             if ($template === null) {
                 openrider_respond(404, ['error' => 'Template not found']);
             }
-            return ['CODE' => $template['CODE']];
+            // The base 64 text of a track file, which the game reads as the file
+            return ['CODE' => openrider_code_text($template['CODE'])];
         }
 
         if ($action === 'save') {
@@ -73,9 +74,14 @@ function site_templates_endpoint(): void
                     'The name must be valid text of at most ' . SITE_TEMPLATE_NAME_MAX . ' characters'
                 );
             }
-            $code = openrider_string_param('code');
+            // A track file, or a code of the original format from a page opened before
+            $code = openrider_code_param('code');
             if (strlen($code) > SITE_TEMPLATE_MAX_BYTES) {
                 openrider_respond(413, ['error' => 'The template is too large']);
+            }
+            // Before reading it: a track file is read with Node
+            if (!site_take_rate_limit($db, 'template', (string) $user['ID'])) {
+                openrider_respond(429, ['error' => 'Too many templates saved, try again later']);
             }
             $objects = site_template_objects($code);
             if ($objects === null || $objects === 0) {
@@ -90,10 +96,6 @@ function site_templates_endpoint(): void
             if ($thumbnail !== null && (!is_string($thumbnail) || !site_check_thumbnail($thumbnail))) {
                 openrider_reject('The thumbnail must be a 500x300 PNG');
             }
-            if (!site_take_rate_limit($db, 'template', (string) $user['ID'])) {
-                openrider_respond(429, ['error' => 'Too many templates saved, try again later']);
-            }
-
             $public = ($_POST['public'] ?? '') === '1';
             return [
                 'ID' => site_insert_template(
@@ -140,7 +142,8 @@ function site_template_code(int $templateId): void
     }
 
     header('Content-Type: text/plain; charset=UTF-8');
-    echo $template['CODE'];
+    // Pasted in the editor: the base 64 text of a track file
+    echo openrider_code_text($template['CODE']);
 }
 
 /** Thumbnail of a template the account sees, as a PNG image, cached by the browser. */

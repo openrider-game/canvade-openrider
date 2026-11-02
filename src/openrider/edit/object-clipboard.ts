@@ -1,12 +1,19 @@
 import { Vector } from 'canvade';
+import { DEFAULT_BIKE } from '../bike/bike.constants';
 import { ITEM_MAP } from '../item/item.constants';
 import { LinkedItemGroup } from '../item/linked-item-group';
-import { SceneryLine } from '../item/line/scenery-line';
-import { SolidLine } from '../item/line/solid-line';
 import type { TrackObject, TrackObjectKind } from '../item/track-object';
+import {
+    addScenery,
+    emptyLayer,
+    formatItem,
+    parseItem,
+    type TrackDocument,
+} from '../parser/track-document';
+import { TrackFormat } from '../parser/track-format';
 import type { Track } from '../track/track';
 import { ObjectTransform } from './object-transform';
-import { unitOf } from './edit-objects';
+import { objectFromCode, unitOf } from './edit-objects';
 
 /** Object copied, as the edits describe it, without an id nor a layer. */
 export interface ClipObject {
@@ -22,10 +29,12 @@ const BASE32_INTEGER = /^-?[0-9a-v]+$/;
  * Objects copied, pasted or saved as a template: their codes relative to the center of what was
  * copied, so that they are pasted around the pointer.
  *
- * As text, e.g. in the clipboard of the browser or in a template, the objects are written as the
- * first three sections of a track code: the solid lines, the scenery lines and the items, each
- * line as `x1 y1 x2 y2`. Reading text reads those sections of any track code, a whole track
- * pasted giving its lines, made of polylines, and items.
+ * As text, e.g. in the clipboard of the browser or in a template, the objects are written as a
+ * track code (see `TrackFormat`), the base 64 text of a track file holding them around its
+ * origin: each line as a polyline of its own, the scenery lines by color, then the items. Reading
+ * text reads any track code or file, a whole track pasted giving its lines and items, and the
+ * first three sections of the original track codes, as the templates were saved before: the solid
+ * lines, the scenery lines and the items.
  */
 export abstract class ObjectClipboard {
     /** Objects copied or cut last, pasted by the select tool. */
@@ -67,23 +76,52 @@ export abstract class ObjectClipboard {
         );
     }
 
-    /** Objects as text: the solid lines, the scenery lines and the items of a track code. */
+    /** Objects as text: a track code holding them, see the class comment. */
     public static toText(objects: readonly ClipObject[]): string {
-        const section = (kind: TrackObjectKind) =>
-            objects
-                .filter((object) => object.kind === kind)
-                .map((object) => object.code)
-                .join(',');
-        return `${section('solid')}#${section('scenery')}#${section('item')}`;
+        return TrackFormat.toTrackCode(ObjectClipboard.toDocument(objects));
     }
 
     /**
-     * Reads objects from text, e.g. pasted: the first three sections of a track code, each line
-     * of a polyline apart.
+     * A track holding objects in its main layer, around its origin: each line as a polyline of
+     * its own, the scenery lines in the group of their color.
+     */
+    private static toDocument(objects: readonly ClipObject[]): TrackDocument {
+        const layer = emptyLayer('main', 'Main');
+        for (const { kind, code } of objects) {
+            if (kind === 'item') {
+                const item = parseItem(code);
+                if (item) {
+                    layer.items.push(item);
+                }
+                continue;
+            }
+            const [x1, y1, x2, y2, color = 0] = code.split(' ').map((value) => parseInt(value, 32));
+            if (kind === 'solid') {
+                layer.solid.push([x1, y1, x2, y2]);
+            } else {
+                addScenery(layer.scenery, color, [[x1, y1, x2, y2]]);
+            }
+        }
+        return { layers: [layer], bike: DEFAULT_BIKE.bikeName, origin: { x: 0, y: 0 } };
+    }
+
+    /**
+     * Reads objects from text, e.g. pasted: a track code or file of any layers, or the first
+     * three sections of an original track code, each line of a polyline apart.
      *
-     * @returns The objects, null when the text is not a track code, e.g. any other text copied.
+     * @returns The objects, null when the text is not a track code, e.g. any other text copied,
+     * or holds items unknown to the game.
      */
     public static fromText(text: string): ClipObject[] | null {
+        const bytes = TrackFormat.fromText(text.trim());
+        if (bytes && TrackFormat.isBinary(bytes)) {
+            try {
+                return ObjectClipboard.fromDocument(TrackFormat.decode(bytes));
+            } catch {
+                return null;
+            }
+        }
+
         const sections = text.trim().split('#');
         if (sections.length < 3) {
             return null;
@@ -113,21 +151,48 @@ export abstract class ObjectClipboard {
     }
 
     /**
+     * Objects of every layer of a track, each line of a polyline apart, the scenery lines with
+     * their color; null when an item is unknown to the game.
+     */
+    private static fromDocument(document: TrackDocument): ClipObject[] | null {
+        const objects: ClipObject[] = [];
+        const lines = (kind: TrackObjectKind, polyline: number[], color = 0) => {
+            for (let i = 0; i + 3 < polyline.length; i += 2) {
+                const values = polyline.slice(i, i + 4);
+                // The color of a scenery line after its points, unless 0, as in the edits
+                if (color) {
+                    values.push(color);
+                }
+                objects.push({ kind, code: values.map((value) => value.toString(32)).join(' ') });
+            }
+        };
+        for (const layer of document.layers) {
+            layer.solid.forEach((polyline) => lines('solid', polyline));
+            layer.scenery.forEach(({ color, polylines }) =>
+                polylines.forEach((polyline) => lines('scenery', polyline, color)),
+            );
+        }
+        for (const layer of document.layers) {
+            for (const item of layer.items) {
+                if (!ITEM_MAP.has(item.code)) {
+                    return null;
+                }
+                objects.push({ kind: 'item', code: formatItem(item) });
+            }
+        }
+        return objects;
+    }
+
+    /**
      * Objects created from their codes, not placed on the track: e.g. to draw objects being
      * pasted where they would be, and to move their codes there (see `ObjectTransform.code`).
      * Codes that cannot be read are left out.
      */
     public static instantiate(objects: readonly ClipObject[], track: Track): TrackObject[] {
         return objects.flatMap(({ kind, code }): TrackObject[] => {
-            const values = code.split(' ');
             try {
-                if (kind !== 'item') {
-                    const [x1, y1, x2, y2] = values.map((value) => parseInt(value, 32));
-                    const LineClass = kind === 'solid' ? SolidLine : SceneryLine;
-                    return [new LineClass(new Vector(x1, y1), new Vector(x2, y2), track)];
-                }
-                const item = ITEM_MAP.get(values[0])?.createInstance(values, track);
-                return item ? [item] : [];
+                const object = objectFromCode(kind, code, track);
+                return object ? [object] : [];
             } catch {
                 return [];
             }

@@ -106,10 +106,6 @@ function site_upload_endpoint(?int $draftId): void
         if (strlen($code) > SITE_TRACK_MAX_BYTES) {
             openrider_respond(413, ['error' => 'The track is too large']);
         }
-        // Could never be verified: only an editor file, kept as a draft, may have no target
-        if (!site_is_editor_file($code) && site_track_targets($code) === 0) {
-            openrider_respond(422, ['error' => SITE_NO_TARGET_MESSAGE]);
-        }
         $thumbnail = openrider_string_param('thumbnail', false);
         if ($thumbnail !== '' && !site_check_thumbnail($thumbnail)) {
             openrider_reject('Invalid parameter: thumbnail');
@@ -118,6 +114,11 @@ function site_upload_endpoint(?int $draftId): void
 
         if (!site_take_rate_limit($db, 'upload', (string) $user['ID'])) {
             openrider_respond(429, ['error' => 'Too many uploads, try again later']);
+        }
+        // Could never be verified: only an editor file, kept as a draft, may have no target. After
+        // the rate limit, a track file being read with Node
+        if (!site_is_editor_file($code) && site_track_targets($code) === 0) {
+            openrider_respond(422, ['error' => SITE_NO_TARGET_MESSAGE]);
         }
 
         // Made in an editing session: its other editors are credited

@@ -367,8 +367,9 @@ Besides the targets, checkpoints and teleporters, the items act on the bikes tou
   moves without the area it acts on, and the items of a linked group (a teleporter) move alone when
   the others are not selected. Its options copy, cut, delete and paste (with a keyboard: `Ctrl+C`,
   `Ctrl+X`, `Ctrl+V`, `Delete`, `Escape`); the objects pasted follow the pointer until placed. The
-  clipboard of the browser holds them as the first three sections of a track code, so they are
-  pasted in another tab, and any track code pasted gives its lines and items. With the website, the
+  clipboard of the browser holds them as a track code, the base 64 text of a track file holding
+  them, scenery colors included, so they are pasted in another tab; any track code or file pasted
+  gives its lines and items, as do the first three sections of an original track code. With the website, the
   selection is saved as a template, private or public, with a thumbnail of the size of the track
   thumbnails showing the area of the selection, scaled to fit within a padding and centered
   (`templateThumbnail`). The Templates option opens a panel over the track with two tabs, "Your

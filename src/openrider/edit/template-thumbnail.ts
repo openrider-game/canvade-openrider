@@ -4,7 +4,8 @@ import { ITEM_SPRITE_MARGIN, packItemSprites } from '../item/item-sprite';
 import type { Line } from '../item/line/line';
 import { LinkedItemGroup } from '../item/linked-item-group';
 import type { TrackObject } from '../item/track-object';
-import { flattenLines, painter } from '../render/painter';
+import { SCENERY_STROKE_STYLES } from '../item/line/scenery-colors';
+import { flattenLines, flattenScenery, painter } from '../render/painter';
 
 /** Space left around the objects on each side of the thumbnail, in pixels. */
 const THUMBNAIL_PADDING = 20;
@@ -61,7 +62,8 @@ export function templateThumbnail(objects: readonly TrackObject[]): string | nul
         // The center of the area at the center of the thumbnail
         offsetLeft: ((left + right) / 2) * zoom - THUMBNAIL_WIDTH / 2,
         offsetTop: ((top + bottom) / 2) * zoom - THUMBNAIL_HEIGHT / 2,
-        scenery: flattenLines(lines.filter((line) => line.kind === 'scenery')),
+        scenery: flattenScenery(lines.filter((line) => line.kind === 'scenery')),
+        sceneryColors: SCENERY_STROKE_STYLES,
         lines: flattenLines(lines.filter((line) => line.kind === 'solid')),
         sprites: new Float64Array(buffer),
         spriteColors: colors,

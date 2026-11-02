@@ -9,9 +9,10 @@
  *
  *     php backend/migrate-tracks.php [--dry-run]
  *
- * - With PostgreSQL, the `CODE` columns of `TRACKS` and `LOCAL_UPLOADS` (the uploads of the sample
- *   website, when it has its tables) become `BYTEA`, keeping their texts as bytes. SQLite stores
- *   the bytes in its columns as they are.
+ * - With PostgreSQL, the `CODE` columns of `TRACKS`, `LOCAL_UPLOADS` and `LOCAL_TEMPLATES` (the
+ *   uploads and the templates of the sample website, when it has its tables) become `BYTEA`,
+ *   keeping their texts as bytes. SQLite stores the bytes in its columns as they are. A template
+ *   of the original format, the first three sections of a track code, becomes a track code.
  * - Each track code becomes a track code and each editor file an editor file, converted by the
  *   game with Node (`OPENRIDER_NODE`, `node` by default), which reads each track file back and
  *   compares it to the original track. A track that cannot be converted keeps its text, which
@@ -239,7 +240,7 @@ function migrate_main(array $argv): int
 
     $db = openrider_db();
     $tables = array_values(array_filter(
-        ['TRACKS', 'LOCAL_UPLOADS'],
+        ['TRACKS', 'LOCAL_UPLOADS', 'LOCAL_TEMPLATES'],
         fn (string $table) => migrate_has_table($db, $table)
     ));
     migrate_log(($dryRun ? 'Dry run, nothing written: ' : 'Migrating: ') . implode(', ', $tables));

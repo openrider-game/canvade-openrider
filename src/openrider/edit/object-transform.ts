@@ -1,8 +1,9 @@
 import { Vector } from 'canvade';
 import { DirectionalItem } from '../item/directional-item';
+import type { Line } from '../item/line/line';
 import { LinkedItemGroup } from '../item/linked-item-group';
 import type { TrackObject } from '../item/track-object';
-import { codeOf } from './edit-objects';
+import { codeOf, lineCode } from './edit-objects';
 
 /**
  * Move and free rotation of objects of a track, e.g. a selection dragged or turned, or objects
@@ -69,7 +70,10 @@ export class ObjectTransform {
     public code(object: TrackObject, moved?: ReadonlySet<TrackObject>): string {
         const code = codeOf(object).split(' ');
         if (object.kind !== 'item') {
-            return `${this.point(object.pos)} ${this.point(object.endPos)}`;
+            return lineCode(
+                `${this.point(object.pos)} ${this.point(object.endPos)}`,
+                object as Line,
+            );
         }
 
         if (object instanceof LinkedItemGroup) {

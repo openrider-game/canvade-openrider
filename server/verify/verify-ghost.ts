@@ -5,14 +5,19 @@
  * physics ticks), and writes the verdict as JSON, `{ valid, reason }`. A run of the endurance
  * mode gives the seed of its track instead of a track code, `{ seed, version, ghostString, time }`
  * (the version of its generator, 1 by default), and gets its distance in meters with the verdict,
- * `{ valid, reason, distance }`; an unknown version is refused. Exits with 0 once
- * the verdict is written, valid or not, and with 1 when the input cannot be read.
+ * `{ valid, reason, distance }`; an unknown version is refused. Asked to count the targets or the
+ * objects of a track, `{ trackCode, count: 'targets' | 'objects' }`, it answers `{ targets }` or
+ * `{ objects, editor }` instead (`editor` telling an editor file), or `{ valid: false, reason }`
+ * when the track cannot be read: for the site to refuse an upload without target, or a template
+ * too large. Exits with 0 once the answer is written, and with 1 when the input cannot be
+ * read.
  *
  * Gives up after `OPENRIDER_VERIFY_TIMEOUT` seconds (60 by default), and refuses the runs longer
  * than two hours.
  */
 import './node-stubs';
 import { GAME_UPS } from '../../src/openrider/constants/game.constants';
+import { TrackFormat } from '../../src/openrider/parser/track-format';
 import { EnduranceVerdict, GhostVerdict, GhostVerifier } from '../../src/verify/ghost-verifier';
 
 /** Longest run verified, in physics ticks: two hours. */
@@ -48,6 +53,33 @@ async function main(): Promise<void> {
         input = JSON.parse(await readInput());
     } catch {
         input = null;
+    }
+    const counted = input as { trackCode?: unknown; count?: unknown } | null;
+    if (
+        (counted?.count === 'targets' || counted?.count === 'objects') &&
+        typeof counted.trackCode === 'string'
+    ) {
+        const code = counted.trackCode;
+        try {
+            process.stdout.write(
+                JSON.stringify(
+                    counted.count === 'targets'
+                        ? { targets: TrackFormat.targetCount(code) }
+                        : {
+                              objects: TrackFormat.objectCount(code),
+                              editor: TrackFormat.isEditorCode(code),
+                          },
+                ),
+            );
+        } catch (e) {
+            process.stdout.write(
+                JSON.stringify({
+                    valid: false,
+                    reason: e instanceof Error ? e.message : String(e),
+                }),
+            );
+        }
+        return;
     }
     if (!isVerifyInput(input)) {
         process.stderr.write('Expected { trackCode or seed, ghostString, time } as JSON\n');

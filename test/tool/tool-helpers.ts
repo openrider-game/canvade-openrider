@@ -51,9 +51,10 @@ export function useToolTrack(): void {
         for (const code of ['KeyQ', 'KeyA']) {
             Keyboard.onKeyUp(keyEvent(code, code.slice(3).toLowerCase()));
         }
-        // The kind of lines is shared by the drawing tools
+        // The kind and the color of the lines are shared by the drawing tools
         DrawingLines.setScenery(false);
         DrawingLines.setConnected(false);
+        DrawingLines.setColor(0);
         vi.unstubAllGlobals();
     });
 }

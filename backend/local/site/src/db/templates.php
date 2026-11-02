@@ -5,8 +5,10 @@
  * them in the tracks it edits. A template is private, seen by its account only, or public, seen by
  * every account.
  *
- * The code of a template is written as the first three sections of a track code: the solid lines,
- * the scenery lines and the items, relative to their center (see `ObjectClipboard` of the game).
+ * The code of a template is a track file holding its objects around their center (see
+ * `ObjectClipboard` of the game), stored as bytes as the tracks; the templates saved before the
+ * track files are the first three sections of an original track code: the solid lines, the
+ * scenery lines and the items.
  */
 
 /** Most objects of a template: the most the select tool of the editor holds at once. */
@@ -20,10 +22,24 @@ const SITE_TEMPLATE_MAX_OBJECTS = 5000,
 
 /**
  * Number of objects of a template code, each line of a polyline counted, or null when the code is
- * not one: three sections of base 32 integers, the items starting with their letter.
+ * not one. A track file is read by the game itself, with Node (see site_run_verifier()), its
+ * layers being compressed, and must not be an editor file; a code of the original format must be
+ * three sections of base 32 integers, the items starting with their letter.
+ *
+ * @throws RuntimeException When the game cannot run.
  */
 function site_template_objects(string $code): ?int
 {
+    if (openrider_is_track_file($code)) {
+        $answer = site_run_verifier([
+            'trackCode' => openrider_code_text($code),
+            'count' => 'objects',
+        ]);
+        return isset($answer['objects']) && empty($answer['editor'])
+            ? (int) $answer['objects']
+            : null;
+    }
+
     $sections = explode('#', trim($code));
     if (count($sections) !== 3) {
         return null;
@@ -89,7 +105,7 @@ function site_insert_template(
         . ' ("USERID", "NAME", "CODE", "OBJECTS", "PUBLIC", "CREATED", "THUMBNAIL")'
         . ' VALUES (:userId, :name, :code, :objects, :public, :created, :thumbnail) RETURNING "ID"'
     );
-    $statement->execute([
+    openrider_execute($statement, [
         'userId' => $userId,
         'name' => $name,
         'code' => $code,
@@ -97,7 +113,7 @@ function site_insert_template(
         'public' => $public ? 1 : 0,
         'created' => time(),
         'thumbnail' => $thumbnail,
-    ]);
+    ], ['code']);
 
     return (int) $statement->fetchColumn();
 }
@@ -153,7 +169,7 @@ function site_find_template(PDO $db, int $templateId, ?int $userId): ?array
     $statement->execute(['id' => $templateId, 'userId' => $userId ?? 0]);
     $template = $statement->fetch(PDO::FETCH_ASSOC);
 
-    return $template === false ? null : $template;
+    return $template === false ? null : ['CODE' => openrider_bytes($template['CODE'])] + $template;
 }
 
 /** Makes a template of an account public or private, false when it is not its own. */

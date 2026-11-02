@@ -266,7 +266,9 @@ function site_verify_endurance_run(
  * Runs the verifier of the game with Node (see src/verify of the game), giving it its input as
  * JSON.
  *
- * @return array The verdict, `valid` and `reason`, and `distance` for an endurance run.
+ * @return array The verdict, `valid` and `reason`, and `distance` for an endurance run; or the
+ *   number of `targets` or `objects` of a track asked to count them (see site_track_targets()
+ *   and site_template_objects()).
  * @throws RuntimeException When the verifier cannot run.
  */
 function site_run_verifier(array $input): array
@@ -306,7 +308,7 @@ function site_run_verifier(array $input): array
     $status = proc_close($process);
 
     $verdict = json_decode((string) $output, true);
-    if ($status !== 0 || !is_array($verdict) || !isset($verdict['valid'])) {
+    if ($status !== 0 || !is_array($verdict) || !(isset($verdict['valid']) || isset($verdict['targets']) || isset($verdict['objects']))) {
         throw new RuntimeException("Ghost verifier failed ($status): " . trim((string) $errors));
     }
 
