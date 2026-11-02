@@ -7,7 +7,10 @@ import { MIN_ZOOM } from '../../track/track.constants';
 import type { Track } from '../../track/track';
 import { Zoom } from '../../track/zoom';
 import { Cell } from './cell';
+import { type CellImage, CellImages, type CellImageSource, MAX_CELL_IMAGES } from './cell-images';
 import { CellPatcher } from './cell-patcher';
+
+export type { CellImage, CellImageSource } from './cell-images';
 
 /** Stroke colors of the scenery and solid lines in the cell images, as `createPainter` draws them. */
 export const SCENERY_STROKE_STYLE = '#aaa',
@@ -17,11 +20,6 @@ export const SCENERY_STROKE_STYLE = '#aaa',
      * renderer.
      */
     FAST_RENDER_THRESHOLD = 500,
-    /**
-     * Images kept by a cell, the least recently displayed ones being dropped past it, but the
-     * one of the lowest zoom, a fallback always at hand.
-     */
-    MAX_CELL_IMAGES = 6,
     /**
      * Time without edits after which an edited heavy cell is rendered again by the workers, in
      * milliseconds: meanwhile, its stale image patched with the edits stands in for it.
@@ -37,25 +35,12 @@ export interface ImageOptions {
     /** Pixel ratio of the screen, to prefetch the zoom levels around the current one. */
     pixelRatio?: number;
     /**
-     * Whether the zoom settled (see `Track.zoomSettled`): while it changes, the closest image is
+     * Whether the zoom settled (see `ZoomControl.settled`): while it changes, the closest image is
      * scaled rather than rendered at each zoom.
      */
     settled?: boolean;
     /** Pixel zoom the view eases to, e.g. asked by a command block, null without. */
     targetZoom?: number | null;
-}
-
-/** Image of a cell: a canvas when rendered synchronously, a bitmap when rendered by a worker. */
-export type CellImageSource = HTMLCanvasElement | ImageBitmap;
-
-/** Rendered lines of a cell at a zoom level, for a version of the cell content. */
-export interface CellImage {
-    /** Image of the cell, bleeding by 1px on each side. */
-    source: CellImageSource;
-    /** Zoom factor the image was rendered at, it must be scaled when drawn at another zoom. */
-    zoom: number;
-    /** Content version of the cell the image was rendered from. */
-    version: number;
 }
 
 let nextCellId = 0;
@@ -73,7 +58,8 @@ let nextCellId = 0;
  * the background: until the image at the current zoom is up to date, the stale image is
  * displayed, or else the image of the closest zoom level scaled to the current zoom, so that the
  * cell never blinks. While the zoom changes, the closest image is scaled, the cell being rendered
- * at the zoom once it settles, and a cell keeps a few images only (see {@link MAX_CELL_IMAGES}).
+ * at the zoom once it settles, and a cell keeps a few images only (see {@link CellImages}, and
+ * {@link MAX_CELL_IMAGES}).
  *
  * So that the edits show at once, e.g. a stroke of the brush in a dense cell, the stale image at
  * the current zoom is displayed patched with the edits made since (see {@link CellPatcher}) until
@@ -87,7 +73,7 @@ export class RenderCell extends Cell {
 
     /** Incremented each time the lines of the cell change. */
     private version = 0;
-    private readonly images = new Map<number, CellImage>();
+    private readonly images = new CellImages();
     /** Items drawn on every frame, listed again once the content changes. */
     private live: Item[] | null = null;
     /** Number of items drawn as sprites, counted again once the content changes. */
@@ -230,7 +216,7 @@ export class RenderCell extends Cell {
             if (heavy && settled) {
                 this.prefetch(zoom, opacityFactor, pixelRatio);
             }
-            return this.used(image);
+            return this.images.used(image);
         }
 
         if (!settled) {
@@ -238,9 +224,9 @@ export class RenderCell extends Cell {
             if (heavy && target && !this.isUpToDate(target)) {
                 WorkerPool.request(this, target, opacityFactor, RenderPriority.ADJACENT);
             }
-            const closest = this.getClosestImage(zoom);
+            const closest = this.images.closest(zoom, this.version);
             if (closest) {
-                return this.used(closest);
+                return this.images.used(closest);
             }
         }
 
@@ -250,7 +236,7 @@ export class RenderCell extends Cell {
 
         // Edited a moment ago: patched until the edits pause, rather than rendered for each one
         if (image && this.editing) {
-            return this.patcher.patched(this.used(image), opacityFactor);
+            return this.patcher.patched(this.images.used(image), opacityFactor);
         }
 
         WorkerPool.request(this, zoom, opacityFactor, RenderPriority.VISIBLE);
@@ -260,10 +246,10 @@ export class RenderCell extends Cell {
 
         // The stale image of the zoom, with the edits since, or another zoom as it is
         if (image) {
-            return this.patcher.patched(this.used(image), opacityFactor);
+            return this.patcher.patched(this.images.used(image), opacityFactor);
         }
-        const fallback = this.getClosestImage(zoom);
-        return fallback && this.used(fallback);
+        const fallback = this.images.closest(zoom, this.version);
+        return fallback && this.images.used(fallback);
     }
 
     /**
@@ -282,17 +268,12 @@ export class RenderCell extends Cell {
             opacityFactor,
             fastRender,
             pixelRatio: track.pixelRatio,
-            settled: track.zoomSettled,
+            settled: track.zoomControl.settled,
             targetZoom:
-                track.zoomTarget === null ? null : Zoom.toPixel(track.zoomTarget, track.pixelRatio),
+                track.zoomControl.target === null
+                    ? null
+                    : Zoom.toPixel(track.zoomControl.target, track.pixelRatio),
         };
-    }
-
-    /** Marks an image as the most recently displayed, the last one dropped (see `storeImage`). */
-    private used(image: CellImage): CellImage {
-        this.images.delete(image.zoom);
-        this.images.set(image.zoom, image);
-        return image;
     }
 
     /**
@@ -316,70 +297,25 @@ export class RenderCell extends Cell {
         }
     }
 
-    /** Finds the image to display meanwhile: up to date images first, then the closest zoom. */
-    private getClosestImage(zoom: number): CellImage | null {
-        let closest: CellImage | null = null;
-        let closestScore = Infinity;
-
-        for (const image of this.images.values()) {
-            const score =
-                Math.abs(Math.log(image.zoom / zoom)) + (image.version === this.version ? 0 : 10);
-            if (score < closestScore) {
-                closest = image;
-                closestScore = score;
-            }
-        }
-
-        return closest;
-    }
-
     /**
-     * Keeps a rendered image, unless a more recent one is already known.
-     *
-     * The replaced or discarded bitmap is closed to free its memory.
+     * Keeps a rendered image, unless a more recent one is already known, then drops the least
+     * recently displayed images past {@link MAX_CELL_IMAGES} (see {@link CellImages}).
      *
      * @param version - Content version of the cell the image was rendered from.
      */
     public storeImage(zoom: number, version: number, source: CellImageSource): void {
-        const current = this.images.get(zoom);
-        if (current && current.version > version) {
-            RenderCell.release(source);
-            return;
-        }
-
-        if (current) {
-            RenderCell.release(current.source);
-            this.images.delete(zoom);
-        }
-        const stored = { source, zoom, version };
-        this.images.set(zoom, stored);
-        this.patcher.stored(stored, this.images.values());
-
-        // The least recently displayed images first, the one of the lowest zoom always kept
-        const lowest = Math.min(...this.images.keys());
-        for (const kept of this.images.keys()) {
-            if (this.images.size <= MAX_CELL_IMAGES) {
-                break;
-            }
-            if (kept !== lowest && kept !== zoom) {
-                RenderCell.release(this.images.get(kept)!.source);
-                this.images.delete(kept);
-            }
+        const stored = this.images.put(zoom, version, source);
+        if (stored) {
+            // Told of every image before any is dropped
+            this.patcher.stored(stored, this.images.values());
+            this.images.evict(zoom);
         }
     }
 
     /** Frees the images of the cell, e.g. once the cell is discarded. */
     public releaseImages(): void {
-        this.images.forEach((image) => RenderCell.release(image.source));
         this.images.clear();
         this.patcher.reset();
-    }
-
-    private static release(source: CellImageSource): void {
-        // Without bitmaps, e.g. in the tests, the images are canvases freed by the garbage collector
-        if (typeof ImageBitmap !== 'undefined' && source instanceof ImageBitmap) {
-            source.close();
-        }
     }
 
     /** Renders the cell lines and sprites synchronously, on the main thread. */

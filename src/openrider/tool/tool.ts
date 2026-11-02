@@ -208,7 +208,7 @@ export abstract class Tool {
     /** Zooms in or out, centered on the followed bike if any, otherwise on the mouse. */
     public onScroll(e: WheelEvent): void {
         const pos = this.track.focalPoint ? this.track.focalPoint.displayPos : this.track.mousePos;
-        this.track.zoomAt(pos, -Math.sign(e.deltaY));
+        this.track.zoomControl.zoomAt(pos, -Math.sign(e.deltaY));
     }
 
     /**

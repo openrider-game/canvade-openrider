@@ -6,7 +6,7 @@ import { SolidLine } from '../item/line/solid-line';
 import type { TrackObject, TrackObjectKind } from '../item/track-object';
 import type { Track } from '../track/track';
 import { ObjectTransform } from './object-transform';
-import { TrackEditor } from './track-editor';
+import { unitOf } from './edit-objects';
 
 /** Object copied, as the edits describe it, without an id nor a layer. */
 export interface ClipObject {
@@ -40,7 +40,7 @@ export abstract class ObjectClipboard {
     public static copy(objects: readonly TrackObject[]): ClipObject[] {
         const parts = new Map<TrackObject, Set<TrackObject>>();
         for (const object of objects) {
-            const unit = TrackEditor.unitOf(object);
+            const unit = unitOf(object);
             parts.set(unit, (parts.get(unit) ?? new Set()).add(object));
         }
 

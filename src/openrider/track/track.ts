@@ -4,7 +4,6 @@ import { BMX } from '../bike/bmx';
 import type { BikeRunner } from '../bike/runner/bike-runner';
 import type { GhostRunner } from '../bike/runner/ghost-runner';
 import type { RemoteRunner } from '../bike/runner/remote-runner';
-import type { ReplayRunner } from '../bike/runner/replay-runner';
 import { PlayerRunner } from '../bike/runner/player-runner';
 import type { Collidable } from '../entity/collidable';
 import { Entity } from '../entity/entity';
@@ -21,21 +20,17 @@ import { ToolManager } from '../tool/tool-manager';
 import { DebugOptions, defaultDebugOptions } from './debug-options';
 import { ReachedItems } from './reached-items';
 import { LayerStack } from './layer-stack';
-import {
-    CAMERA_FOLLOW_FACTOR,
-    DEFAULT_ZOOM,
-    MAX_LINE_LENGTH,
-    MIN_LINE_LENGTH,
-    ZOOM_SETTLE_TIME,
-} from './track.constants';
+import { RiderFollower } from './rider-follower';
+import { DEFAULT_ZOOM, MAX_LINE_LENGTH, MIN_LINE_LENGTH } from './track.constants';
 import { Zoom } from './zoom';
+import { ZoomControl } from './zoom-control';
 import type { TrackLayer } from './track-layer';
 
-/** Rider the camera follows other than the player: a rider of the live session, or a ghost. */
-export type FollowedRider = { kind: 'remote'; id: string } | { kind: 'ghost'; id: number };
+export type { FollowedRider } from './rider-follower';
 
 /**
- * Track being edited or raced: its layers, runners, editing tools and view.
+ * Track being edited or raced: its layers, runners, editing tools and view, its zoom being
+ * controlled by {@link ZoomControl} and its camera following a rider with {@link RiderFollower}.
  *
  * Positions are in world units, converted to canvas pixels with {@link Track.toPixel} according
  * to the camera and the zoom factor.
@@ -46,12 +41,12 @@ export class Track extends World {
 
     /** Start position of the bikes. */
     public readonly origin = new Vector();
-    /** Entity the camera follows, if any. */
+    /** Entity the camera follows, if any, see {@link Track.follower}. */
     public focalPoint: Entity | null = new Entity();
-    /** Rider the camera follows, see {@link Track.follow}. */
-    private followedRider: FollowedRider | null = null;
-    /** Bike part of the followed rider the camera was last given. */
-    private followedPoint: Entity | null = null;
+    /** Rider the camera follows: the player, a ghost or a rider of the live session. */
+    public readonly follower = new RiderFollower(this);
+    /** Zoom of the view: of the player, or of the command blocks for a while. */
+    public readonly zoomControl = new ZoomControl(this);
 
     /** Mouse position, in world units. */
     public readonly realMousePos = new Vector();
@@ -82,42 +77,6 @@ export class Track extends World {
      * objects they hide are drawn faded.
      */
     public editing = false;
-    /**
-     * View zoom the view eases to: the zoom of a command block, or back to the zoom of the player;
-     * null once reached.
-     */
-    public zoomTarget: number | null = null;
-    /**
-     * Zoom a command block holds the view at until a physics tick of the run of the player, and
-     * the zoom of the player the view goes back to then, as view zooms; null without one.
-     */
-    public zoomHold: { zoom: number; until: number; back: number } | null = null;
-    /** Pixel zoom of the last frame, null before the first one, see {@link followZoom}. */
-    private zoomSeen: number | null = null;
-    /** Time the pixel zoom last changed at, in milliseconds (`performance.now`). */
-    private zoomChangedAt = -Infinity;
-    /**
-     * Notes the pixel zoom of a frame, to tell when it settles (see {@link zoomSettled}): called
-     * once per frame by the renderer.
-     */
-    public followZoom(): void {
-        if (this.zoomSeen !== null && this.zoomSeen !== this.zoomFactor) {
-            this.zoomChangedAt = performance.now();
-        }
-        this.zoomSeen = this.zoomFactor;
-    }
-
-    /**
-     * Whether the zoom settled: unchanged for {@link ZOOM_SETTLE_TIME}, and not easing to the zoom
-     * of a command block. While it changes, the images of the track are scaled rather than drawn
-     * again at each zoom (see `RenderCell.getImage`).
-     */
-    public get zoomSettled(): boolean {
-        return (
-            this.zoomTarget === null && performance.now() - this.zoomChangedAt >= ZOOM_SETTLE_TIME
-        );
-    }
-
     /** Point a command block shows instead of the focal point, until a physics tick. */
     public cameraHold: { pos: Vector; until: number } | null = null;
     /**
@@ -234,68 +193,6 @@ export class Track extends World {
     /** Converts a canvas position, in pixels, to a world position. */
     public toWorld(vec: Vector): Vector {
         return WorldVector.toWorld(vec, this, this.viewWidth, this.viewHeight);
-    }
-
-    /**
-     * Zooms in or out by steps of the view zoom, keeping the given point at the same place on the
-     * canvas.
-     *
-     * @param point - World position to zoom at.
-     * @param direction - Number of zoom steps, positive to zoom in, negative to zoom out.
-     */
-    /**
-     * Zooms the view as a command block asks, for a duration: the view then goes back to the zoom
-     * of the player, the one before the first block of a series.
-     *
-     * @param zoom - View zoom, as the zoom levels of the player.
-     * @param duration - Duration, in physics ticks.
-     * @param time - Time of the run of the player, in physics ticks.
-     */
-    public zoomTo(zoom: number, duration: number, time: number): void {
-        // The zoom of the player: kept through the blocks following each other
-        const back = this.zoomHold?.back ?? this.zoomTarget ?? this.viewZoom;
-        this.zoomHold = { zoom, until: time + duration, back };
-        this.zoomTarget = zoom;
-    }
-
-    /** Ends the zoom of a command block, the view going back to the zoom of the player. */
-    public releaseZoom(): void {
-        if (this.zoomHold) {
-            this.zoomTarget = this.zoomHold.back;
-            this.zoomHold = null;
-        }
-    }
-
-    /**
-     * Eases the zoom to the one a command block asked for at the speed of the camera, and back to
-     * the zoom of the player once its duration is over.
-     */
-    public easeZoom(delta: number): void {
-        if (this.zoomHold && this.time >= this.zoomHold.until) {
-            this.releaseZoom();
-        }
-        if (this.zoomTarget === null) {
-            return;
-        }
-
-        const target = Zoom.toPixel(this.zoomTarget, this.pixelRatio);
-        const gap = target - this.zoomFactor;
-        if (Math.abs(gap) < target * 0.001) {
-            this.zoomFactor = target;
-            this.zoomTarget = null;
-        } else {
-            this.zoomFactor += gap * Math.min(1, delta * CAMERA_FOLLOW_FACTOR);
-        }
-    }
-
-    public zoomAt(point: Vector, direction: number): void {
-        // The player takes the zoom back from the command blocks
-        this.zoomTarget = null;
-        this.zoomHold = null;
-        const pixel = this.toPixel(point);
-        this.zoomFactor = Zoom.toPixel(Zoom.step(this.viewZoom, direction), this.pixelRatio);
-        this.camera.x = point.x - (pixel.x - this.viewWidth / 2) / this.zoomFactor;
-        this.camera.y = point.y - (pixel.y - this.viewHeight / 2) / this.zoomFactor;
     }
 
     /** Syncs the track mouse positions with a world position, snapping it to the grid. */
@@ -431,92 +328,11 @@ export class Track extends World {
         this.pause(false);
         // The view commands of the last run end with it
         this.cameraHold = null;
-        this.releaseZoom();
+        this.zoomControl.release();
 
         this.playerRunner.restart();
         this.ghostRunners.forEach((runner) => runner.restart());
 
-        this.updateFocalPoint();
-    }
-
-    /** Rider the camera follows other than the player, null when none. */
-    public get followed(): FollowedRider | null {
-        return this.followedRider;
-    }
-
-    /** Runner of a followed rider, undefined once gone (left the session, ghost removed). */
-    public runnerOf(rider: FollowedRider): ReplayRunner | undefined {
-        return rider.kind === 'remote'
-            ? this.remoteRunners.get(rider.id)
-            : this.ghostRunners.get(rider.id);
-    }
-
-    /**
-     * Follows a rider with the camera, whatever bike they ride: their bike changes whenever they
-     * start over, and the runner of a rider of the live session when their run is sent again.
-     * The camera follows the player again with null, or when the rider is gone.
-     *
-     * Following stops as soon as something else moves the camera: the player riding (see
-     * `PlayerRunner`), or the camera being dragged.
-     */
-    public follow(rider: FollowedRider | null): void {
-        this.followedRider = rider;
-        this.followedPoint = null;
-        if (rider) {
-            this.refreshFocalPoint();
-        } else {
-            this.focalPoint = this.playerRunner.instance?.hitbox ?? null;
-        }
-    }
-
-    /** Points the camera at the current bike of the followed rider, on each frame. */
-    public refreshFocalPoint(): void {
-        const rider = this.followedRider;
-        if (!rider) {
-            return;
-        }
-        // Something else moved the camera
-        if (this.followedPoint !== null && this.focalPoint !== this.followedPoint) {
-            this.followedRider = null;
-            this.followedPoint = null;
-            return;
-        }
-
-        const runner = this.runnerOf(rider);
-        if (!runner) {
-            this.follow(null);
-            return;
-        }
-        // An exploded bike is gone: the camera stays where it was
-        const point = runner.instance?.hitbox ?? this.followedPoint;
-        this.focalPoint = this.followedPoint = point;
-    }
-
-    /**
-     * Focuses the camera on the player, or on the first ghost if the player has not reached any
-     * checkpoint, to watch the best run: the player takes the camera back by riding (see
-     * `PlayerRunner`). The endurance mode, without checkpoints, follows the first ghost until
-     * then on each start.
-     *
-     * A rider of the live session followed stays followed: they ride on whatever the player does.
-     */
-    public updateFocalPoint(): void {
-        if (this.followedRider?.kind === 'remote') {
-            this.refreshFocalPoint();
-            return;
-        }
-        this.followedRider = null;
-        this.followedPoint = null;
-
-        let focalPoint = this.playerRunner.instance?.hitbox ?? null;
-        if (!this.playerRunner.snapshots.length && this.ghostRunners.size) {
-            const firstGhost = this.ghostRunners.values().next().value;
-            focalPoint = firstGhost?.instance?.hitbox ?? focalPoint;
-        }
-
-        this.focalPoint = focalPoint;
-        if (focalPoint) {
-            this.camera.set(focalPoint.displayPos);
-        }
+        this.follower.reset();
     }
 }

@@ -2,7 +2,7 @@ import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { MAX_SELECTED_OBJECTS } from '../../src/openrider/edit/edit-limits';
 import { ObjectClipboard } from '../../src/openrider/edit/object-clipboard';
-import { TrackEditor } from '../../src/openrider/edit/track-editor';
+import { unitOf, codeOf } from '../../src/openrider/edit/edit-objects';
 import { CommandBlock } from '../../src/openrider/item/command/command-block';
 import { SolidLine } from '../../src/openrider/item/line/solid-line';
 import { LinkedItem } from '../../src/openrider/item/linked-item';
@@ -48,7 +48,7 @@ const objects = (): TrackObject[] => [
     ...track.layers.main[0].grid.totalSolidLines.values(),
     ...track.layers.main[0].grid.totalObjects.values(),
 ];
-const codes = () => objects().map((object) => TrackEditor.codeOf(TrackEditor.unitOf(object)));
+const codes = () => objects().map((object) => codeOf(unitOf(object)));
 const labels = () => tool.getOptions().map(({ label }) => label);
 
 describe('Select tool', () => {

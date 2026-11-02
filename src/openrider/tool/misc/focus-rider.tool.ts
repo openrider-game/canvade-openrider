@@ -5,7 +5,7 @@ import { Tool } from '../tool';
 /**
  * Cycles the camera through the other riders: the riders of the live session first, then the
  * ghosts, then back to the player. The camera follows each one whatever they do (see
- * `Track.follow`), until the player rides.
+ * `RiderFollower.follow`), until the player rides.
  */
 export class FocusRiderTool extends Tool {
     public static override readonly toolName: string = 'Focus rider';
@@ -20,15 +20,15 @@ export class FocusRiderTool extends Tool {
         ];
 
         // The rider followed, or watched: e.g. the first ghost when racing starts
-        const followed = track.followed;
+        const followed = track.follower.followed;
         const current = riders.findIndex((rider) =>
             followed
                 ? rider.kind === followed.kind && rider.id === followed.id
                 : track.focalPoint !== null &&
-                  track.runnerOf(rider)?.instance?.hitbox === track.focalPoint,
+                  track.follower.runnerOf(rider)?.instance?.hitbox === track.focalPoint,
         );
 
         // After the last one, back to the player
-        track.follow(riders[current + 1] ?? null);
+        track.follower.follow(riders[current + 1] ?? null);
     }
 }

@@ -36,7 +36,7 @@ interface Overlay {
  * is only stamped on the image of its cell, as reaching items only adds some until the run
  * restarts, so that a frame draws one image per cell however many items were reached. An item
  * leaving, e.g. erased, has its image drawn again; a restart drops them all. The images follow
- * the zoom once it settles, scaled meanwhile (see `Track.zoomSettled`), and the items are drawn
+ * the zoom once it settles, scaled meanwhile (see `ZoomControl.settled`), and the items are drawn
  * directly when the zoom is too close for an image.
  *
  * The items of the command groups are drawn by their group.
@@ -159,7 +159,7 @@ export class ReachedItems {
         }
 
         // At the zoom once it settles, scaled meanwhile
-        if (!overlay.image || (overlay.zoom !== zoom && track.zoomSettled)) {
+        if (!overlay.image || (overlay.zoom !== zoom && track.zoomControl.settled)) {
             overlay.image = document.createElement('canvas');
             overlay.image.width = size;
             overlay.image.height = size;

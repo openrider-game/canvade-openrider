@@ -139,11 +139,11 @@ export class TrackMainLayer extends Layer {
 
         while (scale > pinch.scale * PINCH_STEP) {
             pinch.scale *= PINCH_STEP;
-            track.zoomAt(track.toWorld(center), 1);
+            track.zoomControl.zoomAt(track.toWorld(center), 1);
         }
         while (scale < pinch.scale / PINCH_STEP) {
             pinch.scale /= PINCH_STEP;
-            track.zoomAt(track.toWorld(center), -1);
+            track.zoomControl.zoomAt(track.toWorld(center), -1);
         }
     }
 

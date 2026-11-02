@@ -94,13 +94,13 @@ export abstract class TrackPlayState extends TrackViewState {
         }
 
         // The rider followed may ride another bike since the last frame
-        track.refreshFocalPoint();
+        track.follower.refresh();
         // A command block may show another point of the track for a while
         const hold = track.cameraHold;
         const focus = hold && track.time < hold.until ? hold.pos : track.focalPoint?.displayPos;
         if (focus) {
             track.camera.selfAdd(focus.sub(track.camera).scale(delta * CAMERA_FOLLOW_FACTOR));
         }
-        track.easeZoom(delta);
+        track.zoomControl.ease(delta);
     }
 }

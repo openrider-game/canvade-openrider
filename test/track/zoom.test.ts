@@ -53,7 +53,7 @@ describe('Tracks on high density screens', () => {
         const point = new Vector(100, 50);
         const before = track.toPixel(point);
 
-        track.zoomAt(point, 1);
+        track.zoomControl.zoomAt(point, 1);
 
         expect(track.viewZoom).toBe(0.8);
         expect(track.zoomFactor).toBe(1.6);
@@ -85,19 +85,19 @@ describe('Zoom settling', () => {
         let now = 1000;
         vi.spyOn(performance, 'now').mockImplementation(() => now);
         const track = new Track(null);
-        track.followZoom();
-        expect(track.zoomSettled).toBe(true);
+        track.zoomControl.follow();
+        expect(track.zoomControl.settled).toBe(true);
 
         track.zoomFactor = 1.2;
-        track.followZoom();
-        expect(track.zoomSettled).toBe(false);
+        track.zoomControl.follow();
+        expect(track.zoomControl.settled).toBe(false);
         now += 100;
-        track.followZoom();
-        expect(track.zoomSettled).toBe(false);
+        track.zoomControl.follow();
+        expect(track.zoomControl.settled).toBe(false);
         now += 60;
-        expect(track.zoomSettled).toBe(true);
+        expect(track.zoomControl.settled).toBe(true);
 
-        track.zoomTarget = 2;
-        expect(track.zoomSettled).toBe(false);
+        track.zoomControl.target = 2;
+        expect(track.zoomControl.settled).toBe(false);
     });
 });

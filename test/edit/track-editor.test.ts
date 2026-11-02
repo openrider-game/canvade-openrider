@@ -1,7 +1,7 @@
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { invertEdit, TrackEdit } from '../../src/openrider/edit/track-edit';
-import { TrackEditor } from '../../src/openrider/edit/track-editor';
+import { unitOf } from '../../src/openrider/edit/edit-objects';
 import {
     CommandBlock,
     defaultCommandSettings,
@@ -141,7 +141,7 @@ describe('Track editor', () => {
         const ids = (track: Track) =>
             track.layers.all.flatMap((layer) => [
                 layer.uid,
-                ...new Set(layer.objects().map((object) => TrackEditor.unitOf(object).uid)),
+                ...new Set(layer.objects().map((object) => unitOf(object).uid)),
             ]);
         const first = ids(parseTrack(TRACK_CODE));
 

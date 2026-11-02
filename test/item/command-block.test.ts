@@ -131,19 +131,19 @@ describe('Command blocks', () => {
     test('zoom the view for their duration, then back to the zoom of the player', () => {
         const player = track.viewZoom;
         const settle = () => {
-            for (let i = 0; i < 400; i++) track.easeZoom(16);
+            for (let i = 0; i < 400; i++) track.zoomControl.ease(16);
         };
         // The time of the run of the player, a block holding its zoom until a tick of it
         const at = (time: number) => vi.spyOn(track, 'time', 'get').mockReturnValue(time);
         trigger(block(150, 40, { kind: 'zoom', zoom: 2, duration: 100 }), track.playerRunner);
-        const first = track.zoomHold!.until;
+        const first = track.zoomControl.hold!.until;
         at(first - 1);
         settle();
         expect(track.viewZoom).toBeCloseTo(2, 3);
 
         // A second block during the first one: back to the zoom of the player after both
         trigger(block(200, 40, { kind: 'zoom', zoom: 1.5, duration: 300 }), track.playerRunner);
-        const second = track.zoomHold!.until;
+        const second = track.zoomControl.hold!.until;
         expect(second).toBeGreaterThan(first);
         at(second - 1);
         settle();
@@ -151,7 +151,7 @@ describe('Command blocks', () => {
         at(second);
         settle();
         expect(track.viewZoom).toBeCloseTo(player, 3);
-        expect(track.zoomHold).toBeNull();
+        expect(track.zoomControl.hold).toBeNull();
     });
 
     test('give the zoom of the player back on restart', () => {
@@ -159,7 +159,7 @@ describe('Command blocks', () => {
         trigger(block(150, 40, { kind: 'zoom', zoom: 2, duration: 500 }), track.playerRunner);
 
         track.restart();
-        for (let i = 0; i < 400; i++) track.easeZoom(16);
+        for (let i = 0; i < 400; i++) track.zoomControl.ease(16);
 
         expect(track.viewZoom).toBeCloseTo(player, 3);
     });
@@ -264,18 +264,18 @@ describe('Command blocks', () => {
         });
 
         trigger(zoom, ghost());
-        expect(track.zoomTarget).toBeNull();
+        expect(track.zoomControl.target).toBeNull();
 
         trigger(zoom, track.playerRunner);
         trigger(camera, track.playerRunner);
-        expect(track.zoomTarget).toBe(2);
+        expect(track.zoomControl.target).toBe(2);
         expect(track.cameraHold?.pos).toEqual(new Vector(800, 0));
         expect(track.cameraHold?.until).toBe(track.time + 100);
 
         // Taken back by the player, or by restarting
-        track.zoomAt(new Vector(), 1);
+        track.zoomControl.zoomAt(new Vector(), 1);
         track.restart();
-        expect(track.zoomTarget).toBeNull();
+        expect(track.zoomControl.target).toBeNull();
         expect(track.cameraHold).toBeNull();
     });
 

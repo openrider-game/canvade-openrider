@@ -57,7 +57,7 @@ export abstract class TrackRenderer {
             hideHiddenLayers: false,
             ...renderOptions,
         };
-        track.followZoom();
+        track.zoomControl.follow();
         const cacheBounds = TrackRenderer.getVisibleCells(track, CACHE_CELL_SIZE);
         const shown = (layer: TrackLayer) => layer.visible || !settings.hideHiddenLayers;
 

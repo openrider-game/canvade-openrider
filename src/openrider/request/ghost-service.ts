@@ -32,7 +32,7 @@ export abstract class GhostService {
     public static async toggleGhost(track: Track, ghostId: number): Promise<void> {
         if (track.ghostRunners.has(ghostId)) {
             track.ghostRunners.delete(ghostId);
-            track.updateFocalPoint();
+            track.follower.reset();
             return;
         }
         if (!GhostService.canRace(track)) {

@@ -2,30 +2,31 @@ import { Control, DELETE, BACKSPACE, ESCAPE, KEYS, Vector } from 'canvade';
 import { MAX_SELECTED_OBJECTS } from '../../edit/edit-limits';
 import { ClipObject, ObjectClipboard } from '../../edit/object-clipboard';
 import { ObjectTransform } from '../../edit/object-transform';
-import { templateThumbnail } from '../../edit/template-thumbnail';
-import { TrackEditor } from '../../edit/track-editor';
-import type { CommandArea } from '../../item/command/command-block';
+import { unitOf } from '../../edit/edit-objects';
 import { LinkedItemGroup } from '../../item/linked-item-group';
 import type { TrackObject } from '../../item/track-object';
-import { TemplateService, TemplateSummary } from '../../request/template-service';
+import type { TemplateSummary } from '../../request/template-service';
 import { Tool, ToolOption } from '../tool';
+import {
+    type Area,
+    drawArea,
+    drawCrosshair,
+    drawHandle,
+    drawObjects,
+    objectsArea,
+    SELECTION_COLOR,
+} from './selection-drawing';
+import { TemplateBrowser } from './template-browser';
 
-/** Color of the selection and of the objects being moved or pasted. */
-const SELECTION_COLOR = '#29f',
-    /** Distance of the rotation handle above the selection, in canvas pixels at zoom 1. */
-    HANDLE_DISTANCE = 30,
+/** Distance of the rotation handle above the selection, in canvas pixels at zoom 1. */
+const HANDLE_DISTANCE = 30,
     /** Distance under which a press takes the rotation handle, in canvas pixels. */
     HANDLE_REACH = 14,
     /** Drags shorter than this, in canvas pixels, are clicks: clearing the selection. */
-    CLICK_DISTANCE = 4,
-    /** Templates listed in each page of the options. */
-    TEMPLATES_PER_PAGE = 6;
+    CLICK_DISTANCE = 4;
 
 /** What the pointer pressed does until released. */
 type Gesture = 'none' | 'select' | 'move' | 'rotate' | 'place';
-
-/** Area of the world, see {@link CommandArea}. */
-type Area = CommandArea;
 
 /**
  * Selects the objects of an area of the active layer, to move, turn, copy, cut, delete or paste
@@ -42,9 +43,9 @@ type Area = CommandArea;
  *
  * Objects being pasted follow the pointer, placed where it is released, then selected.
  *
- * With the website, the selection is saved as a template, private or public, and the templates of
- * the player and the public ones are listed in the options, a page at a time, to paste one (see
- * `TemplateService`).
+ * With the website, the selection is saved as a template, and the templates are listed in the
+ * options to paste one, see {@link TemplateBrowser}. The drawing of the selection is in
+ * `selection-drawing.ts`.
  */
 export class SelectTool extends Tool {
     public static override readonly toolName: string = 'Select';
@@ -62,12 +63,10 @@ export class SelectTool extends Tool {
     private pasting: TrackObject[] | null = null;
     /** Message of the last action, e.g. a selection too large, shown in the options. */
     private notice: string | null = null;
-    /** Whether the next templates saved are public, else private. */
-    private publicTemplates = false;
-    /** Templates listed in the options, null while they are not browsed. */
-    private templates: TemplateSummary[] | null = null;
-    /** Page of the templates listed, from 0. */
-    private templatePage = 0;
+    private readonly templates = new TemplateBrowser(this.track, {
+        notify: (notice) => (this.notice = notice),
+        paste: (objects) => this.paste(objects),
+    });
 
     /** Selected objects still on the track: undoing, or another editor, may remove some. */
     public get selected(): readonly TrackObject[] {
@@ -86,7 +85,7 @@ export class SelectTool extends Tool {
         this.pasting = null;
         this.selection = [];
         this.notice = null;
-        this.templates = null;
+        this.templates.close();
     }
 
     public override onMouseDown(e: MouseEvent): void {
@@ -182,7 +181,7 @@ export class SelectTool extends Tool {
 
         const units = new Map<TrackObject, Set<TrackObject>>();
         for (const object of selected) {
-            const unit = TrackEditor.unitOf(object);
+            const unit = unitOf(object);
             units.set(unit, (units.get(unit) ?? new Set()).add(object));
         }
         const entries = [...units];
@@ -303,63 +302,19 @@ export class SelectTool extends Tool {
         return false;
     }
 
-    /**
-     * Saves the selection as a template, private or public as chosen in the options, named in a
-     * dialog of the browser: a text field of the canvas would not open the keyboard of a phone.
-     * Its thumbnail shows the area of the selection, see `templateThumbnail`.
-     */
-    public async saveTemplate(): Promise<void> {
-        const objects = ObjectClipboard.copy(this.selected);
-        if (!objects.length) {
-            return;
-        }
-        const name = window.prompt('Name of the template')?.trim();
-        if (!name) {
-            return;
-        }
-        try {
-            await TemplateService.save(
-                name,
-                ObjectClipboard.toText(objects),
-                this.publicTemplates,
-                templateThumbnail(this.selected),
-            );
-            this.notice = `Saved the template ${name}`;
-        } catch (error) {
-            this.notice = (error as Error).message;
-        }
-        this.track.invalidateUI();
+    /** Saves the selection as a template, see `TemplateBrowser.save`. */
+    public saveTemplate(): Promise<void> {
+        return this.templates.save(this.selected);
     }
 
-    /** Lists the templates of the player and the public ones in the options. */
-    public async browseTemplates(): Promise<void> {
-        this.templates = [];
-        this.templatePage = 0;
-        this.notice = 'Loading the templates';
-        this.track.invalidateUI();
-        try {
-            this.templates = await TemplateService.list();
-            this.notice = this.templates.length ? null : 'No template yet';
-        } catch (error) {
-            this.notice = (error as Error).message;
-        }
-        this.track.invalidateUI();
+    /** Lists the templates in the options, see `TemplateBrowser.browse`. */
+    public browseTemplates(): Promise<void> {
+        return this.templates.browse();
     }
 
-    /** Pastes a template: it follows the pointer, as objects copied. */
-    public async insertTemplate(template: TemplateSummary): Promise<void> {
-        try {
-            const objects = ObjectClipboard.fromText(await TemplateService.code(template.id));
-            if (objects === null) {
-                this.notice = `The template ${template.name} cannot be read`;
-            } else {
-                this.templates = null;
-                this.paste(objects);
-            }
-        } catch (error) {
-            this.notice = (error as Error).message;
-        }
-        this.track.invalidateUI();
+    /** Pastes a template, see `TemplateBrowser.insert`. */
+    public insertTemplate(template: TemplateSummary): Promise<void> {
+        return this.templates.insert(template);
     }
 
     /** Lets go of the objects being pasted and of the selection. */
@@ -371,7 +326,6 @@ export class SelectTool extends Tool {
 
     public override getOptions(): ToolOption[] {
         const options: ToolOption[] = [];
-        const refresh = () => this.track.invalidateUI();
         if (this.notice) {
             options.push({ label: this.notice });
         }
@@ -383,8 +337,8 @@ export class SelectTool extends Tool {
             );
             return options;
         }
-        if (this.templates) {
-            return [...options, ...this.templateOptions()];
+        if (this.templates.browsing) {
+            return [...options, ...this.templates.listOptions()];
         }
 
         const count = this.selected.length;
@@ -402,59 +356,9 @@ export class SelectTool extends Tool {
             options.push({ label: 'Paste', action: () => this.paste() });
         }
         if (count) {
-            options.push(
-                { label: 'Save as template', action: () => void this.saveTemplate() },
-                {
-                    label: `Template: ${this.publicTemplates ? 'public' : 'private'}`,
-                    action: () => {
-                        this.publicTemplates = !this.publicTemplates;
-                        refresh();
-                    },
-                },
-            );
+            options.push(...this.templates.saveOptions(() => this.selected));
         }
         options.push({ label: 'Templates', action: () => void this.browseTemplates() });
-        return options;
-    }
-
-    /** Options listing a page of the templates, to paste one, with the pages around. */
-    private templateOptions(): ToolOption[] {
-        const templates = this.templates ?? [];
-        const pages = Math.max(1, Math.ceil(templates.length / TEMPLATES_PER_PAGE));
-        const page = Math.min(this.templatePage, pages - 1);
-        const turn = (to: number) => {
-            this.templatePage = (to + pages) % pages;
-            this.track.invalidateUI();
-        };
-        const options: ToolOption[] = [
-            {
-                label: 'Back',
-                action: () => {
-                    this.templates = null;
-                    this.notice = null;
-                    this.track.invalidateUI();
-                },
-            },
-        ];
-        const shown = templates.slice(page * TEMPLATES_PER_PAGE, (page + 1) * TEMPLATES_PER_PAGE);
-        for (const template of shown) {
-            const owner = template.mine
-                ? template.public
-                    ? ', public'
-                    : ''
-                : `, by ${template.author}`;
-            options.push({
-                label: `${template.name} (${template.objects}${owner})`,
-                action: () => void this.insertTemplate(template),
-            });
-        }
-        if (pages > 1) {
-            options.push({
-                label: `Page ${page + 1} / ${pages}`,
-                action: () => turn(page + 1),
-                steps: { down: () => turn(page - 1), up: () => turn(page + 1) },
-            });
-        }
         return options;
     }
 
@@ -464,29 +368,15 @@ export class SelectTool extends Tool {
         return new Vector(Math.round(x), Math.round(y));
     }
 
-    /** Area of objects, transformed, in world units. */
-    private static bounds(objects: readonly TrackObject[], transform = ObjectTransform.NONE): Area {
-        const points = objects.flatMap((object) => [
-            transform.point(object.pos),
-            transform.point(object.endPos),
-        ]);
-        return {
-            left: Math.min(...points.map(({ x }) => x)),
-            top: Math.min(...points.map(({ y }) => y)),
-            right: Math.max(...points.map(({ x }) => x)),
-            bottom: Math.max(...points.map(({ y }) => y)),
-        };
-    }
-
     /** Center of the selection, the point it turns around. */
     private pivot(): Vector {
-        const { left, top, right, bottom } = SelectTool.bounds(this.selected);
+        const { left, top, right, bottom } = objectsArea(this.selected);
         return new Vector((left + right) / 2, (top + bottom) / 2);
     }
 
     /** Position of the rotation handle, above the selection, in world units. */
     private handle(): Vector {
-        const { left, top, right } = SelectTool.bounds(this.selected);
+        const { left, top, right } = objectsArea(this.selected);
         return new Vector((left + right) / 2, top - HANDLE_DISTANCE / this.track.zoomFactor);
     }
 
@@ -502,7 +392,7 @@ export class SelectTool extends Tool {
     /** Whether a point is in the selection area, with a margin around single points. */
     private inSelection(point: Vector): boolean {
         const margin = 10 / this.track.zoomFactor;
-        const { left, top, right, bottom } = SelectTool.bounds(this.selected);
+        const { left, top, right, bottom } = objectsArea(this.selected);
         return (
             point.x >= left - margin &&
             point.x <= right + margin &&
@@ -535,120 +425,27 @@ export class SelectTool extends Tool {
             const transform = this.mouseDown
                 ? this.gestureTransform(this.gesture)
                 : ObjectTransform.NONE;
-            this.drawObjects(ctx, selected, transform);
-            this.drawArea(ctx, SelectTool.bounds(selected), transform);
+            const area = objectsArea(selected);
+            drawObjects(ctx, track, selected, transform);
+            drawArea(ctx, track, area, transform);
             if (this.gesture !== 'move') {
-                const top = transform.point(this.handle());
-                const center = transform.point(
-                    new Vector(this.handle().x, SelectTool.bounds(selected).top),
-                );
-                const [handlePx, centerPx] = [track.toPixel(top), track.toPixel(center)];
-                ctx.setLineDash([]);
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(centerPx.x, centerPx.y);
-                ctx.lineTo(handlePx.x, handlePx.y);
-                ctx.moveTo(handlePx.x + 6, handlePx.y);
-                ctx.arc(handlePx.x, handlePx.y, 6, 0, 2 * Math.PI);
-                if (overHandle) {
-                    ctx.fillStyle = SELECTION_COLOR;
-                    ctx.fill();
-                }
-                ctx.stroke();
+                drawHandle(ctx, track, this.handle(), area.top, transform, overHandle);
             }
         }
 
         if (this.gesture === 'select' && this.mouseDown) {
             const area = this.dragArea();
             if (area) {
-                this.drawArea(ctx, area, ObjectTransform.NONE);
+                drawArea(ctx, track, area, ObjectTransform.NONE);
             }
         }
 
         if (this.pasting && (track.toolManager.showsPointer || this.mouseDown)) {
-            this.drawObjects(ctx, this.pasting, ObjectTransform.move(this.roundedPointer()));
+            drawObjects(ctx, track, this.pasting, ObjectTransform.move(this.roundedPointer()));
         }
         if (track.toolManager.showsPointer || this.mouseDown) {
-            this.drawCrosshair(ctx, overSelection);
+            drawCrosshair(ctx, track, overSelection);
         }
-        ctx.restore();
-    }
-
-    /**
-     * Draws a crosshair at the pointer, as the drawing tools do, its arms ending with arrows over
-     * the selection, which a drag moves.
-     */
-    private drawCrosshair(ctx: CanvasRenderingContext2D, arrows: boolean): void {
-        const { x, y } = this.track.toPixel(this.track.mousePos);
-        const arm = arrows ? 12 : 10;
-        ctx.setLineDash([]);
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#000';
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(x - arm, y);
-        ctx.lineTo(x + arm, y);
-        ctx.moveTo(x, y - arm);
-        ctx.lineTo(x, y + arm);
-        if (arrows) {
-            // An arrowhead at the end of each arm
-            for (const [dx, dy] of [
-                [1, 0],
-                [-1, 0],
-                [0, 1],
-                [0, -1],
-            ]) {
-                const [tipX, tipY] = [x + dx * arm, y + dy * arm];
-                ctx.moveTo(tipX - dx * 4 - dy * 4, tipY - dy * 4 - dx * 4);
-                ctx.lineTo(tipX, tipY);
-                ctx.lineTo(tipX - dx * 4 + dy * 4, tipY - dy * 4 + dx * 4);
-            }
-        }
-        ctx.stroke();
-    }
-
-    /** Draws objects transformed: the lines in a single path, the items as circles. */
-    private drawObjects(
-        ctx: CanvasRenderingContext2D,
-        objects: readonly TrackObject[],
-        transform: ObjectTransform,
-    ): void {
-        const track = this.track;
-        const radius = 9 * track.zoomFactor;
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        for (const object of objects) {
-            const parts = object instanceof LinkedItemGroup ? object.instances : [object];
-            for (const part of parts) {
-                const pos = track.toPixel(transform.point(part.pos));
-                if (part.kind === 'item') {
-                    ctx.moveTo(pos.x + radius, pos.y);
-                    ctx.arc(pos.x, pos.y, radius, 0, 2 * Math.PI);
-                } else {
-                    const end = track.toPixel(transform.point(part.endPos));
-                    ctx.moveTo(pos.x, pos.y);
-                    ctx.lineTo(end.x, end.y);
-                }
-            }
-        }
-        ctx.stroke();
-    }
-
-    /** Draws an area, dashed, its corners transformed. */
-    private drawArea(ctx: CanvasRenderingContext2D, area: Area, transform: ObjectTransform): void {
-        const corners = [
-            new Vector(area.left, area.top),
-            new Vector(area.right, area.top),
-            new Vector(area.right, area.bottom),
-            new Vector(area.left, area.bottom),
-        ].map((corner) => this.track.toPixel(transform.point(corner)));
-        ctx.save();
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([6, 4]);
-        ctx.beginPath();
-        corners.forEach(({ x, y }, i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
-        ctx.closePath();
-        ctx.stroke();
         ctx.restore();
     }
 }

@@ -51,14 +51,14 @@ describe('Track coordinates', () => {
         const point = new Vector(200, 100);
         const before = track.toPixel(point);
 
-        track.zoomAt(point, 1);
+        track.zoomControl.zoomAt(point, 1);
         expect(track.zoomFactor).toBe(1.2);
         expect(track.toPixel(point).x).toBeCloseTo(before.x);
         expect(track.toPixel(point).y).toBeCloseTo(before.y);
 
-        for (let i = 0; i < 50; i++) track.zoomAt(point, 1);
+        for (let i = 0; i < 50; i++) track.zoomControl.zoomAt(point, 1);
         expect(track.zoomFactor).toBe(MAX_ZOOM);
-        for (let i = 0; i < 50; i++) track.zoomAt(point, -1);
+        for (let i = 0; i < 50; i++) track.zoomControl.zoomAt(point, -1);
         expect(track.zoomFactor).toBe(MIN_ZOOM);
     });
 
@@ -215,12 +215,12 @@ describe('Track physics', () => {
         ghost.createBike();
         track.ghostRunners.set(1, ghost);
 
-        track.updateFocalPoint();
+        track.follower.reset();
         expect(track.focalPoint).toBe(ghost.instance?.hitbox);
 
         track.playerRunner.mustSave = true;
         track.playerRunner.fixedUpdate();
-        track.updateFocalPoint();
+        track.follower.reset();
         expect(track.focalPoint).toBe(track.playerRunner.instance?.hitbox);
     });
 });

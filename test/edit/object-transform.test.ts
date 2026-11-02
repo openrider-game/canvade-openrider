@@ -1,7 +1,7 @@
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { ObjectTransform } from '../../src/openrider/edit/object-transform';
-import { TrackEditor } from '../../src/openrider/edit/track-editor';
+import { unitOf, codeOf } from '../../src/openrider/edit/edit-objects';
 import { LinkedItem } from '../../src/openrider/item/linked-item';
 import type { TrackObject } from '../../src/openrider/item/track-object';
 import type { Track } from '../../src/openrider/track/track';
@@ -31,7 +31,7 @@ const objects = () => [
     ...track.layers.main[0].grid.totalObjects.values(),
 ];
 const byCode = (letter: string) =>
-    objects().find((object) => TrackEditor.codeOf(object).startsWith(`${letter} `))!;
+    objects().find((object) => codeOf(object).startsWith(`${letter} `))!;
 const line = () => track.layers.main[0].grid.totalSolidLines.values().next().value!;
 
 describe('Object transforms', () => {
@@ -58,7 +58,7 @@ describe('Object transforms', () => {
 
     test('move only the items of a linked group given, the others staying', () => {
         const [entry, exit] = objects().filter((object) => object instanceof LinkedItem);
-        const group = TrackEditor.unitOf(entry);
+        const group = unitOf(entry);
         const move = ObjectTransform.move(new Vector(0, 64));
 
         expect(move.code(group, new Set([entry]))).toBe('W u 20 fk 0');
@@ -69,22 +69,22 @@ describe('Object transforms', () => {
         const moved: TrackObject[] = [line(), byCode('T')];
         const move = ObjectTransform.move(new Vector(64, 0));
         const before = objects()
-            .map((object) => TrackEditor.codeOf(object))
+            .map((object) => codeOf(object))
             .sort();
 
         const added = track.editor.replace(
             moved.map((object) => ({ object, code: move.code(object) })),
         );
 
-        expect(added.map((object) => TrackEditor.codeOf(object))).toEqual(['20 0 54 0', 'T 2a 0']);
+        expect(added.map((object) => codeOf(object))).toEqual(['20 0 54 0', 'T 2a 0']);
         expect(moved.every((object) => !object.onTrack)).toBe(true);
         track.history.undo();
         expect(
             objects()
-                .map((object) => TrackEditor.codeOf(object))
+                .map((object) => codeOf(object))
                 .sort(),
         ).toEqual(before);
         track.history.redo();
-        expect(objects().map((object) => TrackEditor.codeOf(object))).toContain('T 2a 0');
+        expect(objects().map((object) => codeOf(object))).toContain('T 2a 0');
     });
 });

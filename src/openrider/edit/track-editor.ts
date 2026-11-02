@@ -1,13 +1,10 @@
 import { Vector } from 'canvade';
 import { Cell } from '../grid/cell/cell';
-import { ITEM_MAP } from '../item/item.constants';
-import { SceneryLine } from '../item/line/scenery-line';
-import { SolidLine } from '../item/line/solid-line';
-import { LinkedItem } from '../item/linked-item';
 import { LinkedItemGroup } from '../item/linked-item-group';
 import type { TrackObject } from '../item/track-object';
 import type { Track } from '../track/track';
 import { TrackLayer, TrackLayerType } from '../track/track-layer';
+import { codeOf, objectFromCode, orderOf, rankObject, unitOf } from './edit-objects';
 import { LayerData, ObjectData, TrackEdit, TrackSnapshot } from './track-edit';
 
 /**
@@ -24,7 +21,7 @@ const EDIT_ORDERS = 1_000_000;
  * a parsed track and its layers are numbered in their order (`p<n>`, `L<n>`), the new ones after
  * the prefix of the editor. The objects of an edit are created from their codes, as on the other
  * screens, rather than kept as drawn; the objects and layers taken off are kept, to be put back
- * as they were when undoing.
+ * as they were when undoing. How the edits describe the objects is in `edit-objects.ts`.
  */
 export class TrackEditor {
     /** Prefix of the ids of the objects and layers created here. */
@@ -48,11 +45,6 @@ export class TrackEditor {
 
     public constructor(private readonly track: Track) {}
 
-    /** The object an edit adds or removes for an object of the track: its group if linked. */
-    public static unitOf(object: TrackObject): TrackObject {
-        return object instanceof LinkedItem && object.group ? object.group : object;
-    }
-
     /** A new id, unique on every screen editing the track. */
     public newUid(): string {
         return `${this.prefix}${this.counter++}`;
@@ -68,7 +60,7 @@ export class TrackEditor {
             this.index = new Map();
             for (const layer of this.track.layers.all) {
                 for (const object of layer.objects()) {
-                    const unit = TrackEditor.unitOf(object);
+                    const unit = unitOf(object);
                     if (unit.uid !== null) {
                         this.index.set(unit.uid, unit);
                     }
@@ -85,7 +77,7 @@ export class TrackEditor {
 
     /** Follows the objects added to the track, called by `Track.add`, once indexed. */
     public added(object: TrackObject): void {
-        const unit = TrackEditor.unitOf(object);
+        const unit = unitOf(object);
         if (this.index && unit.uid !== null) {
             this.index.set(unit.uid, unit);
         }
@@ -96,7 +88,7 @@ export class TrackEditor {
      * when added again, e.g. by undoing.
      */
     public removed(object: TrackObject): void {
-        const unit = TrackEditor.unitOf(object);
+        const unit = unitOf(object);
         if (unit.uid === null) {
             return;
         }
@@ -134,7 +126,7 @@ export class TrackEditor {
 
     /** Removes objects of the track, e.g. a selection deleted, as an edit that can be undone. */
     public remove(objects: readonly TrackObject[]): void {
-        const units = [...new Set(objects.map(TrackEditor.unitOf))];
+        const units = [...new Set(objects.map(unitOf))];
         this.make({
             type: 'remove',
             objects: units.map((unit) => this.describe(unit, this.uidOf(unit))),
@@ -167,7 +159,7 @@ export class TrackEditor {
 
     /** Records objects a tool already took off the track, e.g. erased, as an edit. */
     public recordRemoved(objects: readonly TrackObject[]): void {
-        const units = new Set(objects.map(TrackEditor.unitOf));
+        const units = new Set(objects.map(unitOf));
         const data = [...units].map((unit) => this.describe(unit, this.uidOf(unit)));
         const edit: TrackEdit = { type: 'remove', objects: data };
         this.onEdit?.(edit);
@@ -306,7 +298,7 @@ export class TrackEditor {
                 for (const { uid } of part.objects) {
                     const object = this.objects.get(uid);
                     if (object) {
-                        TrackEditor.rank(object, seq * EDIT_ORDERS + index);
+                        rankObject(object, seq * EDIT_ORDERS + index);
                     }
                     index++;
                 }
@@ -322,12 +314,10 @@ export class TrackEditor {
     public snapshot(): TrackSnapshot {
         const units = new Set<TrackObject>();
         for (const layer of this.track.layers.all) {
-            layer.objects().forEach((object) => units.add(TrackEditor.unitOf(object)));
+            layer.objects().forEach((object) => units.add(unitOf(object)));
         }
-        const objects = [...units].sort(
-            (a, b) => (TrackEditor.orderOf(a) ?? -1) - (TrackEditor.orderOf(b) ?? -1),
-        );
-        objects.forEach((object, index) => TrackEditor.rank(object, index));
+        const objects = [...units].sort((a, b) => (orderOf(a) ?? -1) - (orderOf(b) ?? -1));
+        objects.forEach((object, index) => rankObject(object, index));
 
         return {
             layers: this.track.layers.all.map(TrackEditor.layerData),
@@ -362,37 +352,15 @@ export class TrackEditor {
             this.create(data);
             const object = this.objects.get(data.uid);
             if (object) {
-                TrackEditor.rank(object, index);
+                rankObject(object, index);
             }
         });
         this.track.invalidateUI();
     }
 
-    /** Rank of an object in the grid cells: of its items for a group of linked items. */
-    private static orderOf(object: TrackObject): number | null {
-        return object instanceof LinkedItemGroup
-            ? (object.instances[0]?.order ?? null)
-            : object.order;
-    }
-
-    /** Puts an object at its rank in the grid cells, see `TrackObject.order`. */
-    private static rank(object: TrackObject, order: number): void {
-        const parts = object instanceof LinkedItemGroup ? object.instances : [object];
-        if (parts.every((part) => part.order === order)) {
-            return;
-        }
-        // Taken off and put back, at its rank
-        const onTrack = parts[0]?.onTrack ?? false;
-        object.removeFromTrack();
-        parts.forEach((part) => (part.order = order));
-        if (onTrack) {
-            object.addToTrack();
-        }
-    }
-
     /** Objects of a layer as edits describe them, each group of linked items once. */
     private objectsOf(layer: TrackLayer): ObjectData[] {
-        const units = new Set(layer.objects().map(TrackEditor.unitOf));
+        const units = new Set(layer.objects().map(unitOf));
         return [...units].map((unit) => this.describe(unit, this.uidOf(unit)));
     }
 
@@ -419,23 +387,8 @@ export class TrackEditor {
             uid,
             layer: object.layer.uid,
             kind: object.kind,
-            code: TrackEditor.codeOf(object),
+            code: codeOf(object),
         };
-    }
-
-    /**
-     * Code of an object: its points for a line, else its item code, without marking it as
-     * exported (see `TrackObject.recorded`).
-     */
-    public static codeOf(object: TrackObject): string {
-        if (object.kind !== 'item') {
-            return `${object.pos.toString()} ${object.endPos.toString()}`;
-        }
-        const marked = [object, ...(object instanceof LinkedItemGroup ? object.instances : [])];
-        const recorded = marked.map((part) => part.recorded);
-        const code = object.toString();
-        marked.forEach((part, i) => (part.recorded = recorded[i]));
-        return code;
     }
 
     /** Creates an object from its data and puts it on its layer, unless already there. */
@@ -445,16 +398,11 @@ export class TrackEditor {
             return;
         }
 
-        const code = data.code.split(' ');
         let object = this.detached.get(data.uid);
         if (object) {
             this.detached.delete(data.uid);
-        } else if (data.kind === 'item') {
-            object = ITEM_MAP.get(code[0])?.createInstance(code, this.track);
         } else {
-            const [x1, y1, x2, y2] = code.map((value) => parseInt(value, 32));
-            const LineClass = data.kind === 'solid' ? SolidLine : SceneryLine;
-            object = new LineClass(new Vector(x1, y1), new Vector(x2, y2), this.track);
+            object = objectFromCode(data.kind, data.code, this.track);
         }
         if (!object) {
             return;

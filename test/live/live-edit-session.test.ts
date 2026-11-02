@@ -1,6 +1,6 @@
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import { TrackEditor } from '../../src/openrider/edit/track-editor';
+import { unitOf } from '../../src/openrider/edit/edit-objects';
 import { SolidLine } from '../../src/openrider/item/line/solid-line';
 import { Target } from '../../src/openrider/item/reachable/target';
 import { LiveEditSession } from '../../src/openrider/live/live-edit-session';
@@ -110,7 +110,7 @@ function cells(track: Track): string[] {
         [...layer.grid.cells.entries()]
             .map(([key, cell]) => {
                 const objects = [...cell.lines, ...cell.scenery, ...cell.objects];
-                return `${layer.uid}/${key}:${objects.map((o) => TrackEditor.unitOf(o).uid).join(' ')}`;
+                return `${layer.uid}/${key}:${objects.map((o) => unitOf(o).uid).join(' ')}`;
             })
             .filter((entry) => !entry.endsWith(':'))
             .sort(),

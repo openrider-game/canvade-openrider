@@ -111,7 +111,7 @@ export class CommandBlock extends Item {
     private controlView(time: number): void {
         const { kind, zoom, target, duration } = this.settings;
         if (kind === 'zoom') {
-            this.track.zoomTo(zoom, duration, time);
+            this.track.zoomControl.zoomTo(zoom, duration, time);
         } else if (kind === 'camera') {
             this.track.cameraHold = { pos: target.clone(), until: time + duration };
         }
