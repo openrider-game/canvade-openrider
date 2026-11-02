@@ -53,6 +53,7 @@ require_once __DIR__ . '/src/controllers/editor.php';
 require_once __DIR__ . '/src/controllers/endurance.php';
 require_once __DIR__ . '/src/controllers/ghosts.php';
 require_once __DIR__ . '/src/controllers/reviews.php';
+require_once __DIR__ . '/src/controllers/templates.php';
 require_once __DIR__ . '/src/controllers/thumbs.php';
 require_once __DIR__ . '/src/controllers/tracks.php';
 require_once __DIR__ . '/src/controllers/users.php';
@@ -143,6 +144,12 @@ function site_handle(string $path): bool
         site_verify_status((int) $match[1]);
     } elseif (preg_match('#^/verify/([0-9]+)/(verifier|decline|publish)/$#', $path, $match)) {
         site_verify_action((int) $match[1], $match[2]);
+    } elseif ($path === '/templates/') {
+        site_templates_page();
+    } elseif (preg_match('#^/templates/([0-9]+)/code/$#', $path, $match)) {
+        site_template_code((int) $match[1]);
+    } elseif (preg_match('#^/templates/([0-9]+)/(public|private|delete)/$#', $path, $match)) {
+        site_template_action((int) $match[1], $match[2]);
     } elseif ($path === '/reviews/') {
         site_reviews_page();
     } elseif (preg_match(SITE_REVIEW_ACTION_PATTERN, $path, $match)) {
@@ -177,6 +184,12 @@ function site_game_request(string $page, string $file): void
 
     // Only reads the account: the game sends its requests in parallel
     site_start_session(true);
+
+    // The templates of the account, saved and inserted by the select tool of the editor
+    if ($file === 'backend/db/templates/') {
+        site_templates_endpoint();
+        return;
+    }
 
     // The endurance mode generates its tracks: it only saves and downloads runs
     if ($kind === 'endurance') {

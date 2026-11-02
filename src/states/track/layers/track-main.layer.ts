@@ -1,5 +1,7 @@
 import {
     Display,
+    GameClipboardEvent,
+    GameKeyboardEvent,
     GamePinchEvent,
     GamePointerEvent,
     GameRenderEvent,
@@ -40,6 +42,28 @@ export class TrackMainLayer extends Layer {
         this.subscribe('pinchStart', this.onPinchStart);
         this.subscribe('pinchMove', this.onPinchMove);
         this.subscribe('pinchEnd', this.onPinchEnd);
+        // The clipboard and the keys the interface did not take, e.g. to copy a selection
+        for (const name of ['copy', 'cut', 'paste'] as const) {
+            this.subscribe(name, (e) => this.onToolClipboard(name, e));
+        }
+        this.subscribe('keyDown', this.onToolKeyDown);
+    }
+
+    private onToolClipboard(
+        name: 'copy' | 'cut' | 'paste',
+        e: CustomEvent<GameClipboardEvent>,
+    ): void {
+        const tool = this.state.track.toolManager.tool;
+        if (!e.detail.consumed && tool?.onClipboard(name, e.detail.clipboardEvent)) {
+            e.detail.consumed = true;
+        }
+    }
+
+    private onToolKeyDown(e: CustomEvent<GameKeyboardEvent>): void {
+        const tool = this.state.track.toolManager.tool;
+        if (!e.detail.consumed && tool?.onKeyDown(e.detail.keyboardEvent)) {
+            e.detail.consumed = true;
+        }
     }
 
     private renderTrack(e: CustomEvent<GameRenderEvent>): void {

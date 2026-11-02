@@ -18,9 +18,11 @@
  * - `LOCAL_RATE_EVENTS`: the recent actions counted by the rate limits, see security.php;
  * - `LOCAL_ENDURANCE_RUNS`: the best endurance run of each account on each track of the day, a
  *   seed on a version of the generator of the game,
- *   ranked on the endurance page.
+ *   ranked on the endurance page;
+ * - `LOCAL_TEMPLATES`: the objects saved by the accounts from the editor, private or public, to
+ *   paste in their tracks (see db/templates.php).
  *
- * The tracks and ghosts uploaded without the site, or before the accounts, have no account.
+ * The tracks and ghosts uploaded to the backend without the site have no account.
  */
 
 require_once __DIR__ . '/../../../../db/api.php';
@@ -100,8 +102,10 @@ function site_create_tables(PDO $db): void
         . ' "GHOSTSTRING" TEXT NOT NULL, "DISTANCE" INTEGER NOT NULL, "TIME" INTEGER NOT NULL,'
         . ' "REVIEW" TEXT)'
     );
-    // Added with the versions of the generator: the runs saved before them are on the first one.
-    // A track is a seed on a version, each account keeping one run on each
+    // The columns below are added to the tables of an existing database missing them, see
+    // site_add_column(). Version of the generator of each run, 1 by default: a track is a seed on
+    // a version, each account keeping one run on each, so an index on the seed and the account
+    // alone is dropped
     site_add_column($db, 'LOCAL_ENDURANCE_RUNS', 'VERSION', 'INTEGER NOT NULL DEFAULT 1');
     $db->exec('DROP INDEX IF EXISTS idx_local_endurance_runs_user');
     $db->exec(
@@ -109,13 +113,13 @@ function site_create_tables(PDO $db): void
         . ' ON "LOCAL_ENDURANCE_RUNS" ("SEED", "VERSION", "USERID")'
     );
 
-    // Added with the accounts: null for the tracks and uploads made before them
+    // Account of each track and upload, null for those uploaded to the backend without the site
     $userColumn = 'INTEGER REFERENCES "LOCAL_USERS" ("ID")';
     site_add_column($db, 'LOCAL_TRACK_DETAILS', 'USERID', $userColumn);
     site_add_column($db, 'LOCAL_UPLOADS', 'USERID', $userColumn);
 
-    // Added with the verification: null for the tracks published before it, unverified. Not a
-    // reference: a track stays verified when its verifier deletes their account
+    // Verifier and verifying run of each published track, null for a track without one, which is
+    // unverified. Not a reference: a track stays verified when its verifier deletes their account
     site_add_column($db, 'LOCAL_TRACK_DETAILS', 'VERIFIERID', 'INTEGER');
     site_add_column($db, 'LOCAL_TRACK_DETAILS', 'VERIFICATIONGHOSTID', 'INTEGER');
     // The verifier of a track code waiting for verification, then the verifying run, and why it
@@ -124,14 +128,29 @@ function site_create_tables(PDO $db): void
     site_add_column($db, 'LOCAL_UPLOADS', 'VERIFICATIONGHOST', 'TEXT');
     site_add_column($db, 'LOCAL_UPLOADS', 'VERIFICATIONTIME', 'INTEGER');
 
-    // Added with the editing sessions: the other accounts that edited a track with its author,
-    // their ids separated with commas, empty for a track of its author alone
+    // The other accounts that edited a track with its author, their ids separated with commas,
+    // empty for a track of its author alone; then why an upload waits for an admin
     site_add_column($db, 'LOCAL_UPLOADS', 'COLLABORATORS', "TEXT NOT NULL DEFAULT ''");
     site_add_column($db, 'LOCAL_TRACK_DETAILS', 'COLLABORATORS', "TEXT NOT NULL DEFAULT ''");
     site_add_column($db, 'LOCAL_UPLOADS', 'REVIEW', 'TEXT');
+
+    // The templates of the accounts, public ones seen by everyone (1), their creation as a Unix
+    // timestamp
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_TEMPLATES" ('
+        . "\"ID\" $id, \"USERID\" INTEGER NOT NULL REFERENCES \"LOCAL_USERS\" (\"ID\"),"
+        . ' "NAME" TEXT NOT NULL, "CODE" TEXT NOT NULL, "OBJECTS" INTEGER NOT NULL,'
+        . ' "PUBLIC" INTEGER NOT NULL DEFAULT 0, "CREATED" INTEGER NOT NULL)'
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_local_templates_user ON "LOCAL_TEMPLATES" ("USERID")'
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_local_templates_public ON "LOCAL_TEMPLATES" ("PUBLIC", "ID")'
+    );
 }
 
-/** Adds a column to a table of the site created before it, keeping its rows. */
+/** Adds a column missing from a table of an existing database, keeping its rows. */
 function site_add_column(PDO $db, string $table, string $column, string $definition): void
 {
     // Reads the columns of the table: selecting a missing column does not fail on SQLite, which

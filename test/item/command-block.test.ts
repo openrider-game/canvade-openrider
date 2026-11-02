@@ -6,6 +6,8 @@ import {
     CommandSettings,
     defaultCommandSettings,
 } from '../../src/openrider/item/command/command-block';
+import { GAME_UPS } from '../../src/openrider/constants/game.constants';
+import { MAX_SELECTED_OBJECTS } from '../../src/openrider/edit/edit-limits';
 import { ITEM_MAP } from '../../src/openrider/item/item.constants';
 import { SolidLine } from '../../src/openrider/item/line/solid-line';
 import { Bomb } from '../../src/openrider/item/misc/bomb';
@@ -96,7 +98,7 @@ afterEach(() => {
 describe('Command blocks', () => {
     test('are written to and read from track codes, for each command', () => {
         const settings: Array<Partial<CommandSettings>> = [
-            { kind: 'zoom', zoom: 1.5 },
+            { kind: 'zoom', zoom: 1.5, duration: 100 },
             { kind: 'camera', target: new Vector(640, -96), duration: 100 },
             { kind: 'hide', area: WALL_AREA },
             { kind: 'show', area: WALL_AREA },
@@ -113,6 +115,53 @@ describe('Command blocks', () => {
             expect(parsed.settings).toMatchObject(setting);
             expect(parsed.toString()).toBe(code);
         }
+    });
+
+    test('read a zoom block without a duration, zooming for 1 second', () => {
+        // Zoom 1.5, without a duration
+        const parsed = ITEM_MAP.get('A')?.createInstance(
+            ['A', '50', '10', '0', '4m'],
+            track,
+        ) as CommandBlock;
+
+        expect(parsed.settings).toMatchObject({ kind: 'zoom', zoom: 1.5, duration: GAME_UPS });
+        expect(parsed.toString()).toBe(`A 50 10 0 4m ${GAME_UPS.toString(32)}`);
+    });
+
+    test('zoom the view for their duration, then back to the zoom of the player', () => {
+        const player = track.viewZoom;
+        const settle = () => {
+            for (let i = 0; i < 400; i++) track.easeZoom(16);
+        };
+        // The time of the run of the player, a block holding its zoom until a tick of it
+        const at = (time: number) => vi.spyOn(track, 'time', 'get').mockReturnValue(time);
+        trigger(block(150, 40, { kind: 'zoom', zoom: 2, duration: 100 }), track.playerRunner);
+        const first = track.zoomHold!.until;
+        at(first - 1);
+        settle();
+        expect(track.viewZoom).toBeCloseTo(2, 3);
+
+        // A second block during the first one: back to the zoom of the player after both
+        trigger(block(200, 40, { kind: 'zoom', zoom: 1.5, duration: 300 }), track.playerRunner);
+        const second = track.zoomHold!.until;
+        expect(second).toBeGreaterThan(first);
+        at(second - 1);
+        settle();
+        expect(track.viewZoom).toBeCloseTo(1.5, 3);
+        at(second);
+        settle();
+        expect(track.viewZoom).toBeCloseTo(player, 3);
+        expect(track.zoomHold).toBeNull();
+    });
+
+    test('give the zoom of the player back on restart', () => {
+        const player = track.viewZoom;
+        trigger(block(150, 40, { kind: 'zoom', zoom: 2, duration: 500 }), track.playerRunner);
+
+        track.restart();
+        for (let i = 0; i < 400; i++) track.easeZoom(16);
+
+        expect(track.viewZoom).toBeCloseTo(player, 3);
     });
 
     test('open a door for the bikes that touched them only', () => {
@@ -289,6 +338,35 @@ describe('Command block tool', () => {
         [...track.layers.main[0].grid.totalObjects.values()].filter(
             (item): item is CommandBlock => item instanceof CommandBlock,
         );
+
+    test('refuse an area holding more objects than a selection can, dragged again', () => {
+        const tool = select();
+        // More short lines than allowed, in a 600 x 600 area
+        for (let i = 0; i <= MAX_SELECTED_OBJECTS; i++) {
+            const x = (i % 100) * 6;
+            const y = Math.floor(i / 100) * 6;
+            place(new SolidLine(new Vector(x, y), new Vector(x + 3, y + 3), track));
+        }
+
+        click(-100, -100);
+        drag(new Vector(-10, -10), new Vector(610, 610));
+        const labels = tool.getOptions().map((option) => option.label);
+        expect(labels).toContain(
+            `Too many objects: ${MAX_SELECTED_OBJECTS + 1} / ${MAX_SELECTED_OBJECTS}`,
+        );
+        expect(labels).toContain('Next: drag the area to act on');
+        expect(blocks()).toEqual([]);
+
+        // A smaller area is taken
+        drag(new Vector(-10, -10), new Vector(100, 100));
+        expect(blocks()).toHaveLength(1);
+        expect(
+            tool
+                .getOptions()
+                .map((option) => option.label)
+                .some((label) => label.startsWith('Too many')),
+        ).toBe(false);
+    });
 
     test('places a block, then drags the area it opens', () => {
         const tool = select();

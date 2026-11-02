@@ -797,7 +797,16 @@ describe('Shape tools', () => {
         const curve = select(CurveTool);
         drag(new Vector(0, 0), new Vector(200, 0));
         expect(solidLines()).toHaveLength(0);
-        expect(curve.getOptions()[1].label).toBe('Next: click where the curve passes');
+        // The next step as a label, the curve drawn again from its start with Restart
+        const options = () =>
+            curve.getOptions().map(({ label, action }) => [label, Boolean(action)]);
+        expect(options().slice(1)).toEqual([
+            ['Next: click where the curve passes', false],
+            ['Restart', true],
+        ]);
+        curve.getOptions()[2].action!();
+        expect(options().slice(1)).toEqual([['Next: drag from its start to its end', false]]);
+        drag(new Vector(0, 0), new Vector(200, 0));
 
         click(100, -50);
         const lines = solidLines();

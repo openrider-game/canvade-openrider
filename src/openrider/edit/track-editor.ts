@@ -121,6 +121,50 @@ export class TrackEditor {
         return data.flatMap(({ uid }) => this.objects.get(uid) ?? []);
     }
 
+    /**
+     * Adds objects from their codes, e.g. pasted, as an edit that can be undone.
+     *
+     * @returns The objects added.
+     */
+    public addCodes(objects: ReadonlyArray<Omit<ObjectData, 'uid'>>): TrackObject[] {
+        const data = objects.map((object) => ({ ...object, uid: this.newUid() }));
+        this.make({ type: 'add', objects: data });
+        return data.flatMap(({ uid }) => this.objects.get(uid) ?? []);
+    }
+
+    /** Removes objects of the track, e.g. a selection deleted, as an edit that can be undone. */
+    public remove(objects: readonly TrackObject[]): void {
+        const units = [...new Set(objects.map(TrackEditor.unitOf))];
+        this.make({
+            type: 'remove',
+            objects: units.map((unit) => this.describe(unit, this.uidOf(unit))),
+        });
+    }
+
+    /**
+     * Replaces objects with others of the same kinds on the same layers, from their codes, e.g. a
+     * selection moved or turned, as a single edit that can be undone. The objects added get new
+     * ids: the ones removed are kept as they were, to be added back when undone.
+     *
+     * @returns The objects added, in the order of the changes.
+     */
+    public replace(changes: ReadonlyArray<{ object: TrackObject; code: string }>): TrackObject[] {
+        const removed = changes.map(({ object }) => this.describe(object, this.uidOf(object)));
+        const added = removed.map((data, i) => ({
+            ...data,
+            uid: this.newUid(),
+            code: changes[i].code,
+        }));
+        this.make({
+            type: 'group',
+            edits: [
+                { type: 'remove', objects: removed },
+                { type: 'add', objects: added },
+            ],
+        });
+        return added.flatMap(({ uid }) => this.objects.get(uid) ?? []);
+    }
+
     /** Records objects a tool already took off the track, e.g. erased, as an edit. */
     public recordRemoved(objects: readonly TrackObject[]): void {
         const units = new Set(objects.map(TrackEditor.unitOf));
@@ -371,14 +415,19 @@ export class TrackEditor {
         if (!object.layer) {
             throw new Error(`Track object #${object.id} is not placed on a layer`);
         }
-        return { uid, layer: object.layer.uid, kind: object.kind, code: TrackEditor.code(object) };
+        return {
+            uid,
+            layer: object.layer.uid,
+            kind: object.kind,
+            code: TrackEditor.codeOf(object),
+        };
     }
 
     /**
      * Code of an object: its points for a line, else its item code, without marking it as
      * exported (see `TrackObject.recorded`).
      */
-    private static code(object: TrackObject): string {
+    public static codeOf(object: TrackObject): string {
         if (object.kind !== 'item') {
             return `${object.pos.toString()} ${object.endPos.toString()}`;
         }

@@ -22,6 +22,7 @@ import { DebugOptions, defaultDebugOptions } from './debug-options';
 import { ReachedItems } from './reached-items';
 import { LayerStack } from './layer-stack';
 import {
+    CAMERA_FOLLOW_FACTOR,
     DEFAULT_ZOOM,
     MAX_LINE_LENGTH,
     MIN_LINE_LENGTH,
@@ -81,8 +82,16 @@ export class Track extends World {
      * objects they hide are drawn faded.
      */
     public editing = false;
-    /** View zoom a command block eases the view to, null once reached. */
+    /**
+     * View zoom the view eases to: the zoom of a command block, or back to the zoom of the player;
+     * null once reached.
+     */
     public zoomTarget: number | null = null;
+    /**
+     * Zoom a command block holds the view at until a physics tick of the run of the player, and
+     * the zoom of the player the view goes back to then, as view zooms; null without one.
+     */
+    public zoomHold: { zoom: number; until: number; back: number } | null = null;
     /** Pixel zoom of the last frame, null before the first one, see {@link followZoom}. */
     private zoomSeen: number | null = null;
     /** Time the pixel zoom last changed at, in milliseconds (`performance.now`). */
@@ -234,9 +243,55 @@ export class Track extends World {
      * @param point - World position to zoom at.
      * @param direction - Number of zoom steps, positive to zoom in, negative to zoom out.
      */
+    /**
+     * Zooms the view as a command block asks, for a duration: the view then goes back to the zoom
+     * of the player, the one before the first block of a series.
+     *
+     * @param zoom - View zoom, as the zoom levels of the player.
+     * @param duration - Duration, in physics ticks.
+     * @param time - Time of the run of the player, in physics ticks.
+     */
+    public zoomTo(zoom: number, duration: number, time: number): void {
+        // The zoom of the player: kept through the blocks following each other
+        const back = this.zoomHold?.back ?? this.zoomTarget ?? this.viewZoom;
+        this.zoomHold = { zoom, until: time + duration, back };
+        this.zoomTarget = zoom;
+    }
+
+    /** Ends the zoom of a command block, the view going back to the zoom of the player. */
+    public releaseZoom(): void {
+        if (this.zoomHold) {
+            this.zoomTarget = this.zoomHold.back;
+            this.zoomHold = null;
+        }
+    }
+
+    /**
+     * Eases the zoom to the one a command block asked for at the speed of the camera, and back to
+     * the zoom of the player once its duration is over.
+     */
+    public easeZoom(delta: number): void {
+        if (this.zoomHold && this.time >= this.zoomHold.until) {
+            this.releaseZoom();
+        }
+        if (this.zoomTarget === null) {
+            return;
+        }
+
+        const target = Zoom.toPixel(this.zoomTarget, this.pixelRatio);
+        const gap = target - this.zoomFactor;
+        if (Math.abs(gap) < target * 0.001) {
+            this.zoomFactor = target;
+            this.zoomTarget = null;
+        } else {
+            this.zoomFactor += gap * Math.min(1, delta * CAMERA_FOLLOW_FACTOR);
+        }
+    }
+
     public zoomAt(point: Vector, direction: number): void {
         // The player takes the zoom back from the command blocks
         this.zoomTarget = null;
+        this.zoomHold = null;
         const pixel = this.toPixel(point);
         this.zoomFactor = Zoom.toPixel(Zoom.step(this.viewZoom, direction), this.pixelRatio);
         this.camera.x = point.x - (pixel.x - this.viewWidth / 2) / this.zoomFactor;
@@ -376,6 +431,7 @@ export class Track extends World {
         this.pause(false);
         // The view commands of the last run end with it
         this.cameraHold = null;
+        this.releaseZoom();
 
         this.playerRunner.restart();
         this.ghostRunners.forEach((runner) => runner.restart());

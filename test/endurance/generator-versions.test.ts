@@ -107,7 +107,7 @@ describe('Generator versions', () => {
         ]);
     });
 
-    test('keep the records of each version apart, the first one as before the versions', () => {
+    test('keep the records of each version apart, the first one under its seed alone', () => {
         const records = new EnduranceRecords(memoryStorage());
 
         records.submit({ distance: 50, time: 900, seed: 7 });

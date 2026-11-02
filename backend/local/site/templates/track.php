@@ -61,7 +61,7 @@ $user = site_user();
 
 <p class="track-verification muted">
     <?php if ($track['VERIFIERID'] === null): ?>
-        Unverified: published before the verification of the tracks.
+        Unverified: published without a verifying run.
     <?php elseif ($track['VERIFIER'] === null): ?>
         Verified by an account deleted since.
     <?php else: ?>

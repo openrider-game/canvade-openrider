@@ -6,7 +6,7 @@ export interface EnduranceResult {
     time: number;
     /** Seed of the track. */
     seed: number;
-    /** Version of the generator of the track, 1 for the results kept before the versions. */
+    /** Version of the generator of the track, 1 when missing. */
     version?: number;
 }
 
@@ -28,8 +28,8 @@ interface StoredRecords {
 }
 
 /**
- * Key of a track in the records: its seed on the first version of the generator, as the records
- * kept before the versions, else `<version>:<seed>`.
+ * Key of a track in the records: its seed on the first version of the generator, else
+ * `<version>:<seed>`.
  */
 function trackKey(seed: number, version = 1): string {
     return version === 1 ? String(seed) : `${version}:${seed}`;

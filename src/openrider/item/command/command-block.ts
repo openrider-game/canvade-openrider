@@ -7,7 +7,7 @@ import { Item, parseItemPosition } from '../item';
 /**
  * Commands of the blocks, in the order of their code in the track codes:
  *
- * - `zoom`: eases the view of the player to a zoom;
+ * - `zoom`: zooms the view of the player for a while, then back to the zoom of the player;
  * - `camera`: shows a point of the track to the player for a while, then follows the bike again;
  * - `hide`: the objects of the area disappear, e.g. a door opening;
  * - `show`: the objects of the area appear, e.g. a bridge;
@@ -34,7 +34,9 @@ export interface CommandSettings {
     offset: Vector;
     /** `camera`: point shown. */
     target: Vector;
-    /** `camera` and `move`: duration, in physics ticks. */
+    /**
+     * `zoom`, `camera` and `move`: duration, in physics ticks, 1 second for a code without one.
+     */
     duration: number;
     /** `zoom`: view zoom, as the zoom levels of the player. */
     zoom: number;
@@ -66,7 +68,8 @@ const NO_OFFSET = Object.freeze(new Vector());
  * view commands only follow the player.
  *
  * Track code: `A x y <kind> <settings>`, the kind being its index in {@link COMMAND_KINDS} and the
- * settings integers in base 32: `zoom` its zoom times 100, `camera` the point and the duration,
+ * settings integers in base 32: `zoom` its zoom times 100 and the duration, `camera` the point and
+ * the duration,
  * `hide` and `show` the area (left, top, right, bottom), `move` the area, the offset and the
  * duration.
  */
@@ -108,7 +111,7 @@ export class CommandBlock extends Item {
     private controlView(time: number): void {
         const { kind, zoom, target, duration } = this.settings;
         if (kind === 'zoom') {
-            this.track.zoomTarget = zoom;
+            this.track.zoomTo(zoom, duration, time);
         } else if (kind === 'camera') {
             this.track.cameraHold = { pos: target.clone(), until: time + duration };
         }
@@ -240,7 +243,7 @@ export class CommandBlock extends Item {
         const areaValues = area ? [area.left, area.top, area.right, area.bottom] : [0, 0, 0, 0];
 
         if (kind === 'zoom') {
-            values.push(zoom * 100);
+            values.push(zoom * 100, duration);
         } else if (kind === 'camera') {
             values.push(target.x, target.y, duration);
         } else if (kind === 'move') {
@@ -263,6 +266,7 @@ export class CommandBlock extends Item {
 
         if (kind === 'zoom') {
             settings.zoom = a / 100 || 1;
+            settings.duration = b || settings.duration;
         } else if (kind === 'camera') {
             settings.target = new Vector(a, b);
             settings.duration = c || settings.duration;

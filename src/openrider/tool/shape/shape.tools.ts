@@ -120,13 +120,13 @@ export class CurveTool extends ShapeTool {
     }
 
     protected override getShapeOptions(): ToolOption[] {
+        if (!this.ends) {
+            return [{ label: 'Next: drag from its start to its end' }];
+        }
+        // Once its ends are drawn, the curve can be drawn again from its start
         return [
-            {
-                label: this.ends
-                    ? 'Next: click where the curve passes'
-                    : 'Next: drag from its start to its end',
-                action: () => this.restart(),
-            },
+            { label: 'Next: click where the curve passes' },
+            { label: 'Restart', action: () => this.restart() },
         ];
     }
 

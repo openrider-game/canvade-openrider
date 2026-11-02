@@ -78,8 +78,8 @@ function site_find_user_by_name(PDO $db, string $name): ?array
 }
 
 /**
- * Creates an account. The first one takes over the drafts and uploads made before the accounts,
- * which would be lost otherwise: nobody else can open them.
+ * Creates an account. The first one takes over the drafts and uploads without an account, which
+ * would be lost otherwise: nobody else can open them.
  *
  * @return int|null Id of the account, null when the name is taken.
  */

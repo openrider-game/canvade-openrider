@@ -8,6 +8,7 @@ import {
     CommandSettings,
     defaultCommandSettings,
 } from '../../item/command/command-block';
+import { MAX_SELECTED_OBJECTS } from '../../edit/edit-limits';
 import type { Item } from '../../item/item';
 import { ToolOption } from '../tool';
 import { COMMAND_BLOCK_ICON } from '../tool-icons';
@@ -37,6 +38,9 @@ type Step = 'block' | 'area' | 'target';
  * area it acts on (open, show, move), then click where the center of the area moves to (move),
  * or click the point it shows (camera). The options choose the command, its zoom and its
  * duration, and tell the next step.
+ *
+ * An area holding more objects than a selection can (see {@link MAX_SELECTED_OBJECTS}) is drawn
+ * in red and refused, the area being dragged again.
  */
 export class CommandBlockTool extends ItemTool {
     public static override readonly toolName: string = 'Command Block';
@@ -49,6 +53,8 @@ export class CommandBlockTool extends ItemTool {
     private blockPos: Vector | null = null;
     /** Corner of the area being dragged, null while not dragging. */
     private areaStart: Vector | null = null;
+    /** Objects of the last area refused, holding too many of them; null after an accepted one. */
+    private refused: number | null = null;
 
     protected get itemClass(): { readonly color: string } {
         return CommandBlock;
@@ -100,6 +106,14 @@ export class CommandBlockTool extends ItemTool {
             if (!area) {
                 return;
             }
+            const count = this.objectsIn(area);
+            if (count > MAX_SELECTED_OBJECTS) {
+                // Too many objects: the options tell it, the area is dragged again
+                this.refused = count;
+                this.track.invalidateUI();
+                return;
+            }
+            this.refused = null;
             this.settings.area = area;
             if (kind === 'move') {
                 this.setStep('target');
@@ -115,6 +129,11 @@ export class CommandBlockTool extends ItemTool {
         }
     }
 
+    /** Objects of the layer of the blocks inside an area, the ones the block would act on. */
+    private objectsIn(area: CommandArea): number {
+        return this.track.commands.objectsIn(this.track.layers.itemLayer, area).length;
+    }
+
     private placeBlock(): void {
         if (this.blockPos) {
             this.place(this.createItem(this.blockPos));
@@ -126,6 +145,7 @@ export class CommandBlockTool extends ItemTool {
     private restart(): void {
         this.blockPos = null;
         this.areaStart = null;
+        this.refused = null;
         this.settings.area = null;
         this.settings.offset = new Vector();
         this.settings.target = new Vector();
@@ -161,7 +181,7 @@ export class CommandBlockTool extends ItemTool {
                 },
             });
         }
-        if (kind === 'camera' || kind === 'move') {
+        if (kind === 'zoom' || kind === 'camera' || kind === 'move') {
             const seconds = duration / GAME_UPS;
             options.push({
                 label: `Duration: ${seconds} s`,
@@ -172,11 +192,18 @@ export class CommandBlockTool extends ItemTool {
             });
         }
 
-        options.push({ label: `Next: ${this.nextStep()}`, action: () => this.restart() });
+        if (this.refused !== null) {
+            options.push({ label: `Too many objects: ${this.refused} / ${MAX_SELECTED_OBJECTS}` });
+        }
+        options.push({ label: `Next: ${this.nextStep()}` });
+        // Once started, the block can be placed again from its position
+        if (this.step !== 'block') {
+            options.push({ label: 'Restart', action: () => this.restart() });
+        }
         return options;
     }
 
-    /** What the next click does, also restarting the block when clicked in the options. */
+    /** What the next click does, told in the options. */
     private nextStep(): string {
         if (this.step === 'block') {
             return 'click the block position';
@@ -201,7 +228,28 @@ export class CommandBlockTool extends ItemTool {
             return;
         }
 
-        CommandBlock.renderSettings(ctx, this.track, this.blockPos, this.preview(mousePos));
+        const preview = this.preview(mousePos);
+        // An area holding too many objects, refused when released
+        const tooMany =
+            this.step === 'area' &&
+            preview.area !== null &&
+            this.objectsIn(preview.area) > MAX_SELECTED_OBJECTS;
+        CommandBlock.renderSettings(ctx, this.track, this.blockPos, preview);
+        if (tooMany && preview.area) {
+            const { left, top, right, bottom } = preview.area;
+            const topLeft = this.track.toPixel(new Vector(left, top));
+            const bottomRight = this.track.toPixel(new Vector(right, bottom));
+            ctx.save();
+            ctx.strokeStyle = '#e33';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(
+                topLeft.x,
+                topLeft.y,
+                bottomRight.x - topLeft.x,
+                bottomRight.y - topLeft.y,
+            );
+            ctx.restore();
+        }
         this.renderPreview(ctx, this.track.toPixel(this.blockPos));
 
         ctx.save();

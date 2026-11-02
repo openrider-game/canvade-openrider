@@ -9,6 +9,7 @@ import { RedoTool, UndoTool } from './misc/history.tool';
 import { PauseTool } from './misc/pause.tool';
 import { RestartTool } from './misc/restart.tool';
 import { RetireTool } from './misc/retire.tool';
+import { SelectTool } from './misc/select.tool';
 import { StartPositionTool } from './misc/start-position.tool';
 import { SwitchBikeTool } from './misc/switch-bike.tool';
 import { ToolClass } from './tool';
@@ -52,6 +53,7 @@ export const LEFT_TOOLBAR_VIEWING: ToolbarEntries = [
         LineGroupTool,
         ShapeGroupTool,
         EraserTool,
+        SelectTool,
         GridSnapTool,
         null,
         ItemGroupTool,

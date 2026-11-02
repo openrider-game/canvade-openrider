@@ -59,6 +59,7 @@ function site_delete_user(PDO $db, int $userId): void
             . ' "VERIFICATIONTIME" = NULL, "REVIEW" = NULL WHERE "VERIFIERID" = :userId'
         )->execute($params);
         $db->prepare('DELETE FROM "LOCAL_UPLOADS" WHERE "USERID" = :userId')->execute($params);
+        $db->prepare('DELETE FROM "LOCAL_TEMPLATES" WHERE "USERID" = :userId')->execute($params);
         $db->prepare('DELETE FROM "LOCAL_USERS" WHERE "ID" = :userId')->execute($params);
     });
 }

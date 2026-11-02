@@ -137,17 +137,12 @@ export class CommandRegistry {
     }
 
     /**
-     * Binds the objects of the area of a block, taking them from the blocks of higher ids. The
-     * candidates come from the physics cells of the area, or from the totals of the layer when
-     * the area has more cells than the layer has objects.
+     * Objects on the track fully inside an area of a layer, command blocks included: e.g. the ones
+     * a block acts on, or the ones a selection holds. The candidates come from the physics cells of
+     * the area, or from the totals of the layer when the area has more cells than the layer has
+     * objects.
      */
-    private bindArea(block: CommandBlock): void {
-        const { layer, settings } = block;
-        const area = settings.area;
-        if (!layer || !area || !block.actsOnArea) {
-            return;
-        }
-
+    public objectsIn(layer: TrackLayer, area: CommandArea): TrackObject[] {
         const grid = layer.grid;
         const size = grid.cellSize;
         const [fromX, toX] = [Math.floor(area.left / size), Math.floor(area.right / size)];
@@ -174,12 +169,23 @@ export class CommandRegistry {
             }
         }
 
-        for (const object of candidates) {
+        return [...candidates].filter(
+            (object) => object.onTrack && CommandRegistry.fits(object, area),
+        );
+    }
+
+    /** Binds the objects of the area of a block, taking them from the blocks of higher ids. */
+    private bindArea(block: CommandBlock): void {
+        const { layer, settings } = block;
+        const area = settings.area;
+        if (!layer || !area || !block.actsOnArea) {
+            return;
+        }
+
+        for (const object of this.objectsIn(layer, area)) {
             if (
                 (object.command === null || object.command.id > block.id) &&
-                object.onTrack &&
-                !this.blocks.has(object as CommandBlock) &&
-                CommandRegistry.fits(object, area)
+                !this.blocks.has(object as CommandBlock)
             ) {
                 if (object.command) {
                     this.detach(object);

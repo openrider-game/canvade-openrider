@@ -3,7 +3,6 @@ import { LiveSession } from '../../openrider/live/live-session';
 import { GhostParser } from '../../openrider/parser/ghost-parser';
 import { GhostService } from '../../openrider/request/ghost-service';
 import { CAMERA_FOLLOW_FACTOR } from '../../openrider/track/track.constants';
-import { Zoom } from '../../openrider/track/zoom';
 import { TrackHudLayer } from './layers/track-hud.layer';
 import { TrackInterfaceLayer } from './layers/track-interface.layer';
 import { TrackMainLayer } from './layers/track-main.layer';
@@ -102,23 +101,6 @@ export abstract class TrackPlayState extends TrackViewState {
         if (focus) {
             track.camera.selfAdd(focus.sub(track.camera).scale(delta * CAMERA_FOLLOW_FACTOR));
         }
-        this.easeZoom(delta);
-    }
-
-    /** Eases the zoom to the one a command block asked for, at the speed of the camera. */
-    private easeZoom(delta: number): void {
-        const track = this.track;
-        if (track.zoomTarget === null) {
-            return;
-        }
-
-        const target = Zoom.toPixel(track.zoomTarget, track.pixelRatio);
-        const gap = target - track.zoomFactor;
-        if (Math.abs(gap) < target * 0.001) {
-            track.zoomFactor = target;
-            track.zoomTarget = null;
-        } else {
-            track.zoomFactor += gap * Math.min(1, delta * CAMERA_FOLLOW_FACTOR);
-        }
+        track.easeZoom(delta);
     }
 }

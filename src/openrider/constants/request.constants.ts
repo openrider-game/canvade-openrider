@@ -7,4 +7,9 @@ export const TRACKDATA_PATH = 'backend/db/trackdata/',
     GHOSTUPLOAD_PATH = 'backend/db/ghostupload/',
     TRACKUPLOAD_PATH = 'backend/db/trackupload/',
     /** Endpoint of the website saving the endurance runs, not shipped with the backend. */
-    ENDURANCEUPLOAD_PATH = 'backend/db/enduranceupload/';
+    ENDURANCEUPLOAD_PATH = 'backend/db/enduranceupload/',
+    /**
+     * Endpoint of the website saving and listing the templates of the accounts, not shipped with
+     * the backend.
+     */
+    TEMPLATES_PATH = 'backend/db/templates/';

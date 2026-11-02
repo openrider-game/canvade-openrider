@@ -44,11 +44,14 @@ export interface ToolClass {
     readonly keyboardOnly: boolean;
 }
 
-/** Button displayed in the options drawer while its tool is the current tool. */
+/**
+ * Entry of the options drawer while its tool is the current tool: a button, or a label telling
+ * something, e.g. the next step or the objects selected, without an action.
+ */
 export interface ToolOption {
     label: string;
-    /** Called when the option is clicked: e.g. switching it, or its next value. */
-    action(): void;
+    /** Called when the option is clicked: e.g. switching it, or its next value; none for a label. */
+    action?(): void;
     /**
      * Steps the value of the option down and up, e.g. a size, with `−` and `+` buttons beside its
      * label: the way to set it on every screen, touch screens included.
@@ -206,6 +209,25 @@ export abstract class Tool {
     public onScroll(e: WheelEvent): void {
         const pos = this.track.focalPoint ? this.track.focalPoint.displayPos : this.track.mousePos;
         this.track.zoomAt(pos, -Math.sign(e.deltaY));
+    }
+
+    /**
+     * Handles a copy, cut or paste of the clipboard of the browser while the tool is current, e.g.
+     * Ctrl+C: setting or reading the data of the clipboard event.
+     *
+     * @returns Whether the tool handled it, the browser then leaving the clipboard to it.
+     */
+    public onClipboard(_name: 'copy' | 'cut' | 'paste', _e: ClipboardEvent): boolean {
+        return false;
+    }
+
+    /**
+     * Handles a key pressed while the tool is current, before the controls, e.g. Delete.
+     *
+     * @returns Whether the tool took it, the controls then not seeing it.
+     */
+    public onKeyDown(_e: KeyboardEvent): boolean {
+        return false;
     }
 
     /** Called on each physics tick while the tool is current and `ToolManager.active`. */

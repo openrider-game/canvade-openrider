@@ -29,10 +29,15 @@ export class OptionsDrawer {
         const offsets = this.offsets(height);
         structure.push({
             'container.overlay.panel.options': options.map((option, index) => {
-                const button = {
-                    [`button.option-${index}`]: { events: { click: () => option.action() } },
-                };
+                const action = option.action;
+                const button = action
+                    ? { [`button.option-${index}`]: { events: { click: () => action() } } }
+                    : `text.options-label.option-${index}`;
                 const steps = option.steps;
+                if (!action && !steps) {
+                    // A label in its row, centered as the buttons are
+                    return { [`container.options-row.options-row-${index}`]: [button] };
+                }
                 return steps
                     ? {
                           [`container.options-row.options-row-${index}`]: [
@@ -78,6 +83,15 @@ export class OptionsDrawer {
             y: offsets.handle,
             text: this.open ? OPEN_LABEL : CLOSED_LABEL,
         };
+        // Centered in its row: the text of an element is drawn from its top
+        const labelOffset = Math.max(0, Math.round((metrics.rowHeight - metrics.fontSize) / 2));
+        styles['.options-label'] = {
+            y: labelOffset,
+            height: metrics.rowHeight - labelOffset,
+            fontSize: metrics.fontSize,
+            textAlign: 'center',
+            wrap: 'none',
+        };
         // Each button with its own width: a rule for all of them would override these ones
         const { stepWidth, rowHeight } = metrics;
         const labelWidth = metrics.panelWidth - 2 * UI_PANEL_PADDING - 2 * stepWidth;
@@ -85,7 +99,8 @@ export class OptionsDrawer {
             styles[`.option-${index}`] = {
                 text: option.label,
                 width: option.steps ? labelWidth : '100%',
-                height: rowHeight,
+                // A label takes its height from its own rule
+                ...(option.action ? { height: rowHeight } : {}),
             };
             if (option.steps) {
                 styles[`.option-down-${index}`] = {

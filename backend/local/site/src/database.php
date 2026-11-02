@@ -11,3 +11,4 @@ require_once __DIR__ . '/db/uploads.php';
 require_once __DIR__ . '/db/rate-events.php';
 require_once __DIR__ . '/db/deletions.php';
 require_once __DIR__ . '/db/endurance.php';
+require_once __DIR__ . '/db/templates.php';
