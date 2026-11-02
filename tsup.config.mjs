@@ -1,10 +1,15 @@
 import { defineConfig } from "tsup";
 
+// Version of this build, the same for the game and the session server, which refuses the games of
+// another build (see src/openrider/live/build-version.ts)
+const define = { __OPENRIDER_BUILD__: JSON.stringify(Date.now().toString(36)) };
+
 // Both builds run at once: neither cleans dist/, which would delete the files of the other
 export default defineConfig([
     // The game, for the browser
     {
         entry: ["src/main.ts"],
+        define,
         splitting: false,
         sourcemap: true,
         dts: true,
@@ -22,6 +27,7 @@ export default defineConfig([
     // The session server of the live races, for Node: dist/live-server.cjs
     {
         entry: { "live-server": "server/live/main.ts" },
+        define,
         platform: "node",
         format: "cjs",
         outExtension: () => ({ js: ".cjs" }),

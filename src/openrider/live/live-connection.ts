@@ -1,3 +1,4 @@
+import { BUILD_VERSION } from './build-version';
 import { ClientMessage, LIVE_CLOSE_CODES, ServerMessage } from './protocol';
 
 /** Delays before connecting again after losing the connection, in milliseconds. */
@@ -10,6 +11,7 @@ const FINAL_CLOSE_CODES: number[] = [
     LIVE_CLOSE_CODES.SERVER_FULL,
     LIVE_CLOSE_CODES.BAD_MESSAGE,
     LIVE_CLOSE_CODES.REPLACED,
+    LIVE_CLOSE_CODES.OUTDATED,
 ];
 
 /** State of the connection to a live session, see {@link LiveConnection}. */
@@ -55,6 +57,7 @@ export abstract class LiveConnection<S extends LiveConnectionState> {
     protected connect(): void {
         const url = new URL(this.url);
         url.searchParams.set('token', this.token);
+        url.searchParams.set('version', BUILD_VERSION);
         const socket = new WebSocket(url);
         this.socket = socket;
 

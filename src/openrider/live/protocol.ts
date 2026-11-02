@@ -5,7 +5,8 @@ import type { RunEvent } from './run-events';
  * Messages of the live sessions, as JSON over a WebSocket between the game and the session
  * server (see `server/live` and the "Live sessions" part of `backend/README.md`).
  *
- * A rider connects with the token the site gives them for a session (`?token=`), then sends the
+ * A rider connects with the token the site gives them for a session (`?token=`) and the version
+ * of their game (`?version=`, see `BUILD_VERSION`), then sends the
  * whole run of the player first (`RunReporter.resync`), and the events of the run as it goes on
  * (`RunReporter.flush`). The server relays the run of each rider to the others, sends the whole
  * runs of the riders already there to a rider joining, and verifies the runs finishing the track
@@ -141,6 +142,8 @@ export const LIVE_CLOSE_CODES = {
     BAD_MESSAGE: 4008,
     /** The same rider connected again, e.g. in another tab. */
     REPLACED: 4009,
+    /** The game is of another build than the server, e.g. a page opened before a deploy. */
+    OUTDATED: 4010,
 } as const;
 
 /** Most events of a message: a minute of a rider pressing a key on every tick. */

@@ -373,6 +373,16 @@ project (`.md`, `.sql`, `.json`...). The PHP built-in server applies the same ru
 
 The tables of MySQL are not supported: the queries use `RETURNING` and quoted identifiers.
 
+#### Caching
+
+The pages load the game and their scripts and stylesheets with the time their file changed
+(`/dist/main.js?v=<time>`, see `site_asset_url`): each deploy changes their URL, so browsers
+download the new files with the next page they open, and keep them until the next deploy
+(`Cache-Control: immutable`, by `.htaccess` with `mod_headers` for `dist/`, by the site for
+`/assets/`). The pages themselves are never cached, nor are the files without a version, e.g. the
+icons the game loads, which browsers check again each time (`no-cache`, answered 304 while they did
+not change).
+
 ### Live sessions
 
 The session server runs with Node next to the site, e.g. as a systemd service, from the root of the
@@ -403,6 +413,11 @@ ProxyPass "/live/" "ws://127.0.0.1:8090/"
 ```
 
 The server only listens on `127.0.0.1`: the riders reach it through Apache, over HTTPS.
+
+Each `npm run build` gives the game and the session server the same version, which the game sends
+when it connects (`?version=`): the server refuses the games of another build, e.g. a tab opened
+before a deploy, asking the rider to reload the page (close code `4010`). Deploy `dist/` and
+restart the server together.
 
 ### Game alone
 

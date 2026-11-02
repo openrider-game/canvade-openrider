@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { WebSocket } from 'ws';
+import { BUILD_VERSION } from '../../src/openrider/live/build-version';
 import { LIVE_CLOSE_CODES, ServerMessage } from '../../src/openrider/live/protocol';
 import type { RunEvent } from '../../src/openrider/live/run-events';
 import { LiveLimits, LiveServer } from '../../server/live/live-server';
@@ -85,9 +86,11 @@ interface Client {
     send(message: unknown): void;
 }
 
-function connect(port: number, tokenValue: string): Client {
+/** Connects a rider, with the version of the game of the tests unless given another. */
+function connect(port: number, tokenValue: string, version = BUILD_VERSION): Client {
     const socket = new WebSocket(
-        `ws://127.0.0.1:${port}/live/?token=${encodeURIComponent(tokenValue)}`,
+        `ws://127.0.0.1:${port}/live/?token=${encodeURIComponent(tokenValue)}` +
+            `&version=${encodeURIComponent(version)}`,
     );
     sockets.push(socket);
     const received: ServerMessage[] = [];
@@ -176,6 +179,16 @@ describe('Live server', () => {
         const { port } = await start();
         const client = connect(port, token('u1', { exp: NOW / 1000 - 1 }));
         expect((await client.closed).code).toBe(LIVE_CLOSE_CODES.INVALID_TOKEN);
+    });
+
+    test('refuses the games of another build, telling them to reload', async () => {
+        const { port } = await start();
+        const outdated = await connect(port, token('u1'), 'older').closed;
+        expect(outdated.code).toBe(LIVE_CLOSE_CODES.OUTDATED);
+        expect(outdated.reason).toContain('reload the page');
+
+        const current = connect(port, token('u1'));
+        await current.next('welcome');
     });
 
     test('relays the runs, sending the whole runs to the riders joining', async () => {

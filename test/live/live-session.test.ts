@@ -148,6 +148,26 @@ describe('Live session', () => {
         expect(live.state.message).toBe('Invalid or expired token');
     });
 
+    test('tells to reload the page when the server is of a newer build', async () => {
+        // The server deployed again, with another build than the page opened before
+        await server.close();
+        server = new LiveServer({
+            secret: SECRET,
+            loadTrackCode: async () => TRACK_CODE,
+            verify: async () => ({ valid: true, reason: '' }),
+            log: () => {},
+            version: 'newer',
+        });
+        url = `ws://127.0.0.1:${await server.listen(0)}/live/`;
+        const track = join('ann');
+        const live = LiveSession.of(track)!;
+        await until([track], () => live.state.state === 'closed');
+
+        expect(live.state.message).toBe(
+            'A new version of the game is out: reload the page to join',
+        );
+    });
+
     test('connects again after losing the connection', async () => {
         vi.useFakeTimers({ toFake: ['setTimeout'] });
         try {

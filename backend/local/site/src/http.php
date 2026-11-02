@@ -98,7 +98,13 @@ function site_not_found(): void
     site_render_page('not-found', 'Page not found');
 }
 
-/** Serves a file of a folder, refusing the paths leading out of it. */
+/**
+ * Serves a file of a folder, refusing the paths leading out of it.
+ *
+ * A URL with a version (`?v=`, see site_asset_url()) changes with the file: browsers keep it for a
+ * year without asking again. Without one, e.g. the icons the game loads, they ask each time whether
+ * it changed, answered 304 while it did not.
+ */
 function site_serve_file(string $dir, string $relativePath): void
 {
     $root = realpath($dir);
@@ -114,6 +120,19 @@ function site_serve_file(string $dir, string $relativePath): void
     ) {
         site_not_found();
         return;
+    }
+
+    $modified = filemtime($file);
+    header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $modified) . ' GMT');
+    if (isset($_GET['v'])) {
+        header('Cache-Control: public, max-age=31536000, immutable');
+    } else {
+        header('Cache-Control: no-cache');
+        $since = strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE'] ?? '');
+        if ($since !== false && $since >= $modified) {
+            http_response_code(304);
+            return;
+        }
     }
 
     header('Content-Type: ' . SITE_MEDIA_TYPES[$extension]);

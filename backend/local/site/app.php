@@ -62,8 +62,9 @@ require_once __DIR__ . '/src/controllers/verification.php';
 /** Folder of the static files, served under `/assets/`. */
 const SITE_PUBLIC_DIR = __DIR__ . '/public';
 
-/** Folders of the game: its icons, and its backend endpoints. */
-const SITE_GAME_MEDIA_DIR = __DIR__ . '/../../../media',
+/** Folders of the game: its build, its icons, and its backend endpoints. */
+const SITE_GAME_DIST_DIR = __DIR__ . '/../../../dist',
+    SITE_GAME_MEDIA_DIR = __DIR__ . '/../../../media',
     SITE_GAME_ENDPOINTS_DIR = __DIR__ . '/../../db';
 
 /**

@@ -17,6 +17,25 @@ function site_render(string $template, array $data = []): void
 }
 
 /**
+ * URL of a script or stylesheet of the pages with the time its file changed (`?v=`), so that
+ * browsers download it again after each deploy and keep it in their cache until then (see
+ * site_serve_file() and `.htaccess`): `/assets/...` for the files of `public/`, `/dist/...` for
+ * the build of the game. The other URLs, or a missing file, stay as they are.
+ */
+function site_asset_url(string $url): string
+{
+    $folders = ['/assets/' => SITE_PUBLIC_DIR, '/dist/' => SITE_GAME_DIST_DIR];
+    foreach ($folders as $prefix => $dir) {
+        if (strpos($url, $prefix) === 0) {
+            $time = @filemtime($dir . '/' . substr($url, strlen($prefix)));
+            return $time === false ? $url : $url . '?v=' . $time;
+        }
+    }
+
+    return $url;
+}
+
+/**
  * Renders a page: a template of `templates/` in the layout of the site.
  *
  * @param string   $template Template of the page content.

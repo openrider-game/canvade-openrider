@@ -27,11 +27,11 @@
         }
     </script>
     <?php foreach ($styles as $style): ?>
-        <link rel="stylesheet" href="/assets/css/<?= h($style) ?>" />
+        <link rel="stylesheet" href="<?= h(site_asset_url("/assets/css/$style")) ?>" />
     <?php endforeach; ?>
-    <script src="/assets/js/theme.js" defer></script>
+    <script src="<?= h(site_asset_url('/assets/js/theme.js')) ?>" defer></script>
     <?php foreach ($scripts as $script): ?>
-        <script src="<?= h($script) ?>" defer></script>
+        <script src="<?= h(site_asset_url($script)) ?>" defer></script>
     <?php endforeach; ?>
 </head>
 <body>

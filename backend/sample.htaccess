@@ -13,3 +13,10 @@ RewriteRule ^tracks/([0-9]+)/?$ index.html?track=$1 [R=301,L]
 RewriteRule ^backend/db/api\.php$ - [F,L]
 # Nor are the sources of the sample website
 RewriteRule ^backend/local/ - [F,L]
+
+# Browsers ask each time whether the game changed, to get it right after a deploy
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|css|html)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>

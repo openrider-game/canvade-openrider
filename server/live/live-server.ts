@@ -2,6 +2,7 @@ import { createServer, IncomingMessage, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Duplex } from 'node:stream';
 import { RawData, WebSocket, WebSocketServer } from 'ws';
+import { BUILD_VERSION } from '../../src/openrider/live/build-version';
 import { ClientMessage, LIVE_CLOSE_CODES } from '../../src/openrider/live/protocol';
 import { parseClientMessage } from '../../src/openrider/live/protocol-parse';
 import { RunLog } from '../../src/openrider/live/run-log';
@@ -33,6 +34,8 @@ export interface LiveServerOptions {
     now?: () => number;
     /** Logs the errors of the server, `console.error` by default. */
     log?: (message: string) => void;
+    /** Version of the games accepted, the build of the server by default (`BUILD_VERSION`). */
+    version?: string;
 }
 
 /** Connection state, see {@link LiveServer.sweep}. */
@@ -48,8 +51,9 @@ interface Connection {
  * the others ride (see `src/openrider/live/protocol.ts` for the messages).
  *
  * Riders connect over a WebSocket with a token of the site (see {@link LiveToken}), on any path:
- * `ws://host:port/?token=…`. The server keeps the sessions in memory (see `live-session.ts`):
- * the run of each rider, to send it whole to the riders joining, and the best time of each one,
+ * `ws://host:port/?token=…&version=…`, the version of their game being the one of the server.
+ * The server keeps the sessions in memory (see `live-session.ts`): the run of each rider, to
+ * send it whole to the riders joining, and the best time of each one,
  * verified by replaying it (see `race-results.ts`). The editing sessions relay the edits of their
  * editors instead (see {@link EditRelay}). A session without rider is forgotten after a while.
  * `GET /health` answers `ok`, e.g. for a process manager.
@@ -142,6 +146,15 @@ export class LiveServer {
 
     private connect(socket: WebSocket, request: IncomingMessage): void {
         const url = new URL(request.url ?? '/', 'http://localhost');
+        // A game of another build, e.g. a tab opened before a deploy: its messages or its physics
+        // could differ from those of the server
+        if (url.searchParams.get('version') !== (this.options.version ?? BUILD_VERSION)) {
+            socket.close(
+                LIVE_CLOSE_CODES.OUTDATED,
+                'A new version of the game is out: reload the page to join',
+            );
+            return;
+        }
         const token = readToken(
             url.searchParams.get('token') ?? '',
             this.options.secret,
