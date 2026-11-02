@@ -341,7 +341,10 @@ describe('Editor files', () => {
         const fetch = vi.fn(async () => new Response(JSON.stringify({ ID: 9 })));
         vi.stubGlobal('fetch', fetch);
         vi.stubGlobal('location', { href: '' });
-        session.trackCode = EDITOR_CODE;
+        // A target on the ramps, a track code without one being refused
+        const editorFile = JSON.parse(EDITOR_CODE);
+        editorFile.layers[2].items = 'T 0 -a,';
+        session.trackCode = JSON.stringify(editorFile);
         manager.push(STATE_TRACK_FETCHER);
         await runUntil(STATE_TRACK_EDITING);
         frame();
@@ -368,7 +371,7 @@ describe('Editor files', () => {
         ]);
         // Main layers merged into the solid section, the foreground layer into the foreground
         // solid section
-        expect(await uploaded(1)).toBe('-50 1i 50 1i,0 a a 0,###0 0 a a,##BMX#0 0');
+        expect(await uploaded(1)).toBe('-50 1i 50 1i,0 a a 0,##T 0 -a,#0 0 a a,##BMX#0 0');
         expect(TrackFormat.isEditorCode(await uploaded(2))).toBe(true);
         expect(location.href).toBe('?track=9');
     });

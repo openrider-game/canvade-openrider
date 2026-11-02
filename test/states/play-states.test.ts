@@ -13,12 +13,17 @@ import {
 } from '../../src/states/state-names';
 import States from '../../src/states/states';
 import { TrackEditingState } from '../../src/states/track/track-editing.state';
-import { TrackUploadState } from '../../src/states/track-upload/track-upload.state';
+import {
+    NO_TARGET_MESSAGE,
+    TrackUploadState,
+} from '../../src/states/track-upload/track-upload.state';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 import { pressKey, releaseKey } from '../helpers/track';
 
 // A long flat track, with a target close to the start position
 const RACE_CODE = '-50 1i 1k0 1i##T 64 18###BMX#0 0';
+/** Track edited before uploading it: a track code without target is refused. */
+const TARGET_TRACK_CODE = '-18 1i 18 1i,##T 0 -a,###BMX#0 0';
 
 let manager: StateManager;
 let session: Session;
@@ -150,6 +155,7 @@ describe('Upload state', () => {
         const fetch = fetchMock();
         vi.stubGlobal('fetch', fetch);
         vi.stubGlobal('location', { href: '' });
+        session.trackCode = TARGET_TRACK_CODE;
         manager.push(STATE_TRACK_FETCHER);
         await runFrames(400, STATE_TRACK_EDITING);
         manager.render(createCanvasMock().context);
@@ -167,7 +173,7 @@ describe('Upload state', () => {
 
         const params = (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
             .body as URLSearchParams;
-        expect(params.get('trackCode')).toBe('-18 1i 18 1i,#####BMX#0 0');
+        expect(params.get('trackCode')).toBe(TARGET_TRACK_CODE);
         expect(params.get('thumbnail')).toBe('THUMBNAIL');
         expect(location.href).toBe('?track=77');
     });
@@ -180,6 +186,7 @@ describe('Upload state', () => {
             const fetch = fetchMock();
             vi.stubGlobal('fetch', fetch);
             vi.stubGlobal('location', { href: '' });
+            session.trackCode = TARGET_TRACK_CODE;
             manager.push(STATE_TRACK_FETCHER);
             await runFrames(400, STATE_TRACK_EDITING);
             manager.render(createCanvasMock().context);
@@ -202,6 +209,37 @@ describe('Upload state', () => {
             GameConfig.baseUrl = './';
             GameConfig.trackUrl = '?track={id}';
         }
+    });
+
+    test('refuses a track code without target, uploading its editor file', async () => {
+        const fetch = fetchMock();
+        vi.stubGlobal('fetch', fetch);
+        vi.stubGlobal('location', { href: '' });
+        manager.push(STATE_TRACK_FETCHER);
+        await runFrames(400, STATE_TRACK_EDITING);
+        manager.render(createCanvasMock().context);
+        (manager.getCurrent() as TrackEditingState).getButtons()[3].action();
+        await runFrames(400, STATE_TRACK_UPLOAD);
+        const createElement = document.createElement;
+        vi.stubGlobal('document', {
+            ...document,
+            createElement: (tag: string) =>
+                Object.assign(createElement(tag), { toDataURL: () => 'data:image/png;base64,' }),
+        });
+
+        // The new track has no target: told in a dialog, staying on the upload state
+        (manager.getCurrent() as TrackUploadState).getButtons()[1].action();
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(fetch).not.toHaveBeenCalled();
+        expect(session.track.dialogs.current?.message).toBe(NO_TARGET_MESSAGE);
+        session.track.dialogs.answer(true);
+        expect(manager.getCurrent() === manager.getState(STATE_TRACK_UPLOAD)).toBe(true);
+
+        // Its editor file is uploaded all the same, as a draft
+        (manager.getCurrent() as TrackUploadState).getButtons()[2].action();
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        expect(fetch).toHaveBeenCalledOnce();
+        expect(location.href).toBe('?track=77');
     });
 
     test('goes back to the editing state when cancelled', async () => {

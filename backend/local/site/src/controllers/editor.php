@@ -106,6 +106,10 @@ function site_upload_endpoint(?int $draftId): void
         if (strlen($code) > SITE_TRACK_MAX_BYTES) {
             openrider_respond(413, ['error' => 'The track is too large']);
         }
+        // Could never be verified: only an editor file, kept as a draft, may have no target
+        if (!site_is_editor_file($code) && site_track_targets($code) === 0) {
+            openrider_respond(422, ['error' => SITE_NO_TARGET_MESSAGE]);
+        }
         $thumbnail = openrider_string_param('thumbnail', false);
         if ($thumbnail !== '' && !site_check_thumbnail($thumbnail)) {
             openrider_reject('Invalid parameter: thumbnail');
@@ -196,6 +200,10 @@ function site_upload_page(int $uploadId): void
             : ['form' => 'The form has expired, send it again.'];
         if (!$isDraft && $verifier === null) {
             $errors['verifier'] = 'No account has this name.';
+        }
+        // Uploaded before the uploads were refused without target
+        if (!$isDraft && site_track_targets($upload['CODE']) === 0) {
+            $errors['form'] = SITE_NO_TARGET_MESSAGE . '.';
         }
         if (!$errors) {
             // See Other: reloading the next page does not post the form again

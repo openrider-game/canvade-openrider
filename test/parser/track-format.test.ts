@@ -208,3 +208,18 @@ describe('Layered tracks', () => {
         expect(track.playerRunner.targetsReached.size).toBe(1);
     });
 });
+
+describe('Target count', () => {
+    test('counts the targets of the items of a track code, as the parser reads them', () => {
+        expect(TrackFormat.targetCount('-50 1i 50 1i,#0 0 a a,#T 0 0,C 5 5,T a -a,##')).toBe(2);
+        // The targets of the foreground sections are not items, nor a letter alone
+        expect(TrackFormat.targetCount('-50 1i 50 1i,##C 5 5,T,#T 0 0###BMX#0 0')).toBe(0);
+        expect(TrackFormat.targetCount('-18 1i 18 1i,#####BMX#0 0')).toBe(0);
+        expect(TrackFormat.targetCount('')).toBe(0);
+    });
+
+    test('counts the targets the parser adds to the track', () => {
+        const code = '-50 1i 50 1i,##T 0 0,C 5 5,T a -a,T 1 2 3,B 1,###BMX#0 0';
+        expect(TrackFormat.targetCount(code)).toBe(parseTrack(code).targets.size);
+    });
+});

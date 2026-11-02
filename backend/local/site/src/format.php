@@ -32,6 +32,29 @@ function site_is_saved_draft(array $upload): bool
     return $upload['TITLE'] !== null && site_is_editor_file($upload['CODE']);
 }
 
+/** Why a track code without target is refused: it could never be finished, so never verified. */
+const SITE_NO_TARGET_MESSAGE = 'The track has no target: add at least one, or upload it as an'
+    . ' editor file to keep it as a draft';
+
+/**
+ * Number of targets of a track code, from its items, the third `#` section: counted as the game
+ * reads them (see TrackFormat.targetCount), an item being a letter followed by at least two
+ * values, `T` for a target.
+ */
+function site_track_targets(string $trackCode): int
+{
+    $items = explode('#', $trackCode)[2] ?? '';
+    $count = 0;
+    foreach (explode(',', $items) as $item) {
+        $values = explode(' ', $item);
+        if (count($values) > 2 && $values[0] === 'T') {
+            $count++;
+        }
+    }
+
+    return $count;
+}
+
 /** Bike of a track, from the next to last `#` section of its track code. */
 function site_track_bike(string $trackCode): string
 {

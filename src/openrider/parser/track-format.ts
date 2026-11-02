@@ -32,6 +32,9 @@ export const EDITOR_FORMAT = 'openrider-editor',
     /** Origin of a track that does not give one. */
     DEFAULT_ORIGIN = '0 0';
 
+/** Code of the targets in the items, `Target.code`, without importing the items here. */
+const TARGET_CODE = 'T';
+
 /** Names of the two layers of a track code, read into the editor format. */
 const TRACK_CODE_LAYERS = { main: 'Main', foreground: 'Foreground' } as const;
 
@@ -144,6 +147,20 @@ export abstract class TrackFormat {
             bike: typeof data.bike === 'string' && data.bike ? data.bike : DEFAULT_BIKE.bikeName,
             origin: typeof data.origin === 'string' && data.origin ? data.origin : DEFAULT_ORIGIN,
         };
+    }
+
+    /**
+     * Number of targets of a track code, counted as the parser reads its items: an item is a
+     * letter followed by at least two values. A track without one cannot be finished, so it
+     * cannot be verified nor published (the site counts them the same way, see
+     * `site_track_targets`).
+     */
+    public static targetCount(trackCode: string): number {
+        const items = trackCode.split('#')[2] ?? '';
+        return items
+            .split(',')
+            .map((item) => item.split(' '))
+            .filter((values) => values.length > 2 && values[0] === TARGET_CODE).length;
     }
 
     /** Writes a track code, merging the main layers and the foreground layers. */
