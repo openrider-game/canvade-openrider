@@ -39,6 +39,11 @@ export abstract class DirectionalItem extends Item {
         return (this.rotation * Math.PI) / 180;
     }
 
+    /** Its command block left out, as {@link DirectionalItem.touch}. */
+    public override get touchRadiusSquared(): number | null {
+        return 1000;
+    }
+
     /** Same as {@link Item.touch}, with a larger touch radius. */
     public override touch(part: Collidable): void {
         if (part.pos.distanceToSquared(this.pos) < 1000) {

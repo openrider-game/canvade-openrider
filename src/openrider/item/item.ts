@@ -106,6 +106,16 @@ export abstract class Item extends TrackObject {
     }
 
     /**
+     * Square of the distance from its position within which the item can be touched, for the
+     * physics cells to skip the items out of reach without calling {@link Item.touch} (see
+     * `PhysicsCell.touch`); null when it can be touched elsewhere, e.g. moved by its command
+     * block. Must match {@link Item.touch}, overridden with it.
+     */
+    public get touchRadiusSquared(): number | null {
+        return this.command === null ? 500 : null;
+    }
+
+    /**
      * Triggers {@link Item.onTouch} when the part is close enough to the item center, where its
      * command block puts it for the runner of the part: nowhere while hidden, or moved.
      */

@@ -1,5 +1,5 @@
 import { Vector } from 'canvade';
-import type { PhysicsCell } from '../../grid/cell/physics-cell';
+import { PhysicsCell } from '../../grid/cell/physics-cell';
 import { MAX_LINE_LENGTH, MIN_LINE_LENGTH } from '../../track/track.constants';
 import type { Track } from '../../track/track';
 import type { TrackLayer } from '../../track/track-layer';
@@ -217,6 +217,7 @@ export class CommandRegistry {
     private attach(object: TrackObject, block: CommandBlock): void {
         const layer = object.layer;
         object.command = block;
+        PhysicsCell.commandsChanged();
         let group = this.groups.get(block);
         if (!group) {
             group = new CommandGroup();
@@ -236,6 +237,7 @@ export class CommandRegistry {
         }
         this.groups.get(block)?.remove(object);
         object.command = null;
+        PhysicsCell.commandsChanged();
         if (object.onTrack && object.layer) {
             object.layer.cache.add(object);
         }

@@ -236,6 +236,28 @@ describe('Command blocks', () => {
         expect(command.offsetFor(player)).not.toBeNull();
     });
 
+    test('make the cells check their items again, an item they hide being touched elsewhere', () => {
+        const bomb = place(new Bomb(new Vector(300, 40), track));
+        // Counted without exploding, which would leave the items to the dead rider
+        const touch = vi.spyOn(bomb, 'touch').mockImplementation(() => {});
+        const wheel = track.playerRunner.instance!.backWheel;
+        const cell = bomb.grid.cell(3, 0);
+        // Out of the reach of the bomb: skipped by its cell
+        wheel.pos.set(new Vector(380, 40));
+        cell.touch(wheel);
+        expect(touch).not.toHaveBeenCalled();
+        wheel.pos.set(new Vector(310, 45));
+        cell.touch(wheel);
+        expect(touch).toHaveBeenCalledOnce();
+
+        // Bound to a block, which decides where it is: the cell no longer skips it
+        block(150, 40, { kind: 'hide', area: WALL_AREA });
+        track.commands.refresh();
+        wheel.pos.set(new Vector(380, 40));
+        cell.touch(wheel);
+        expect(touch).toHaveBeenCalledTimes(2);
+    });
+
     test('bind the objects added to their area later, and free them once removed', () => {
         const command = block(150, 40, { kind: 'hide', area: WALL_AREA });
         const door = wall(300);

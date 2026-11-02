@@ -19,9 +19,16 @@ export interface CellDrawing {
 
 /** Lines flattened as `[x1, y1, x2, y2, ...]` in world units, as a {@link CellDrawing} has them. */
 export function flattenLines(lines: readonly Line[]): Int32Array {
-    return new Int32Array(
-        lines.flatMap((line) => [line.pos.x, line.pos.y, line.endPos.x, line.endPos.y]),
-    );
+    // Filled in place: an array per line, as flatMap makes them, costs seconds on huge tracks
+    const flat = new Int32Array(lines.length * 4);
+    for (let i = 0; i < lines.length; i++) {
+        const { pos, endPos } = lines[i];
+        flat[i * 4] = pos.x;
+        flat[i * 4 + 1] = pos.y;
+        flat[i * 4 + 2] = endPos.x;
+        flat[i * 4 + 3] = endPos.y;
+    }
+    return flat;
 }
 
 /** Draws the lines and the items of the tracks, see {@link createPainter}. */

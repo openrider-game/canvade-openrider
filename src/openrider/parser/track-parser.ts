@@ -1,5 +1,6 @@
 import { Vector } from 'canvade';
 import { BIKE_MAP, DEFAULT_BIKE } from '../bike/bike.constants';
+import type { RenderCell } from '../grid/cell/render-cell';
 import { ITEM_MAP } from '../item/item.constants';
 import { LineClass } from '../item/line/line';
 import { SceneryLine } from '../item/line/scenery-line';
@@ -280,11 +281,13 @@ export class TrackParser {
      * at the zoom they are displayed at.
      */
     private cacheStep(layer: TrackLayer): ParserStep {
+        // Listed once the entities are parsed, on the first run: not again on each run of a cell
+        let cacheCells: RenderCell[] | null = null;
         return {
             label: `Cache (${layer.name})`,
             caching: true,
             run: () => {
-                const cacheCells = Array.from(layer.cache.cells.values());
+                cacheCells ??= Array.from(layer.cache.cells.values());
                 const l = Math.min(this.cacheIndex + 1, cacheCells.length);
 
                 for (; this.cacheIndex < l; this.cacheIndex++) {
