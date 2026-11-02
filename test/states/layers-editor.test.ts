@@ -290,8 +290,6 @@ describe('Editor files', () => {
     test('are imported, an invalid file being refused', async () => {
         manager.push(STATE_TRACK_FETCHER);
         await runUntil(STATE_TRACK_EDITING);
-        const alert = vi.fn();
-        vi.stubGlobal('alert', alert);
         const input = { files: [{}], addEventListener: vi.fn(), click: vi.fn() };
         let fileContent = '';
         vi.stubGlobal('document', {
@@ -320,10 +318,14 @@ describe('Editor files', () => {
         };
 
         importFile('{"format":"something else"}');
-        expect(alert).toHaveBeenCalledWith(
-            'This file cannot be imported: Not an OpenRider editor file',
-        );
+        // Told in a dialog of the track
+        const dialogs = session.track.dialogs;
+        expect(dialogs.current).toMatchObject({
+            message: 'This file cannot be imported: Not an OpenRider editor file',
+            cancel: null,
+        });
         expect(manager.getCurrent() === manager.getState(STATE_TRACK_EDITING)).toBe(true);
+        dialogs.answer(true);
 
         importFile(EDITOR_CODE);
         expect(manager.getCurrent() === manager.getState(STATE_TRACK_PARSER)).toBe(true);

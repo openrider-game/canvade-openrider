@@ -83,25 +83,29 @@ export abstract class GhostService {
         }
     }
 
-    /** Offers the player to upload their run once a race is finished. */
+    /** Offers the player to upload their run once a race is finished, in a dialog of the track. */
     public static async saveGhost(track: Track): Promise<void> {
-        if (!confirm('Do you want to save this time?')) {
+        // The run as finished: the track goes on while the dialog waits for the player, who may
+        // even ride again meanwhile
+        const ghostString = GhostParser.generate(track.playerRunner);
+        const time = track.playerRunner.time;
+        const save = await track.dialogs.confirm('Do you want to save this time?', {
+            confirm: 'Save',
+            cancel: 'No',
+        });
+        if (!save) {
             return;
         }
 
         try {
             const response = await Requests.postJson<{ ID: number }>(
                 GameConfig.url(GHOSTUPLOAD_PATH),
-                {
-                    ghostString: GhostParser.generate(track.playerRunner),
-                    trackId: track.id ?? 0,
-                    time: track.playerRunner.time,
-                },
+                { ghostString, trackId: track.id ?? 0, time },
             );
 
             console.log(`Ghost saved: ${response.ID}`);
         } catch (e) {
-            alert(`Your ghost was refused: ${e}`);
+            await track.dialogs.alert(`Your ghost was refused: ${(e as Error).message ?? e}`);
         }
     }
 }

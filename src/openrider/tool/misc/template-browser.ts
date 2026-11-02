@@ -6,7 +6,9 @@ import type { Track } from '../../track/track';
 import type { ToolOption } from '../tool';
 
 /** Templates listed in each page of the options. */
-const TEMPLATES_PER_PAGE = 6;
+const TEMPLATES_PER_PAGE = 6,
+    /** Longest name of a template, as the website takes them. */
+    TEMPLATE_NAME_LENGTH = 60;
 
 /** What the template browser asks of the select tool. */
 export interface TemplateHost {
@@ -46,15 +48,21 @@ export class TemplateBrowser {
 
     /**
      * Saves objects as a template, private or public as chosen in the options, named in a dialog
-     * of the browser: a text field of the canvas would not open the keyboard of a phone. Its
-     * thumbnail shows the area of the objects, see `templateThumbnail`.
+     * of the track (see `TrackDialogs`). Its thumbnail shows the area of the objects, see
+     * `templateThumbnail`.
      */
     public async save(selected: readonly TrackObject[]): Promise<void> {
         const objects = ObjectClipboard.copy(selected);
         if (!objects.length) {
             return;
         }
-        const name = window.prompt('Name of the template')?.trim();
+        const name = (
+            await this.track.dialogs.prompt('Name of the template', {
+                confirm: 'Save',
+                placeholder: 'Name',
+                maxLength: TEMPLATE_NAME_LENGTH,
+            })
+        )?.trim();
         if (!name) {
             return;
         }

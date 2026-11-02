@@ -21,6 +21,7 @@ import { DebugOptions, defaultDebugOptions } from './debug-options';
 import { ReachedItems } from './reached-items';
 import { LayerStack } from './layer-stack';
 import { RiderFollower } from './rider-follower';
+import { TrackDialogs } from './track-dialogs';
 import { DEFAULT_ZOOM, MAX_LINE_LENGTH, MIN_LINE_LENGTH } from './track.constants';
 import { Zoom } from './zoom';
 import { ZoomControl } from './zoom-control';
@@ -63,6 +64,8 @@ export class Track extends World {
     public cursor = 'none';
     /** Set when the tools changed in a way that requires the interface to be rebuilt. */
     public uiInvalidated = false;
+    /** Dialogs shown over the track, in place of those of the browser. */
+    public readonly dialogs = new TrackDialogs(this);
 
     /** Targets of the track by id, all of them must be reached to finish it. */
     public readonly targets = new Map<number, Target>();

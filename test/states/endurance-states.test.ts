@@ -92,7 +92,7 @@ describe('Endurance mode', () => {
         expect(click(350, 250)).toBe(-1);
     });
 
-    test('shows the run, then its result once the rider fell', async () => {
+    test('shows the run, then its result once the rider fell, with a button to try again', async () => {
         manager.push(STATE_ENDURANCE_SETUP);
         await runUntil(STATE_TRACK_ENDURANCE);
         const state = manager.getCurrent() as TrackEnduranceState;
@@ -108,11 +108,25 @@ describe('Endurance mode', () => {
 
         session.track.playerRunner.crash();
         manager.fixedUpdate();
+        // The panel of the result is built on the next update
+        manager.update(0.5, 20);
         manager.render(context);
 
         expect(state.run?.over).toBe(true);
-        expect(texts()).toContain('Enter: try again');
+        expect(texts()).toContain('Try again (Enter)');
         expect(texts()).toContain('New record!');
+
+        // The button, at the bottom of the panel of 142 pixels centered on the canvas of 700x400
+        for (const name of ['pointerDown', 'pointerUp'] as const) {
+            state.dispatch(name, mouseEvent(name, 350, 200 + 71 - 12 - 13));
+        }
+        manager.fixedUpdate();
+        expect(state.run?.over).toBe(false);
+        const { context: next } = createCanvasMock();
+        manager.update(0.5, 20);
+        manager.render(next);
+        const nextTexts = vi.mocked(next.fillText).mock.calls.map((call) => String(call[0]));
+        expect(nextTexts).not.toContain('Try again (Enter)');
     });
 
     test('rides a new track on the version of the page, e.g. an older one', async () => {
@@ -164,6 +178,7 @@ describe('Endurance mode', () => {
         ride();
         ride();
         press('Backspace');
+        manager.update(0.5, 20);
         manager.render(context);
         expect(texts()).toContain('Retired');
 

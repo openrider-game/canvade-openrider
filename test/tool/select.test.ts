@@ -237,11 +237,16 @@ describe('Select tool', () => {
 
         test('saves the selection, private unless chosen public, named in a dialog', async () => {
             serve({ save: { ID: 4 } });
-            vi.stubGlobal('window', { prompt: () => ' Bridge ' });
             drag([-10, -10], [110, 30]);
             tool.getOptions().find(({ label }) => label === 'Template: private')!.action!();
 
-            await tool.saveTemplate();
+            // Named in a dialog of the track, within the length the website takes
+            const saving = tool.saveTemplate();
+            const dialog = track.dialogs.current;
+            expect(dialog?.input).toMatchObject({ value: '', maxLength: 60 });
+            dialog!.input!.value = ' Bridge ';
+            track.dialogs.answer(true);
+            await saving;
 
             expect(posted).toHaveLength(1);
             expect(posted[0]).toMatchObject({ action: 'save', name: 'Bridge', public: '1' });

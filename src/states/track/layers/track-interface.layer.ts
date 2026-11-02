@@ -16,6 +16,7 @@ import { TouchControls, TouchInsets } from '../../../openrider/touch/touch-contr
 import type { TrackViewState } from '../track-view.state';
 import { ButtonDefinition } from '../track-view.definitions';
 import { DebugPanel } from '../ui/debug-panel';
+import { DialogPanel } from '../ui/dialog-panel';
 import { ActionsMenu } from '../ui/actions-menu';
 import { ControlsPanel } from '../ui/controls-panel';
 import { LayersPanel } from '../ui/layers-panel';
@@ -65,7 +66,9 @@ function baseStyles(toolSize: number): UIStyleDefinition {
  *
  * The toolbars are laid out by {@link Toolbars}, the options are in the {@link OptionsDrawer}. States editing the layers of the track also get
  * the {@link LayersPanel}, and states allowing the debug mode get the {@link DebugPanel} while it
- * is enabled.
+ * is enabled. The dialogs of the track (see `TrackDialogs`) show over everything, in the
+ * {@link DialogPanel}: Enter confirms them, Escape cancels them, and no other key reaches the
+ * controls meanwhile.
  *
  * Layers receive the input events top layer first, so this layer syncs the track mouse positions
  * with the canvade `Mouse.worldPos` before the other layers handle the mouse events. A mouse event
@@ -85,6 +88,8 @@ export class TrackInterfaceLayer extends Layer {
     private builtTouchControls: string | null = null;
     /** Whether the interface was built in touch mode, with its larger sizes. */
     private builtTouchMode = false;
+    /** Dialog shown when the interface was last built, its text field focused when it shows. */
+    private builtDialog: unknown = null;
 
     public constructor(private readonly state: TrackViewState) {
         super();
@@ -107,6 +112,12 @@ export class TrackInterfaceLayer extends Layer {
                 this.state.track.focalPoint = null;
             }
         });
+        // While a dialog shows, the keys its text field did not take reach no control either
+        this.subscribe('keyDown', (e) => {
+            if (this.state.track.dialogs.current) {
+                e.detail.consumed = true;
+            }
+        });
     }
 
     public initLayer(): void {
@@ -122,11 +133,19 @@ export class TrackInterfaceLayer extends Layer {
     }
 
     /**
-     * Gives the keys to the controls panel while it is open, e.g. the key bound to a control: the
-     * keys it takes are consumed, so that they do not trigger the controls.
+     * Answers the dialog shown with Enter or Escape, else gives the keys to the controls panel
+     * while it is open, e.g. the key bound to a control: the keys taken are consumed, so that they
+     * do not trigger the controls.
      */
     private handlePanelKey(e: CustomEvent<GameKeyboardEvent>): void {
-        if (this.controlsPanel.handleKey(this.state.track, e.detail.keyboardEvent)) {
+        const track = this.state.track;
+        const dialog = track.dialogs.current;
+        const key = e.detail.keyboardEvent.key;
+        if (dialog && (key === 'Enter' || key === 'Escape')) {
+            // Escape dismisses a dialog only telling something
+            track.dialogs.answer(key === 'Enter' || dialog.cancel === null);
+            e.detail.consumed = true;
+        } else if (this.controlsPanel.handleKey(track, e.detail.keyboardEvent)) {
             e.detail.consumed = true;
         }
     }
@@ -245,6 +264,12 @@ export class TrackInterfaceLayer extends Layer {
         return TouchControls.enabled ? ActionsMenu.buttonsOf(buttons) : [];
     }
 
+    /** Width of the canvas in UI pixels, `Infinity` before the first render. */
+    private uiWidth(): number {
+        const width = this.state.track.viewWidth;
+        return width > 0 ? Math.floor(width / Display.uiScale) : Infinity;
+    }
+
     /** Height of the canvas in UI pixels, `Infinity` before the first render. */
     private uiHeight(): number {
         const height = this.state.track.viewHeight;
@@ -313,9 +338,21 @@ export class TrackInterfaceLayer extends Layer {
         if (controlsOpen) {
             this.controlsPanel.build(this.state.track, structure, styles, this.builtHeight);
         }
+        const dialog = this.state.track.dialogs.current;
+        DialogPanel.build(this.state.track, structure, styles, this.uiWidth());
 
         const root = this.uiRenderer.setUI(structure, styles);
         this.root = root;
+        // The text field of a dialog just shown takes the keys typed, Enter confirming it
+        if (dialog && dialog !== this.builtDialog) {
+            const input = root.children
+                .flatMap((element) => element.children)
+                .find((element) => element.classNames.includes(DialogPanel.INPUT_CLASS));
+            if (input) {
+                root.setFocusedElement(input);
+            }
+        }
+        this.builtDialog = dialog;
         // Rendered once the whole UI tree is, so that the tooltip is drawn over the toolbars
         root.subscribe('renderTree', (e) => ToolTooltip.render(e.detail.ctx, root));
     }

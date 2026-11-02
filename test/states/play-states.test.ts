@@ -1,6 +1,7 @@
 import { State, StateClass, StateManager } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { GameConfig } from '../../src/openrider/config/game-config';
+import { GhostVerifier } from '../../src/verify/ghost-verifier';
 import { Session } from '../../src/states/session';
 import {
     STATE_TRACK_EDITING,
@@ -88,25 +89,40 @@ describe('Play states', () => {
     test('offer to save the ghost once the race is finished', async () => {
         const fetch = fetchMock();
         vi.stubGlobal('fetch', fetch);
-        const confirm = vi.fn(() => true);
-        vi.stubGlobal('confirm', confirm);
         const log = vi.spyOn(console, 'log').mockImplementation(() => {});
         session.trackId = 5;
         manager.push(STATE_TRACK_FETCHER);
         await runFrames(400, STATE_TRACK_RACING);
 
         pressKey('up');
-        for (let frame = 0; frame < 300 && !confirm.mock.calls.length; frame++) {
+        const dialogs = session.track.dialogs;
+        for (let frame = 0; frame < 300 && !dialogs.current; frame++) {
             await runFrames(1);
         }
 
-        expect(confirm).toHaveBeenCalledOnce();
+        // Asked in a dialog of the track, saved once confirmed
+        expect(dialogs.current).toMatchObject({
+            message: 'Do you want to save this time?',
+            confirm: 'Save',
+            cancel: 'No',
+        });
+        expect(fetch).toHaveBeenCalledOnce();
+        const finished = session.track.playerRunner.time;
+        // The track goes on while the player answers: the run saved is the one finished
+        await runFrames(50);
+        expect(session.track.playerRunner.time).toBeGreaterThan(finished);
+        dialogs.answer(true);
         await new Promise((resolve) => setTimeout(resolve, 10));
         const [url, request] = fetch.mock.calls[1] as unknown as [string, RequestInit];
         expect(url).toContain('ghostupload');
         const params = request.body as URLSearchParams;
         expect(params.get('trackId')).toBe('5');
-        expect(params.get('ghostString')).toMatch(/^0( \d+)*,/);
+        expect(params.get('time')).toBe(String(finished));
+        const ghostString = params.get('ghostString') ?? '';
+        expect(ghostString).toMatch(/^0( \d+)*,/);
+        // As the backend verifies it
+        const limits = { maxTicks: 10_000, deadline: Infinity };
+        expect(GhostVerifier.verify(RACE_CODE, ghostString, finished, limits).valid).toBe(true);
         expect(log).toHaveBeenCalledWith('Ghost saved: 77');
     });
 });

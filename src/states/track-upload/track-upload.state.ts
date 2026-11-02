@@ -134,7 +134,9 @@ export class TrackUploadState extends TrackViewState {
             // Races the published track, on the track page of the hosting page when it gives one
             location.href = GameConfig.trackPage(response.ID);
         } catch (e) {
-            alert(`Your track was refused: ${e}`);
+            void this.track.dialogs.alert(
+                `Your track was refused: ${e instanceof Error ? e.message : e}`,
+            );
         }
     }
 }

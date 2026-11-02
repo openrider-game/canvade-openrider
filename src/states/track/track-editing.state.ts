@@ -105,7 +105,7 @@ export class TrackEditingState extends TrackPlayState {
      * Loads a track code or an editor file, then pops back to the parser state, which parses it
      * as a new track to edit: a track code becomes a main and a foreground layer.
      *
-     * An invalid editor file is refused with an alert, keeping the current track.
+     * An invalid editor file is refused in a dialog, keeping the current track.
      */
     private importTrack(): void {
         const input = document.createElement('input');
@@ -122,7 +122,9 @@ export class TrackEditingState extends TrackPlayState {
                 try {
                     TrackFormat.read(code);
                 } catch (e) {
-                    alert(`This file cannot be imported: ${e instanceof Error ? e.message : e}`);
+                    void this.session.track.dialogs.alert(
+                        `This file cannot be imported: ${e instanceof Error ? e.message : e}`,
+                    );
                     return;
                 }
 
