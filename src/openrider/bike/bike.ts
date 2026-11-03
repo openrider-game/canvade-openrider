@@ -1,5 +1,5 @@
 import { Vector } from 'canvade';
-import type { PixelArea } from '../render/flat-alpha';
+import { areaAround, type PixelArea } from '../render/flat-alpha';
 import { Part } from '../entity/part';
 import { Wheel } from '../entity/wheel';
 import type { Track } from '../track/track';
@@ -123,13 +123,7 @@ export abstract class Bike {
         const points = [this.backWheel, this.frontWheel, this.hitbox].map((part) =>
             track.toPixel(part.displayPos),
         );
-        const pad = 60 * track.zoomFactor + 12;
-        return [
-            Math.min(...points.map(({ x }) => x)) - pad,
-            Math.min(...points.map(({ y }) => y)) - pad,
-            Math.max(...points.map(({ x }) => x)) + pad,
-            Math.max(...points.map(({ y }) => y)) + pad,
-        ];
+        return areaAround(points, 60 * track.zoomFactor + 12);
     }
 
     /**

@@ -65,7 +65,10 @@ TypeScript rewrite of the [JavaScript game](https://github.com/tomiy/openrider) 
   and zooming the view (see [Touch screens](#touch-screens)).
 - **Rendering**: the lines and items are cached in images per zoom level; the densest areas are
   rendered in Web Workers when the browser supports them, an edited area showing its edits at once
-  over its previous image until the new one is ready.
+  over its previous image until the new one is ready. The images of every cell share 256 MB
+  (`MAX_IMAGE_BYTES`), the cells displayed least recently losing theirs first. A ghost dead for 10
+  seconds lies still, its physics stopped (`SETTLE_TICKS`), and only the part of a ghost in view is
+  drawn.
 - **Display**: the track and the interface keep their size on every screen density, the track being
   drawn at the resolution of the screen; a debug mode shows the physics, the cache and live stats.
 - **Backend**: PHP endpoints storing the tracks and the ghosts, see
@@ -369,13 +372,13 @@ Besides the targets, checkpoints and teleporters, the items act on the bikes tou
   `Ctrl+X`, `Ctrl+V`, `Delete`, `Escape`); the objects pasted follow the pointer until placed. The
   clipboard of the browser holds them as a track code, the base 64 text of a track file holding
   them, scenery colors included, so they are pasted in another tab; any track code or file pasted
-  gives its lines and items, as do the first three sections of an original track code. With the website, the
-  selection is saved as a template, private or public, with a thumbnail of the size of the track
-  thumbnails showing the area of the selection, scaled to fit within a padding and centered
-  (`templateThumbnail`). The Templates option opens a panel over the track with two tabs, "Your
-  templates" and "Public templates", a search (by name, and by author in the public ones) sent once
-  the typing pauses, and the cards of the templates with their thumbnail, a page at a time; tapping
-  a card pastes its template (see the README of the backend).
+  gives its lines and items, as do the first three sections of an original track code. With the
+  website, the selection is saved as a template, private or public, with a thumbnail of the size of
+  the track thumbnails showing the area of the selection, scaled to fit within a padding and
+  centered (`templateThumbnail`). The Templates option opens a panel over the track with two tabs,
+  "Your templates" and "Public templates", a search (by name, and by author in the public ones) sent
+  once the typing pauses, and the cards of the templates with their thumbnail, a page at a time;
+  tapping a card pastes its template (see the README of the backend).
 - The editor imports track codes and editor files, exports either of them, and uploads either of
   them with a thumbnail.
 - The debug mode (`Ctrl+D`) opens a panel choosing its overlays: the grids, the collision checks,

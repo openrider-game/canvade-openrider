@@ -3,6 +3,9 @@ import type { SceneryLine } from '../../item/line/scenery-line';
 import type { SolidLine } from '../../item/line/solid-line';
 import type { TrackObject } from '../../item/track-object';
 
+/** Bit of each kind of object in `Cell.unsorted`. */
+const KIND_BITS: Record<TrackObject['kind'], number> = { scenery: 1, solid: 2, item: 4 };
+
 /**
  * Square area of a grid, listing the track objects crossing it by kind.
  *
@@ -23,6 +26,13 @@ export abstract class Cell {
     public objects: Item[] = [];
     /** Objects removed during a batch, still in the lists until it ends. */
     private removed: Set<TrackObject> | null = null;
+    /**
+     * Lists not sorted by rank, by the bits of their kinds (see {@link KIND_BITS}): an object
+     * without rank added after ranked ones. A sorted list finds the place of a ranked object by
+     * a binary search rather than by walking back from its end, e.g. undoing an erase after the
+     * objects of a live session were ranked.
+     */
+    private unsorted = 0;
 
     /**
      * Runs an action removing many objects, e.g. erasing an area or undoing an edit: the objects
@@ -75,31 +85,82 @@ export abstract class Cell {
     public push(obj: TrackObject): void {
         // After the objects removed, as without a batch
         this.flushRemoved();
+        const bit = KIND_BITS[obj.kind];
+        const sorted = (this.unsorted & bit) === 0;
+        let stillSorted: boolean;
         switch (obj.kind) {
             case 'scenery':
-                Cell.insert(this.scenery, obj as SceneryLine);
+                stillSorted = Cell.insert(this.scenery, obj as SceneryLine, sorted);
                 break;
             case 'solid':
-                Cell.insert(this.lines, obj as SolidLine);
+                stillSorted = Cell.insert(this.lines, obj as SolidLine, sorted);
                 break;
             case 'item':
-                Cell.insert(this.objects, obj as Item);
+                stillSorted = Cell.insert(this.objects, obj as Item, sorted);
                 break;
         }
+        this.unsorted = stillSorted ? this.unsorted & ~bit : this.unsorted | bit;
 
         this.clear();
     }
 
-    private static insert<T extends TrackObject>(list: T[], obj: T): void {
+    /**
+     * Inserts an object: at the end without a rank, else after the last object from the end
+     * whose rank is not greater, the objects without rank counting as the lowest.
+     *
+     * @param sorted - Whether the list is sorted by rank: the place is then found by a binary
+     * search, the same place as walking back from the end.
+     * @returns Whether the list is sorted by rank after it.
+     */
+    private static insert<T extends TrackObject>(list: T[], obj: T, sorted: boolean): boolean {
         const order = obj.order;
+        if (order === null) {
+            const last = list[list.length - 1];
+            list.push(obj);
+            return sorted && (last === undefined || last.order === null);
+        }
         let index = list.length;
-        // Usually at the end: the objects are mostly added in order
-        if (order !== null) {
+        if (sorted) {
+            // First object of greater rank
+            let low = 0;
+            while (low < index) {
+                const middle = (low + index) >>> 1;
+                if ((list[middle].order ?? -Infinity) > order) {
+                    index = middle;
+                } else {
+                    low = middle + 1;
+                }
+            }
+        } else {
+            // Usually at the end: the objects are mostly added in order
             while (index > 0 && (list[index - 1].order ?? -Infinity) > order) {
                 index--;
             }
         }
-        list.splice(index, 0, obj);
+        if (index === list.length) {
+            list.push(obj);
+        } else {
+            list.splice(index, 0, obj);
+        }
+        return sorted;
+    }
+
+    /** Whether a list is sorted by rank, the objects without rank counting as the lowest. */
+    private static isSorted(list: readonly TrackObject[]): boolean {
+        for (let i = 1; i < list.length; i++) {
+            if ((list[i - 1].order ?? -Infinity) > (list[i].order ?? -Infinity)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Tells whether the list of a kind is sorted again, once objects were taken off it. */
+    private resort(kind: TrackObject['kind'], list: readonly TrackObject[]): void {
+        const bit = KIND_BITS[kind];
+        if (this.unsorted & bit && Cell.isSorted(list)) {
+            this.unsorted &= ~bit;
+        }
     }
 
     public remove(obj: TrackObject): void {
@@ -110,12 +171,15 @@ export abstract class Cell {
             switch (obj.kind) {
                 case 'scenery':
                     this.scenery = this.scenery.filter((line) => line !== obj);
+                    this.resort('scenery', this.scenery);
                     break;
                 case 'solid':
                     this.lines = this.lines.filter((line) => line !== obj);
+                    this.resort('solid', this.lines);
                     break;
                 case 'item':
                     this.objects = this.objects.filter((item) => item !== obj);
+                    this.resort('item', this.objects);
                     break;
             }
         }
@@ -134,6 +198,9 @@ export abstract class Cell {
         this.scenery = this.scenery.filter((line) => !removed.has(line));
         this.lines = this.lines.filter((line) => !removed.has(line));
         this.objects = this.objects.filter((item) => !removed.has(item));
+        this.resort('scenery', this.scenery);
+        this.resort('solid', this.lines);
+        this.resort('item', this.objects);
         // What was derived from the lists during the batch is outdated
         this.clear();
     }

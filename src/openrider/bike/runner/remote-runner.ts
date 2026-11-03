@@ -9,7 +9,10 @@ import { CONTROL_NAMES, ControlName } from './runner-controls';
 export const REMOTE_BUFFER_TICKS = 5;
 /** Ticks received but not replayed beyond which the replay catches up, half a second. */
 export const REMOTE_MAX_LAG = 25;
-/** Ticks replayed at most per physics tick while catching up, e.g. after joining a session. */
+/**
+ * Ticks replayed at most per physics tick while catching up, e.g. after joining a session: by
+ * each rider, and by all of them together (see {@link RemoteRunner.advanceAll}).
+ */
 export const REMOTE_MAX_STEPS = 100;
 
 /** Attempt of the rider, see {@link RunEvent}. */
@@ -107,26 +110,42 @@ export class RemoteRunner extends ReplayRunner {
     }
 
     /**
+     * Advances the riders of a session for a physics tick, in their order (see
+     * {@link RemoteRunner.advance}), their catching up sharing {@link REMOTE_MAX_STEPS} ticks:
+     * each rider still runs its own tick, the first ones catching up before the next, so that a
+     * session joined late with many riders does not run hundreds of ticks per physics tick.
+     */
+    public static advanceAll(runners: Iterable<RemoteRunner>): void {
+        let budget = REMOTE_MAX_STEPS;
+        for (const runner of runners) {
+            budget -= runner.advance(Math.max(1, budget));
+        }
+    }
+
+    /**
      * Runs the ticks of the run received in time for this physics tick: one, more while catching
      * up, none while waiting for inputs.
+     *
+     * @param maxSteps - Ticks run at most, {@link REMOTE_MAX_STEPS} by default.
+     * @returns The ticks run.
      */
-    public advance(): void {
+    public advance(maxSteps = REMOTE_MAX_STEPS): number {
         this.moved = false;
         this.beginNextAttempts();
 
         const lag = this.lag;
         if (lag === 0) {
             this.buffering = true;
-            return;
+            return 0;
         }
         if (this.buffering && lag < REMOTE_BUFFER_TICKS) {
-            return;
+            return 0;
         }
         this.buffering = false;
 
-        const steps =
-            lag > REMOTE_MAX_LAG ? Math.min(lag - REMOTE_MAX_LAG + 1, REMOTE_MAX_STEPS) : 1;
-        for (let i = 0; i < steps; i++) {
+        const steps = lag > REMOTE_MAX_LAG ? Math.min(lag - REMOTE_MAX_LAG + 1, maxSteps) : 1;
+        let run = 0;
+        for (; run < steps; run++) {
             this.beginNextAttempts();
             const current = this.current;
             if (!current || this.time >= current.until) {
@@ -136,6 +155,7 @@ export class RemoteRunner extends ReplayRunner {
             this.track.onRemoteTick?.(this);
             this.moved = true;
         }
+        return run;
     }
 
     /** Interpolates between the last two ticks run, or shows the last one while waiting. */

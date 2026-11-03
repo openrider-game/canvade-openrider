@@ -4,7 +4,7 @@ import { Cell } from '../../src/openrider/grid/cell/cell';
 import { SolidLine } from '../../src/openrider/item/line/solid-line';
 import type { Track } from '../../src/openrider/track/track';
 import { stubBrowser } from '../helpers/canvas';
-import { parseTrack } from '../helpers/track';
+import { parseTrack, seededRandom } from '../helpers/track';
 
 let track: Track;
 
@@ -92,4 +92,49 @@ describe('Objects removed in a batch', () => {
         track.history.redo();
         expect(starts()).toEqual([0, 10, 20, 60, 70, 80, 90]);
     });
+});
+
+describe('Objects ranked in a cell', () => {
+    test.each([1, 2, 3])(
+        'take the place walking back from the end gives them, sorted or not (seed %i)',
+        (seed) => {
+            const random = seededRandom(seed);
+            addLines(60);
+            // The lines of the cell only, the others being in the next cells
+            const lines = [...physicsCell().lines];
+            const expected = [...lines];
+            /** Place of an object as walking back from the end finds it. */
+            const walk = (list: SolidLine[], line: SolidLine) => {
+                let index = list.length;
+                if (line.order !== null) {
+                    while (index > 0 && (list[index - 1].order ?? -Infinity) > line.order) {
+                        index--;
+                    }
+                }
+                list.splice(index, 0, line);
+            };
+
+            // Taken off and put back with random ranks, some without, in and out of batches
+            for (let step = 0; step < 400; step++) {
+                const line = lines[Math.floor(random() * lines.length)];
+                const roll = random();
+                const batched = random() < 0.5;
+                const move = () => {
+                    line.removeFromTrack();
+                    expected.splice(expected.indexOf(line), 1);
+                    line.order = roll < 0.2 ? null : Math.floor(roll * 50);
+                    line.addToTrack();
+                    walk(expected, line);
+                };
+                if (batched) {
+                    Cell.batch(move);
+                } else {
+                    move();
+                }
+                expect(physicsCell().lines.map(({ id }) => id)).toEqual(
+                    expected.map(({ id }) => id),
+                );
+            }
+        },
+    );
 });

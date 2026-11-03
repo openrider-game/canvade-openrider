@@ -2,7 +2,18 @@
  * Images kept by a cell, the least recently displayed ones being dropped past it, but the one of
  * the lowest zoom, a fallback always at hand.
  */
-export const MAX_CELL_IMAGES = 6;
+export const MAX_CELL_IMAGES = 6,
+    /**
+     * Memory of the images of every cell, in bytes, past which the images of the least recently
+     * displayed cells are dropped: panning a long track at a high zoom would otherwise keep the
+     * images of every cell seen, a few tens of MB each at the highest zooms.
+     */
+    MAX_IMAGE_BYTES = 256 * 1024 * 1024,
+    /**
+     * Time during which the images of a cell displayed are never dropped by the memory bound, in
+     * ms: all of them, those rendered ahead for the zooms around included.
+     */
+    DISPLAYED_IMAGE_MS = 1000;
 
 /** Image of a cell: a canvas when rendered synchronously, a bitmap when rendered by a worker. */
 export type CellImageSource = HTMLCanvasElement | ImageBitmap;
@@ -21,9 +32,22 @@ export interface CellImage {
  * Images of a render cell by zoom level, at most {@link MAX_CELL_IMAGES}, in the order they were
  * last displayed: the least recently displayed ones are dropped first, and their bitmaps closed
  * to free their memory.
+ *
+ * The images of every cell also share {@link MAX_IMAGE_BYTES}: past it, the images of the least
+ * recently displayed cells are dropped, their fallbacks last.
  */
 export class CellImages {
+    /** Cells with images, the least recently displayed first, by their last display in ms. */
+    private static readonly budget = new Map<CellImages, number>();
+    /** Memory of the images of every cell, in bytes. */
+    private static bytes = 0;
+
     private readonly images = new Map<number, CellImage>();
+
+    /** Memory of the images of every cell, in bytes. */
+    public static get totalBytes(): number {
+        return CellImages.bytes;
+    }
 
     /** Number of images kept. */
     public get size(): number {
@@ -42,8 +66,13 @@ export class CellImages {
 
     /** Marks an image as the most recently displayed, the last one dropped (see {@link evict}). */
     public used(image: CellImage): CellImage {
+        if (this.images.get(image.zoom) !== image) {
+            // Dropped meanwhile, or another one of its zoom stored since
+            return image;
+        }
         this.images.delete(image.zoom);
         this.images.set(image.zoom, image);
+        this.touch();
         return image;
     }
 
@@ -84,37 +113,102 @@ export class CellImages {
         }
 
         if (current) {
-            CellImages.release(current.source);
-            this.images.delete(zoom);
+            this.drop(current);
         }
         const stored = { source, zoom, version };
         this.images.set(zoom, stored);
+        const bytes = CellImages.bytesOf(source);
+        CellImages.bytes += bytes;
+        // Just rendered: requested for the view, or ahead of it
+        this.touch();
         return stored;
     }
 
     /**
      * Drops the least recently displayed images past {@link MAX_CELL_IMAGES}, but the one of the
-     * lowest zoom, and the one just stored.
+     * lowest zoom, and the one just stored, then the images of every cell past
+     * {@link MAX_IMAGE_BYTES} (see {@link CellImages.enforceBudget}).
      *
      * @param zoom - Zoom of the image just stored.
      */
     public evict(zoom: number): void {
-        const lowest = Math.min(...this.images.keys());
-        for (const kept of this.images.keys()) {
+        const lowest = this.lowestZoom();
+        for (const kept of [...this.images.keys()]) {
             if (this.images.size <= MAX_CELL_IMAGES) {
                 break;
             }
             if (kept !== lowest && kept !== zoom) {
-                CellImages.release(this.images.get(kept)!.source);
-                this.images.delete(kept);
+                this.drop(this.images.get(kept)!);
             }
         }
+        CellImages.enforceBudget();
     }
 
     /** Frees every image, e.g. once the cell is discarded. */
     public clear(): void {
-        this.images.forEach((image) => CellImages.release(image.source));
-        this.images.clear();
+        [...this.images.values()].forEach((image) => this.drop(image));
+    }
+
+    /**
+     * Drops the images of the least recently displayed cells while their memory is past
+     * {@link MAX_IMAGE_BYTES}: first their images other than the lowest zoom, then those
+     * fallbacks. The cells displayed within {@link DISPLAYED_IMAGE_MS} keep their images, e.g.
+     * the cells in view, even past the bound: dropping them would only render them again.
+     *
+     * @param limit - Memory kept, in bytes.
+     */
+    public static enforceBudget(limit = MAX_IMAGE_BYTES): void {
+        if (CellImages.bytes <= limit) {
+            return;
+        }
+        const recent = performance.now() - DISPLAYED_IMAGE_MS;
+        for (const fallbacks of [false, true]) {
+            // Dropping images while iterating the map is safe: the next entries are kept
+            for (const [cell, usedAt] of CellImages.budget) {
+                if (CellImages.bytes <= limit || usedAt > recent) {
+                    // The next ones were displayed more recently
+                    break;
+                }
+                const lowest = cell.lowestZoom();
+                for (const image of [...cell.images.values()]) {
+                    if (fallbacks || image.zoom !== lowest) {
+                        cell.drop(image);
+                    }
+                }
+            }
+        }
+    }
+
+    /** Marks the cell as the most recently displayed, see {@link CellImages.enforceBudget}. */
+    private touch(): void {
+        CellImages.budget.delete(this);
+        CellImages.budget.set(this, performance.now());
+    }
+
+    /** Memory of an image, in bytes: 4 per pixel. */
+    private static bytesOf(source: CellImageSource): number {
+        return source.width * source.height * 4;
+    }
+
+    /** Lowest zoom of the images, the fallback of the cell; Infinity without image. */
+    private lowestZoom(): number {
+        let lowest = Infinity;
+        for (const zoom of this.images.keys()) {
+            lowest = Math.min(lowest, zoom);
+        }
+        return lowest;
+    }
+
+    /** Drops an image of the cell, freeing its memory. */
+    private drop(image: CellImage): void {
+        // Measured before its bitmap is closed, which sets its size to 0
+        const bytes = CellImages.bytesOf(image.source);
+        CellImages.release(image.source);
+        this.images.delete(image.zoom);
+        CellImages.bytes -= bytes;
+        if (this.images.size === 0) {
+            CellImages.budget.delete(this);
+        }
     }
 
     private static release(source: CellImageSource): void {

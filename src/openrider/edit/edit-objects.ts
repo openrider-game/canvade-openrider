@@ -1,5 +1,6 @@
 import { Vector } from 'canvade';
 import { ITEM_MAP } from '../item/item.constants';
+import { Cell } from '../grid/cell/cell';
 import type { Line } from '../item/line/line';
 import { SceneryLine } from '../item/line/scenery-line';
 import { SolidLine } from '../item/line/solid-line';
@@ -68,9 +69,14 @@ export function orderOf(object: TrackObject): number | null {
     return object instanceof LinkedItemGroup ? (object.instances[0]?.order ?? null) : object.order;
 }
 
+/** Parts of an object placed in the grid cells: the items of a group of linked items. */
+function partsOf(object: TrackObject): TrackObject[] {
+    return object instanceof LinkedItemGroup ? object.instances : [object];
+}
+
 /** Puts an object at its rank in the grid cells, see `TrackObject.order`. */
 export function rankObject(object: TrackObject, order: number): void {
-    const parts = object instanceof LinkedItemGroup ? object.instances : [object];
+    const parts = partsOf(object);
     if (parts.every((part) => part.order === order)) {
         return;
     }
@@ -81,4 +87,31 @@ export function rankObject(object: TrackObject, order: number): void {
     if (onTrack) {
         object.addToTrack();
     }
+}
+
+/**
+ * Puts objects at their ranks in the grid cells, given by increasing rank, as
+ * {@link rankObject} does one by one: those to move are taken off together, then put back in the
+ * order given, so that each cell rebuilds its lists once (see `Cell.batch`) rather than once per
+ * object, e.g. ranking a whole track.
+ *
+ * @param objects - The objects, each at the rank of its index.
+ */
+export function rankObjects(objects: readonly TrackObject[]): void {
+    const moved: Array<{ object: TrackObject; order: number; onTrack: boolean }> = [];
+    objects.forEach((object, order) => {
+        const parts = partsOf(object);
+        if (!parts.every((part) => part.order === order)) {
+            moved.push({ object, order, onTrack: parts[0]?.onTrack ?? false });
+        }
+    });
+    Cell.batch(() => {
+        moved.forEach(({ object }) => object.removeFromTrack());
+        for (const { object, order, onTrack } of moved) {
+            partsOf(object).forEach((part) => (part.order = order));
+            if (onTrack) {
+                object.addToTrack();
+            }
+        }
+    });
 }

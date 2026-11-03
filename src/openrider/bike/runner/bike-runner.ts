@@ -8,6 +8,12 @@ import type { Track } from '../../track/track';
 import { Bike, BikeClass } from '../bike';
 import { createControls, RunnerControls } from './runner-controls';
 
+/**
+ * Physics ticks after the death of a replayed rider past which its ragdoll or explosion may stop
+ * moving, see {@link BikeRunner.settled}: 10 seconds, its pieces lying still by then.
+ */
+export const SETTLE_TICKS = 500;
+
 /** State of a runner saved when reaching a checkpoint. */
 interface Snapshot {
     /** Time of the run at the checkpoint, in physics ticks. */
@@ -78,6 +84,10 @@ export abstract class BikeRunner {
 
     /** Set when the rider crashed or exploded, the bike then ignores the controls. */
     public dead = false;
+    /** Time of the run the rider died at, in physics ticks; null while alive. */
+    private deathTime: number | null = null;
+    /** Whether the physics stopped, see {@link BikeRunner.rest}. */
+    private resting = false;
     /** Ragdoll or explosion simulated after the death of the rider. */
     public deadObject: Ragdoll | Explosion | null = null;
 
@@ -111,6 +121,8 @@ export abstract class BikeRunner {
     public startFrom(snapshot?: Snapshot): void {
         this.done = false;
         this.dead = false;
+        this.deathTime = null;
+        this.resting = false;
         this.deadObject = null;
 
         this.actionQueue = new Map();
@@ -148,6 +160,7 @@ export abstract class BikeRunner {
         }
 
         this.dead = true;
+        this.deathTime = this.time;
         this.controls = createControls();
 
         this.instance.hitbox.touch = false;
@@ -321,6 +334,29 @@ export abstract class BikeRunner {
     }
 
     /**
+     * Whether the physics of the rider may stop: dead for {@link SETTLE_TICKS}, nothing waiting
+     * for its next tick, e.g. a checkpoint to save when the player saves one. Only for the riders
+     * replayed on screen (see {@link BikeRunner.rest}), never when verifying a run.
+     */
+    public get settled(): boolean {
+        return (
+            this.deathTime !== null &&
+            this.time - this.deathTime >= SETTLE_TICKS &&
+            !this.mustSave &&
+            this.actionQueue.size === 0
+        );
+    }
+
+    /**
+     * Counts a physics tick without running it, once {@link BikeRunner.settled}: the dead pieces
+     * stay where they lie, drawn at their last display positions, rather than simulated forever.
+     */
+    public rest(): void {
+        this.resting = true;
+        this.time++;
+    }
+
+    /**
      * Interpolates the display positions between two physics ticks and turns the pedals, on
      * every frame.
      *
@@ -328,6 +364,9 @@ export abstract class BikeRunner {
      * @param delta - Time elapsed since the last frame, in milliseconds.
      */
     public update(progress: number, delta: number): void {
+        if (this.resting) {
+            return;
+        }
         const bike = this.instance;
         if (bike) {
             if (bike.slow) {
@@ -363,7 +402,7 @@ export abstract class BikeRunner {
         // In the color of the bike, as it was ridden, as one shape (see `FlatAlpha`)
         const deadObject = this.deadObject;
         if (deadObject) {
-            FlatAlpha.draw(ctx, this.opacity, null, (target, opacity) =>
+            FlatAlpha.draw(ctx, this.opacity, deadObject.pixelArea(), (target, opacity) =>
                 deadObject.render(target, opacity),
             );
         }

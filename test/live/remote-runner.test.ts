@@ -216,6 +216,21 @@ describe('Remote runner', () => {
         expect(remote.lag).toBe(0);
     });
 
+    test('share the ticks of catching up, each rider still running its own tick', () => {
+        const track = parseTrack(TRACK_CODE, 1);
+        const riders = ['A', 'B', 'C'].map((name) => {
+            const remote = new RemoteRunner(track, name);
+            remote.receive([{ type: 'start', time: 0, checkpoints: 0, bike: 'BMX' }]);
+            remote.receive([{ type: 'progress', time: REMOTE_MAX_LAG + 300 }]);
+            return remote;
+        });
+
+        RemoteRunner.advanceAll(riders);
+
+        // The first one catching up first, the others a tick each meanwhile
+        expect(riders.map(({ time }) => time)).toEqual([REMOTE_MAX_STEPS, 1, 1]);
+    });
+
     test('is marked as live, unlike the ghosts', () => {
         const track = parseTrack(TRACK_CODE, 1);
         const remote = new RemoteRunner(track, 'Rider');

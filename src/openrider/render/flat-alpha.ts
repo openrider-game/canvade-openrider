@@ -1,6 +1,18 @@
 /** Area of a canvas, as `[left, top, right, bottom]` in canvas pixels. */
 export type PixelArea = [number, number, number, number];
 
+/** Area around points, in canvas pixels, grown by a padding on each side. */
+export function areaAround(points: Iterable<{ x: number; y: number }>, pad: number): PixelArea {
+    let [left, top, right, bottom] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const { x, y } of points) {
+        left = Math.min(left, x);
+        top = Math.min(top, y);
+        right = Math.max(right, x);
+        bottom = Math.max(bottom, y);
+    }
+    return [left - pad, top - pad, right + pad, bottom + pad];
+}
+
 /**
  * Drawing state a figure may rely on without setting it, e.g. the round joins and caps the game
  * sets on its canvas: the scratch canvas takes it from the canvas the figure is copied onto.
@@ -31,7 +43,7 @@ export abstract class FlatAlpha {
      * Draws a figure at an opacity, as one shape. Drawn directly when opaque.
      *
      * @param area - Area the figure is drawn in, nothing outside of it being kept; the whole
-     * canvas when null, e.g. for shards flying anywhere.
+     * canvas when null. Only its part on the canvas is drawn: nothing for a figure out of view.
      * @param draw - Draws the figure on a context, at the opacity given.
      */
     public static draw(
@@ -46,10 +58,11 @@ export abstract class FlatAlpha {
         }
 
         const [left, top, right, bottom] = area ?? [0, 0, ctx.canvas.width, ctx.canvas.height];
-        const x = Math.floor(left);
-        const y = Math.floor(top);
-        const width = Math.ceil(right) - x;
-        const height = Math.ceil(bottom) - y;
+        // The track is drawn without transform: the canvas is the area seen
+        const x = Math.max(0, Math.floor(left));
+        const y = Math.max(0, Math.floor(top));
+        const width = Math.min(ctx.canvas.width, Math.ceil(right)) - x;
+        const height = Math.min(ctx.canvas.height, Math.ceil(bottom)) - y;
         if (width <= 0 || height <= 0) {
             return;
         }

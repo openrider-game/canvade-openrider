@@ -1,6 +1,6 @@
 import { Vector } from 'canvade';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
-import type { BikeRunner } from '../../src/openrider/bike/runner/bike-runner';
+import { type BikeRunner, SETTLE_TICKS } from '../../src/openrider/bike/runner/bike-runner';
 import { GhostRunner } from '../../src/openrider/bike/runner/ghost-runner';
 import { FlatAlpha } from '../../src/openrider/render/flat-alpha';
 import type { Track } from '../../src/openrider/track/track';
@@ -93,6 +93,57 @@ describe('Dead riders', () => {
     });
 });
 
+describe('Dead ghosts', () => {
+    test('are copied over the area of their pieces, not over the whole canvas', () => {
+        for (const kill of [
+            (ghost: GhostRunner) => ghost.crash(),
+            (ghost: GhostRunner) => ghost.explode(new Vector(0, 0), new Vector(0, 0)),
+        ]) {
+            const ghost = ghostOf('#a33');
+            kill(ghost);
+            ghost.instance = null;
+            const canvas = createCanvasMock();
+            FlatAlpha['scratch'] = null;
+
+            ghost.render(canvas.context);
+
+            const [, , , width, height] = vi.mocked(canvas.context.drawImage).mock.calls[0];
+            expect(width).toBeGreaterThan(0);
+            expect(width as number).toBeLessThan(canvas.canvas.width / 2);
+            expect(height as number).toBeLessThan(canvas.canvas.height / 2);
+        }
+    });
+
+    test('lie still once settled, a checkpoint to save waking them up', () => {
+        const ghost = ghostOf('#a33');
+        ghost.startFrom();
+        ghost.crash();
+        const time = ghost.time;
+        for (let tick = 1; tick < SETTLE_TICKS; tick++) {
+            ghost.fixedUpdate();
+        }
+        expect(ghost.settled).toBe(false);
+        ghost.fixedUpdate();
+        expect(ghost.settled).toBe(true);
+        ghost.mustSave = true;
+        expect(ghost.settled).toBe(false);
+        ghost.mustSave = false;
+
+        // Counted in the time of the run, its pieces drawn where they were
+        const ragdoll = ghost.deadObject!;
+        ghost.update(0.5, 20);
+        const shown = ragdoll.points.map(({ displayPos }) => displayPos.toString());
+        ghost.rest();
+        ghost.update(0.9, 20);
+        expect(ghost.time).toBe(time + SETTLE_TICKS + 1);
+        expect(ragdoll.points.map(({ displayPos }) => displayPos.toString())).toEqual(shown);
+
+        // Simulated again from a restart
+        ghost.startFrom();
+        expect(ghost.settled).toBe(false);
+    });
+});
+
 describe('Ghost riders', () => {
     test('are drawn opaque, then copied at the opacity of the ghost as one shape', () => {
         const ghost = ghostOf('#33a');
@@ -124,5 +175,25 @@ describe('Translucent figures', () => {
         );
 
         expect(seen).toEqual([['round', 'round', 'bold 15px monospace']]);
+    });
+
+    test('are only drawn within the canvas, and not at all out of view', () => {
+        vi.stubGlobal('document', {
+            ...document,
+            createElement: () => createCanvasMock(0, 0).canvas,
+        });
+        FlatAlpha['scratch'] = null;
+        const track = createCanvasMock(700, 400);
+        const draw = vi.fn();
+
+        FlatAlpha.draw(track.context, 0.6, [800, 100, 900, 200], draw);
+        expect(draw).not.toHaveBeenCalled();
+
+        FlatAlpha.draw(track.context, 0.6, [650.5, -20, 760, 30], draw);
+        expect(draw).toHaveBeenCalledTimes(1);
+        // The part in view: from x 650 to 700, y 0 to 30
+        expect(vi.mocked(track.context.drawImage).mock.calls[0].slice(1)).toEqual([
+            0, 0, 50, 30, 650, 0, 50, 30,
+        ]);
     });
 });

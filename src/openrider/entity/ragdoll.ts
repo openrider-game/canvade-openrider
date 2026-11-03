@@ -3,6 +3,7 @@ import type { Bike } from '../bike/bike';
 import type { Rider } from '../bike/rider-pose';
 import { Spring } from '../bike/spring';
 import { LinePath } from '../numeric/line-path';
+import { areaAround, type PixelArea } from '../render/flat-alpha';
 import type { Track } from '../track/track';
 import { Entity } from './entity';
 import { Part } from './part';
@@ -139,6 +140,21 @@ export class Ragdoll extends Entity {
         for (const point of this.points) {
             point.update(progress, delta);
         }
+    }
+
+    /**
+     * Area the rider is drawn in, in canvas pixels: around its joints, with room for the strokes
+     * of the limbs and the head drawn beyond its joint (see {@link Ragdoll.render}).
+     */
+    public pixelArea(): PixelArea {
+        const track = this.track;
+        const head = this.head.displayPos;
+        const hip = this.hip.displayPos;
+        const points = [
+            ...this.points.map((point) => track.toPixel(point.displayPos)),
+            track.toPixel(head.add(head.sub(hip).scale(0.25))),
+        ];
+        return areaAround(points, 6 * track.zoomFactor + 4);
     }
 
     /** @param opacity - Opacity of the rider, as their bike was drawn. */

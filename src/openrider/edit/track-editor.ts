@@ -5,7 +5,7 @@ import type { TrackObject } from '../item/track-object';
 import { parseItem } from '../parser/track-document';
 import type { Track } from '../track/track';
 import { TrackLayer, TrackLayerType } from '../track/track-layer';
-import { codeOf, objectFromCode, orderOf, rankObject, unitOf } from './edit-objects';
+import { codeOf, objectFromCode, orderOf, rankObject, rankObjects, unitOf } from './edit-objects';
 import { LayerData, ObjectData, TrackEdit, TrackSnapshot } from './track-edit';
 
 /**
@@ -318,7 +318,7 @@ export class TrackEditor {
             layer.objects().forEach((object) => units.add(unitOf(object)));
         }
         const objects = [...units].sort((a, b) => (orderOf(a) ?? -1) - (orderOf(b) ?? -1));
-        objects.forEach((object, index) => rankObject(object, index));
+        rankObjects(objects);
 
         return {
             layers: this.track.layers.all.map(TrackEditor.layerData),
@@ -350,7 +350,8 @@ export class TrackEditor {
         layers.all.forEach((layer, index) => (layer.uid = snapshot.layers[index].uid));
         this.apply({ type: 'origin', from: snapshot.origin, to: snapshot.origin });
         snapshot.objects.forEach((data, index) => {
-            this.create(data);
+            // Ranked before being added, at the end of the cells: as taken off and put back there
+            this.create(data, index);
             const object = this.objects.get(data.uid);
             if (object) {
                 rankObject(object, index);
@@ -392,8 +393,13 @@ export class TrackEditor {
         };
     }
 
-    /** Creates an object from its data and puts it on its layer, unless already there. */
-    private create(data: ObjectData): void {
+    /**
+     * Creates an object from its data and puts it on its layer, unless already there.
+     *
+     * @param order - Its rank in the grid cells (see `TrackObject.order`), set before adding it;
+     * its own rank, if any, without one.
+     */
+    private create(data: ObjectData, order?: number): void {
         const layer = this.track.layers.byUid(data.layer);
         if (!layer || this.objects.has(data.uid)) {
             return;
@@ -411,6 +417,10 @@ export class TrackEditor {
 
         object.uid = data.uid;
         object.layer = layer;
+        if (order !== undefined) {
+            const parts = object instanceof LinkedItemGroup ? object.instances : [object];
+            parts.forEach((part) => (part.order = order));
+        }
         object.addToTrack();
     }
 

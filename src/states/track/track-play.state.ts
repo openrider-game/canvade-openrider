@@ -1,4 +1,5 @@
 import { GameUpdateEvent, Layer } from 'canvade';
+import { RemoteRunner } from '../../openrider/bike/runner/remote-runner';
 import { LiveSession } from '../../openrider/live/live-session';
 import { GhostParser } from '../../openrider/parser/ghost-parser';
 import { GhostService } from '../../openrider/request/ghost-service';
@@ -56,12 +57,18 @@ export abstract class TrackPlayState extends TrackViewState {
         // Each runner counts the tick in the time of its run
         track.playerRunner.fixedUpdate();
         track.ghostRunners.forEach((runner) => {
-            if (!runner.done) {
+            // A ghost dead for a while lies still, its physics stopped (not when verifying it)
+            if (runner.done) {
+                return;
+            }
+            if (runner.settled) {
+                runner.rest();
+            } else {
                 runner.fixedUpdate();
             }
         });
         // The riders of the live session, as far as their inputs are received
-        track.remoteRunners.forEach((runner) => runner.advance());
+        RemoteRunner.advanceAll(track.remoteRunners.values());
         LiveSession.of(track)?.tick();
     }
 

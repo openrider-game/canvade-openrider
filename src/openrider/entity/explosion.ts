@@ -1,6 +1,7 @@
 import { Vector } from 'canvade';
 import type { Bike } from '../bike/bike';
 import { LinePath } from '../numeric/line-path';
+import { areaAround, type PixelArea } from '../render/flat-alpha';
 import type { Track } from '../track/track';
 import { Entity } from './entity';
 import { Shard } from './shard';
@@ -43,6 +44,24 @@ export class Explosion extends Entity {
         for (const piece of this.points) {
             piece.update(progress, delta);
         }
+    }
+
+    /**
+     * Area the blast and the shards are drawn in, in canvas pixels: the blast reaching 40 pixels
+     * around its center, each shard its size around its position (see {@link Explosion.render}).
+     */
+    public pixelArea(): PixelArea {
+        const track = this.track;
+        const [left, top, right, bottom] = areaAround([track.toPixel(this.pos)], 42);
+        const areas = this.points.map((piece) =>
+            areaAround([track.toPixel(piece.displayPos)], piece.size * track.zoomFactor + 2),
+        );
+        return [
+            Math.min(left, ...areas.map((area) => area[0])),
+            Math.min(top, ...areas.map((area) => area[1])),
+            Math.max(right, ...areas.map((area) => area[2])),
+            Math.max(bottom, ...areas.map((area) => area[3])),
+        ];
     }
 
     /** @param opacity - Opacity of the shards, as their bike was drawn. */
