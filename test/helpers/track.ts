@@ -20,8 +20,8 @@ export type PlayerKey = keyof typeof PLAYER_KEYS;
  *
  * The tracks of the tests have no dense cell, so the parser never needs the render workers.
  */
-export function parseTrack(code: TrackCode, id: number | null = null): Track {
-    const track = new Track(id);
+export function parseTrack(code: TrackCode, id: number | null = null, headless = false): Track {
+    const track = new Track(id, headless);
     const parser = new TrackParser(track);
     parser.init(code);
 

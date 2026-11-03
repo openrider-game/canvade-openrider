@@ -70,6 +70,11 @@ export class Grid<T extends Cell> {
         return this.cells.has(Grid.cellKey(x, y));
     }
 
+    /** The cell at the given grid coordinates, undefined without one: none is created. */
+    public existing(x: number, y: number): T | undefined {
+        return this.cells.get(Grid.cellKey(x, y));
+    }
+
     /** Gets the cell at the given grid coordinates, creating it if needed. */
     public cell(x: number, y: number): T {
         const key = Grid.cellKey(x, y);

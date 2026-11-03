@@ -226,7 +226,9 @@ export class CommandRegistry {
 
         const moves = block.settings.kind === 'move' && layer;
         group.add(object, moves ? this.storeAlongMove(object, layer, block.settings.offset) : []);
-        layer?.cache.remove(object);
+        if (!object.track.headless) {
+            layer?.cache.remove(object);
+        }
     }
 
     /** Frees an object, back in the render cache of its layer while it is on the track. */
@@ -238,7 +240,7 @@ export class CommandRegistry {
         this.groups.get(block)?.remove(object);
         object.command = null;
         PhysicsCell.commandsChanged();
-        if (object.onTrack && object.layer) {
+        if (object.onTrack && object.layer && !object.track.headless) {
             object.layer.cache.add(object);
         }
     }

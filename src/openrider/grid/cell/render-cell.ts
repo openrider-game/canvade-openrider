@@ -77,7 +77,8 @@ export class RenderCell extends Cell {
 
     /** Incremented each time the lines of the cell change. */
     private version = 0;
-    private readonly images = new CellImages();
+    /** Images of the cell, the patched copy of an image being forgotten with it. */
+    private readonly images = new CellImages((zoom) => this.patcher.forget(zoom));
     /** Items drawn on every frame, listed again once the content changes. */
     private live: Item[] | null = null;
     /** Number of items drawn as sprites, counted again once the content changes. */

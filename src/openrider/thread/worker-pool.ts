@@ -49,14 +49,22 @@ export abstract class WorkerPool {
     private static workerCount = 0;
     private static taskId = 0;
 
-    /** Pending requests by `cellId:zoom`. */
-    private static readonly queue = new Map<string, RenderRequest>();
+    /**
+     * Pending requests by `cellId:zoom`, one map for each priority, by its value: each in the
+     * order of the requests, the most urgent being the first of the first map holding any.
+     */
+    private static readonly queues: Array<Map<string, RenderRequest>> = [
+        RenderPriority.VISIBLE,
+        RenderPriority.PRELOAD,
+        RenderPriority.FALLBACK,
+        RenderPriority.ADJACENT,
+    ].map(() => new Map());
     /** Requests being rendered, by task id. */
     private static readonly running = new Map<number, RunningRequest>();
 
     /** Number of requests waiting for a worker. */
     public static get queuedCount(): number {
-        return WorkerPool.queue.size;
+        return WorkerPool.queues.reduce((count, queue) => count + queue.size, 0);
     }
 
     /** Number of requests being rendered by the workers. */
@@ -116,16 +124,21 @@ export abstract class WorkerPool {
         }
 
         const key = `${cell.id}:${zoom}`;
-        const queued = WorkerPool.queue.get(key);
+        const queued = WorkerPool.queued(key);
         if (queued) {
-            queued.priority = Math.min(queued.priority, priority);
+            if (priority < queued.priority) {
+                // Moved to the more urgent queue, after its requests
+                WorkerPool.queues[queued.priority].delete(key);
+                queued.priority = priority;
+                WorkerPool.queues[priority].set(key, queued);
+            }
             if (callback) {
                 queued.callbacks.push(callback);
             }
             return;
         }
 
-        WorkerPool.queue.set(key, {
+        WorkerPool.queues[priority].set(key, {
             cell,
             zoom,
             opacityFactor,
@@ -141,9 +154,13 @@ export abstract class WorkerPool {
             WorkerPool.createWorkers();
         }
 
-        while (WorkerPool.idleWorkers.length && WorkerPool.queue.size) {
-            const [key, request] = WorkerPool.takeMostUrgent();
-            WorkerPool.queue.delete(key);
+        for (
+            let urgent = WorkerPool.takeMostUrgent();
+            urgent && WorkerPool.idleWorkers.length;
+            urgent = WorkerPool.takeMostUrgent()
+        ) {
+            const [key, request] = urgent;
+            WorkerPool.queues[request.priority].delete(key);
 
             // Rendered meanwhile, e.g. synchronously
             if (request.cell.isUpToDate(request.zoom)) {
@@ -161,16 +178,29 @@ export abstract class WorkerPool {
         }
     }
 
-    /** Finds the request with the lowest priority value, the oldest one on ties. */
-    private static takeMostUrgent(): [string, RenderRequest] {
-        let urgent: [string, RenderRequest] | null = null;
-        for (const entry of WorkerPool.queue) {
-            if (!urgent || entry[1].priority < urgent[1].priority) {
-                urgent = entry;
+    /**
+     * The request with the lowest priority value, the oldest one of its queue, null without any:
+     * the first of the first queue holding any.
+     */
+    private static takeMostUrgent(): [string, RenderRequest] | null {
+        for (const queue of WorkerPool.queues) {
+            const first = queue.entries().next();
+            if (!first.done) {
+                return first.value;
             }
         }
+        return null;
+    }
 
-        return urgent as [string, RenderRequest];
+    /** A pending request, whatever its priority. */
+    private static queued(key: string): RenderRequest | undefined {
+        for (const queue of WorkerPool.queues) {
+            const request = queue.get(key);
+            if (request) {
+                return request;
+            }
+        }
+        return undefined;
     }
 
     /** Stores a rendered bitmap in its cell, closing it if the request is unknown. */

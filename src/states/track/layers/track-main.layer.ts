@@ -86,8 +86,12 @@ export class TrackMainLayer extends Layer {
         LiveEditSession.of(track)?.renderCursors(ctx);
         ctx.restore();
 
-        // The cursor of the current tool is replaced while the interface is hovered
-        ctx.canvas.style.cursor = track.uiHovered ? 'pointer' : track.cursor;
+        // The cursor of the current tool is replaced while the interface is hovered; set when it
+        // changes only, rather than on every frame
+        const cursor = track.uiHovered ? 'pointer' : track.cursor;
+        if (ctx.canvas.style.cursor !== cursor) {
+            ctx.canvas.style.cursor = cursor;
+        }
     }
 
     private onToolPointerDown(e: CustomEvent<GamePointerEvent>): void {

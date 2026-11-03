@@ -80,4 +80,19 @@ describe('Images of the cells', () => {
         // Every image of the cell displayed kept, those rendered ahead for the zooms around too
         expect([a.get(1), a.get(2), b.get(1)].map(Boolean)).toEqual([true, true, false]);
     });
+
+    test('tell each image dropped, e.g. for the cell to forget its patched copy', () => {
+        const dropped: number[] = [];
+        const images = new CellImages((zoom) => dropped.push(zoom));
+        cells.push(images);
+        images.put(1, 0, source(10));
+        images.put(2, 0, source(10));
+
+        // Replaced at its zoom, then the cell dropped past the memory bound, its fallback last
+        images.put(2, 1, source(10));
+        expect(dropped).toEqual([2]);
+        now = 10 * DISPLAYED_IMAGE_MS;
+        CellImages.enforceBudget(0);
+        expect(dropped).toEqual([2, 2, 1]);
+    });
 });

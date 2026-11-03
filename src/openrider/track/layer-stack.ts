@@ -17,6 +17,11 @@ const LAYER_NAMES: Record<TrackLayerType, string> = {
  */
 export class LayerStack {
     private list: TrackLayer[] = [];
+    /**
+     * Layers of each type, listed once until the stack changes: the collisions read the main
+     * layers for each point of each bike on every tick.
+     */
+    private byType: Record<TrackLayerType, readonly TrackLayer[]> | null = null;
     /** Layer the editor tools draw on. */
     public active: TrackLayer;
 
@@ -33,13 +38,22 @@ export class LayerStack {
     }
 
     /** Main layers, from the bottom one to the top one. */
-    public get main(): TrackLayer[] {
-        return this.list.filter((layer) => layer.type === 'main');
+    public get main(): readonly TrackLayer[] {
+        return this.types().main;
     }
 
     /** Foreground layers, from the bottom one to the top one. */
-    public get foreground(): TrackLayer[] {
-        return this.list.filter((layer) => layer.type === 'foreground');
+    public get foreground(): readonly TrackLayer[] {
+        return this.types().foreground;
+    }
+
+    /** The layers of each type, listed again once the stack changed. */
+    private types(): Record<TrackLayerType, readonly TrackLayer[]> {
+        this.byType ??= {
+            main: this.list.filter((layer) => layer.type === 'main'),
+            foreground: this.list.filter((layer) => layer.type === 'foreground'),
+        };
+        return this.byType;
     }
 
     /**
@@ -56,6 +70,7 @@ export class LayerStack {
         }
 
         this.list = [...layers];
+        this.byType = null;
         this.list.forEach((layer, index) => (layer.uid = `L${index}`));
         this.active = firstMain;
         return firstMain;
@@ -153,6 +168,7 @@ export class LayerStack {
         }
         this.list.splice(from, 1);
         this.list.splice(Math.max(0, Math.min(this.list.length, index)), 0, layer);
+        this.byType = null;
         this.track.invalidateUI();
     }
 
@@ -170,6 +186,7 @@ export class LayerStack {
      */
     public insert(layer: TrackLayer, index: number): void {
         this.list.splice(Math.max(0, Math.min(this.list.length, index)), 0, layer);
+        this.byType = null;
         this.active = layer;
         this.track.invalidateUI();
     }
@@ -181,6 +198,7 @@ export class LayerStack {
     public detach(layer: TrackLayer): void {
         const index = this.list.indexOf(layer);
         this.list.splice(index, 1);
+        this.byType = null;
         if (this.active === layer) {
             this.active = this.list[Math.max(0, index - 1)];
         }

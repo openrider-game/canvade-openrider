@@ -111,7 +111,8 @@ export abstract class GhostVerifier {
             return { ...GhostVerifier.refuse('The run is too long to be verified'), distance: 0 };
         }
 
-        const track = new Track(null);
+        // Never drawn: without render cache
+        const track = new Track(null, true);
         const course = new EnduranceCourse(track, seed, version);
         const ghost = new GhostRunner(track, ghostString, false);
         ghost.createBike();
@@ -152,7 +153,8 @@ export abstract class GhostVerifier {
      * @throws When the track code cannot be parsed, or the deadline is passed.
      */
     private static parseTrack(trackCode: string, deadline: number): Track {
-        const track = new Track(null);
+        // Never drawn: without render cache
+        const track = new Track(null, true);
         const parser = new TrackParser(track);
         parser.init(trackCode);
 

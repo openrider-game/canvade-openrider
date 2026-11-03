@@ -44,6 +44,12 @@ export class CellImages {
 
     private readonly images = new Map<number, CellImage>();
 
+    /**
+     * @param onDrop - Called with the zoom of each image dropped, e.g. for the cell to forget
+     * what it derived from it.
+     */
+    public constructor(private readonly onDrop?: (zoom: number) => void) {}
+
     /** Memory of the images of every cell, in bytes. */
     public static get totalBytes(): number {
         return CellImages.bytes;
@@ -206,6 +212,7 @@ export class CellImages {
         CellImages.release(image.source);
         this.images.delete(image.zoom);
         CellImages.bytes -= bytes;
+        this.onDrop?.(image.zoom);
         if (this.images.size === 0) {
             CellImages.budget.delete(this);
         }

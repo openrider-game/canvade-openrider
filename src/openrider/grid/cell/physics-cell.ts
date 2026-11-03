@@ -20,6 +20,14 @@ export class PhysicsCell extends Cell {
     private reach: Float64Array | null = null;
     /** Version of the commands {@link PhysicsCell.reach} was made with. */
     private reachVersion = -1;
+    /**
+     * Boxes of the solid lines as `[left, top, right, bottom, ...]`, in the order of
+     * {@link Cell.lines}, NaN for a line collided elsewhere, moved or hidden by its command block;
+     * null until the lines collide, and once they change.
+     */
+    private boxes: Float64Array | null = null;
+    /** Version of the commands {@link PhysicsCell.boxes} was made with. */
+    private boxesVersion = -1;
 
     /** Tells the cells that an item got or lost its command block, its reach changing. */
     public static commandsChanged(): void {
@@ -28,6 +36,7 @@ export class PhysicsCell extends Cell {
 
     protected override clear(): void {
         this.reach = null;
+        this.boxes = null;
     }
 
     /**
@@ -40,9 +49,7 @@ export class PhysicsCell extends Cell {
      * exactly as without it.
      */
     public touch(part: Collidable): void {
-        for (let i = this.lines.length - 1; i >= 0; i--) {
-            this.lines[i].touch(part);
-        }
+        this.touchLines(part);
         if (part.bike.runner.dead) {
             return;
         }
@@ -62,6 +69,66 @@ export class PhysicsCell extends Cell {
                 this.objects[i].touch(part);
             }
         }
+    }
+
+    /**
+     * Collides a part with the solid lines, in reverse order of insertion. A line too far from the
+     * part to move it, from its box packed in {@link PhysicsCell.boxes}, is only marked as
+     * collided (`Line.touched`), as `SolidLine.collide` does: it collides only with a part within
+     * its size of the line, or having crossed it during the last update, so within its velocity.
+     * The lines in reach collide as without it.
+     */
+    private touchLines(part: Collidable): void {
+        const boxes = this.lineBoxes();
+        // Larger than the size and the velocity of the part, by a margin for the rounding
+        const reach =
+            Math.max(part.size, Math.abs(part.velocity.x) + Math.abs(part.velocity.y)) + 1;
+        for (let i = this.lines.length - 1; i >= 0; i--) {
+            const line = this.lines[i];
+            // The lines changed while colliding: collided as they are
+            if (this.boxes !== boxes) {
+                line.touch(part);
+                continue;
+            }
+            const box = i * 4;
+            // Read again for each line: a line colliding moves the part
+            const { x, y } = part.pos;
+            if (
+                x < boxes[box] - reach ||
+                y < boxes[box + 1] - reach ||
+                x > boxes[box + 2] + reach ||
+                y > boxes[box + 3] + reach
+            ) {
+                // Out of reach, as `SolidLine.collide` finds it, colliding once a check
+                line.touched = true;
+            } else {
+                // In reach, or NaN for a line collided elsewhere
+                line.touch(part);
+            }
+        }
+    }
+
+    /** The packed boxes of the solid lines, made again once they or their commands change. */
+    private lineBoxes(): Float64Array {
+        if (this.boxes === null || this.boxesVersion !== commandsVersion) {
+            const lines = this.lines;
+            const boxes = new Float64Array(lines.length * 4);
+            for (let i = 0; i < lines.length; i++) {
+                const { pos, endPos, command } = lines[i];
+                const box = i * 4;
+                if (command !== null) {
+                    boxes.fill(NaN, box, box + 4);
+                    continue;
+                }
+                boxes[box] = Math.min(pos.x, endPos.x);
+                boxes[box + 1] = Math.min(pos.y, endPos.y);
+                boxes[box + 2] = Math.max(pos.x, endPos.x);
+                boxes[box + 3] = Math.max(pos.y, endPos.y);
+            }
+            this.boxes = boxes;
+            this.boxesVersion = commandsVersion;
+        }
+        return this.boxes;
     }
 
     /** The packed positions of the items, made again once they or their commands change. */

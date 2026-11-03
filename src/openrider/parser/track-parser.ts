@@ -105,11 +105,11 @@ export class TrackParser {
         this.steps = [
             ...document.layers.flatMap((layerDocument, index) => {
                 const layer = layers[index];
-                // The scenery of every color in one step, each polyline with its color
-                const scenery = layerDocument.scenery.flatMap((group) => group.polylines);
-                const colors = layerDocument.scenery.flatMap((group) =>
-                    group.polylines.map(() => group.color),
-                );
+                // The scenery of every color in one step, each polyline with its color; none for
+                // a track never drawn, e.g. by the verifier: the bikes go through the scenery
+                const groups = this.track.headless ? [] : layerDocument.scenery;
+                const scenery = groups.flatMap((group) => group.polylines);
+                const colors = groups.flatMap((group) => group.polylines.map(() => group.color));
                 return [
                     this.lineStep(layer, 'Solid lines', layerDocument.solid, SolidLine),
                     this.lineStep(layer, 'Scenery lines', scenery, SceneryLine, colors),
@@ -210,7 +210,7 @@ export class TrackParser {
 
                         line.color = color;
                         line.layer = layer;
-                        line.uid = `p${this.objectCount++}`;
+                        line.setParsedUid(this.objectCount++);
                         line.addToTrack();
                     }
                 }
@@ -234,7 +234,7 @@ export class TrackParser {
                     if (itemClass) {
                         const item = itemClass.createInstance(values, this.track);
                         item.layer = layer;
-                        item.uid = `p${this.objectCount++}`;
+                        item.setParsedUid(this.objectCount++);
                         item.addToTrack();
                     }
                 }

@@ -264,7 +264,11 @@ export function createPainter(): Painter {
     const stamp = (shape: number, color: string, rotation: number, zoom: number) => {
         const key = `${shape} ${color} ${rotation} ${zoom}`;
         let image = stamps.get(key);
-        if (!image) {
+        if (image) {
+            // The most recently used last, see below
+            stamps.delete(key);
+            stamps.set(key, image);
+        } else {
             const half = stampHalf(zoom);
             const canvas = new OffscreenCanvas(2 * half, 2 * half);
             const context = canvas.getContext('2d');
@@ -275,8 +279,10 @@ export function createPainter(): Painter {
                 context.fill();
                 context.stroke();
             }
+            // The least recently used dropped, rather than all of them: a track of many looks
+            // would stamp them all again each time
             if (stamps.size >= MAX_STAMPS) {
-                stamps.clear();
+                stamps.delete(stamps.keys().next().value as string);
             }
             image = canvas;
             stamps.set(key, image);

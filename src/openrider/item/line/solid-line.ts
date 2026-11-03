@@ -43,19 +43,19 @@ export class SolidLine extends Line {
         this.touched = true;
 
         let vectorToPart: Vector | null = null;
+        const vector = this.vector;
         const posDistance = part.pos.sub(this.pos);
-        const relativePosOnLine = posDistance.dot(this.vector) / this.len / this.len;
+        const relativePosOnLine = posDistance.dot(vector) / this.len / this.len;
         let passedThrough = 1;
 
         // The part is directly above or below the line
         if (relativePosOnLine >= 0 && relativePosOnLine <= 1) {
             const diffVel = posDistance.sub(part.velocity);
-            const perpendicularPosCross =
-                posDistance.x * this.vector.y - posDistance.y * this.vector.x;
-            const perpendicularVelCross = diffVel.x * this.vector.y - diffVel.y * this.vector.x;
+            const perpendicularPosCross = posDistance.x * vector.y - posDistance.y * vector.x;
+            const perpendicularVelCross = diffVel.x * vector.y - diffVel.y * vector.x;
             // Negative if the part went through the line during the last position update
             passedThrough = perpendicularPosCross * perpendicularVelCross < 0 ? -1 : 1;
-            vectorToPart = posDistance.sub(this.vector.scale(relativePosOnLine));
+            vectorToPart = posDistance.sub(vector.scale(relativePosOnLine));
         }
 
         // The part is close enough to one of the line ends

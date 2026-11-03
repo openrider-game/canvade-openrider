@@ -1,5 +1,6 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../entity/collidable';
+import { direction } from '../numeric/directions';
 import type { Track } from '../track/track';
 import { Item, itemPosition } from './item';
 import type { ItemShape } from './item-sprite';
@@ -27,8 +28,9 @@ export abstract class DirectionalItem extends Item {
     ) {
         super(pos, track);
 
-        const rad = (rotation * Math.PI) / 180;
-        this.direction = new Vector(-Math.sin(rad), Math.cos(rad));
+        // From the table computed by V8, as the server replays the runs
+        const [x, y] = direction(rotation);
+        this.direction = new Vector(x, y);
     }
 
     public override get sprite(): ItemShape {

@@ -82,6 +82,14 @@ export class CellPatcher {
         }
     }
 
+    /**
+     * Forgets the patched copy of the image of a zoom, once the image is dropped, e.g. by the
+     * memory bound of the images (see `CellImages`): a copy is as large as the image.
+     */
+    public forget(zoom: number): void {
+        this.patches.delete(zoom);
+    }
+
     /** Forgets the edits and the patches, once the images of the cell are freed. */
     public reset(): void {
         this.patches.clear();

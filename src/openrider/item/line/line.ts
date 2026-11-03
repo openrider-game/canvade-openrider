@@ -16,8 +16,6 @@ export interface LineClass {
  * Lines are drawn in the cached images of the render cells rather than on every frame.
  */
 export abstract class Line extends TrackObject {
-    /** Vector from the start to the end of the line. */
-    public readonly vector: Vector;
     /** Length of the line, in world units. */
     public readonly len: number;
     /**
@@ -35,8 +33,16 @@ export abstract class Line extends TrackObject {
         super(pos, track);
 
         this.endPos = endPos;
-        this.vector = this.endPos.sub(this.pos);
         this.len = this.vector.getLength();
+    }
+
+    /**
+     * Vector from the start to the end of the line, computed when needed rather than kept: a
+     * large track holds a million lines, and only the lines near a bike need it, the same
+     * subtraction giving the same vector each time.
+     */
+    public get vector(): Vector {
+        return this.endPos.sub(this.pos);
     }
 
     public touch(_part: Collidable): void {}

@@ -23,10 +23,32 @@ export abstract class TrackObject {
     /** Unique id, also used as key in the grid totals and in the runners reached sets. */
     public readonly id: number;
     /**
-     * Id of the object for the edits of the track, the same on every screen editing it (see
-     * `TrackEditor`); null for the objects never edited, e.g. of the endurance tracks.
+     * Id given by the edits of the track (see {@link TrackObject.uid}), null for a parsed object,
+     * whose id is its number, or an object never edited.
      */
-    public uid: string | null = null;
+    private uidText: string | null = null;
+    /** Number of the object in the track parsed, its id being `p<number>`; -1 for the others. */
+    private parsedNumber = -1;
+
+    /**
+     * Id of the object for the edits of the track, the same on every screen editing it (see
+     * `TrackEditor`); null for the objects never edited, e.g. of the endurance tracks. Written
+     * when read for a parsed object: a large track parses a million of them.
+     */
+    public get uid(): string | null {
+        return this.uidText ?? (this.parsedNumber >= 0 ? `p${this.parsedNumber}` : null);
+    }
+
+    public set uid(uid: string | null) {
+        this.uidText = uid;
+        this.parsedNumber = -1;
+    }
+
+    /** Gives a parsed object its id, `p<number>`, see {@link TrackObject.uid}. */
+    public setParsedUid(number: number): void {
+        this.uidText = null;
+        this.parsedNumber = number;
+    }
     public pos: Vector;
     /** End of the object, equal to {@link TrackObject.pos} for objects without length. */
     public endPos: Vector;

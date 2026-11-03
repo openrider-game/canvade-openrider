@@ -8,6 +8,7 @@ import { PlayerRunner } from '../bike/runner/player-runner';
 import type { Collidable } from '../entity/collidable';
 import { Entity } from '../entity/entity';
 import type { EraserRestriction } from '../grid/cell/physics-cell';
+import { CELL_BLOCK_ACTION_OFFSET_ORDER } from '../grid/grid.constants';
 import { TrackEditor } from '../edit/track-editor';
 import { HistoryManager } from '../history/history-manager';
 import { CommandRegistry } from '../item/command/command-registry';
@@ -139,7 +140,16 @@ export class Track extends World {
      *
      * @param id - Id of the track when racing it, null when editing.
      */
-    public constructor(public id: number | null = null) {
+    /**
+     * @param headless - Whether the track is never drawn, e.g. replayed by the verifier of the
+     * server: its objects then stay out of the render cache of their layers, which would hold
+     * them all a second time, for nothing, and the parser leaves its scenery out (see
+     * `TrackParser`), which the bikes go through.
+     */
+    public constructor(
+        public id: number | null = null,
+        public readonly headless = false,
+    ) {
         super(new Vector(), Zoom.toPixel(DEFAULT_ZOOM, Display.pixelRatio));
         this.pixelRatio = Display.pixelRatio;
 
@@ -223,7 +233,7 @@ export class Track extends World {
         if (!(obj instanceof Line) || (obj.len >= MIN_LINE_LENGTH && obj.len < MAX_LINE_LENGTH)) {
             const layer = this.getLayer(obj);
             layer.grid.add(obj);
-            if (obj.command === null) {
+            if (obj.command === null && !this.headless) {
                 layer.cache.add(obj);
             }
         }
@@ -239,7 +249,7 @@ export class Track extends World {
     public remove(obj: TrackObject): void {
         const layer = this.getLayer(obj);
         layer.grid.remove(obj);
-        if (obj.command === null) {
+        if (obj.command === null && !this.headless) {
             layer.cache.remove(obj);
         }
         this.commands.objectChanged(obj);
@@ -263,13 +273,26 @@ export class Track extends World {
      * ghosts depend on.
      */
     public touch(part: Collidable): void {
+        const offsets = CELL_BLOCK_ACTION_OFFSET_ORDER;
         for (const layer of this.layers.main) {
             const grid = layer.grid;
             const x = Math.floor(part.pos.x / grid.cellSize - 0.5);
             const y = Math.floor(part.pos.y / grid.cellSize - 0.5);
 
-            grid.cellBlockAction(x, y, (cell) => cell.untouch());
-            grid.cellBlockAction(x, y, (cell) => cell.touch(part));
+            // The 2x2 block of cells, as `Grid.cellBlockAction` runs it, the missing cells being
+            // empty: looked up without creating them, nor allocating for each part
+            const a = grid.existing(x + offsets[0][0], y + offsets[0][1]);
+            const b = grid.existing(x + offsets[1][0], y + offsets[1][1]);
+            const c = grid.existing(x + offsets[2][0], y + offsets[2][1]);
+            const d = grid.existing(x + offsets[3][0], y + offsets[3][1]);
+            a?.untouch();
+            b?.untouch();
+            c?.untouch();
+            d?.untouch();
+            a?.touch(part);
+            b?.touch(part);
+            c?.touch(part);
+            d?.touch(part);
         }
     }
 
