@@ -85,15 +85,19 @@ export class Grid<T extends Cell> {
 
     /** Stores the object in every cell it crosses. */
     public add(obj: TrackObject): void {
-        this.getCellsForObject(obj).forEach((cell) => cell.push(obj));
+        for (const cell of this.getCellsForObject(obj)) {
+            cell.push(obj);
+        }
     }
 
     /** Removes the object from every cell it crosses. */
     public remove(obj: TrackObject): void {
-        this.getCellsForObject(obj).forEach((cell) => cell.remove(obj));
+        for (const cell of this.getCellsForObject(obj)) {
+            cell.remove(obj);
+        }
     }
 
-    private getCellsForObject(obj: TrackObject): T[] {
+    private getCellsForObject(obj: TrackObject): IterableIterator<T> {
         if (this.spriteMargin > 0 && obj.kind === 'item' && (obj as Item).sprite !== null) {
             return this.cellsAround(obj.pos, this.spriteMargin);
         }
@@ -101,16 +105,14 @@ export class Grid<T extends Cell> {
     }
 
     /** Cells within a distance of a position on each axis, created when needed. */
-    private cellsAround(pos: Vector, margin: number): T[] {
+    private *cellsAround(pos: Vector, margin: number): IterableIterator<T> {
         const from = Grid.gridCoords(new Vector(pos.x - margin, pos.y - margin), this.cellSize);
         const to = Grid.gridCoords(new Vector(pos.x + margin, pos.y + margin), this.cellSize);
-        const cells: T[] = [];
         for (let x = from.x; x <= to.x; x++) {
             for (let y = from.y; y <= to.y; y++) {
-                cells.push(this.cell(x, y));
+                yield this.cell(x, y);
             }
         }
-        return cells;
     }
 
     /** Cell containing a world position, created when needed. */
@@ -126,11 +128,11 @@ export class Grid<T extends Cell> {
      * to integer positions: the cell of the start, then the cell each crossing enters. Computed
      * again each time rather than cached, which would keep every line of every track.
      */
-    public cellsCrossed(from: Vector, to: Vector): T[] {
+    public *cellsCrossed(from: Vector, to: Vector): IterableIterator<T> {
         const cellSize = this.cellSize;
-        const cells = [this.cellAt(from.x, from.y)];
+        yield this.cellAt(from.x, from.y);
         if (from.x === to.x && from.y === to.y) {
-            return cells;
+            return;
         }
 
         const firstGridCoord = (sign: number, coord: number): number => {
@@ -169,10 +171,8 @@ export class Grid<T extends Cell> {
                 y = y2;
             }
 
-            cells.push(this.cellAt(x, y));
+            yield this.cellAt(x, y);
         }
-
-        return cells;
     }
 
     /**
