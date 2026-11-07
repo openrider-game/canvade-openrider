@@ -85,14 +85,14 @@ export class Grid<T extends Cell> {
 
     /** Stores the object in every cell it crosses. */
     public add(obj: TrackObject): void {
-        for (let cell of this.getCellsForObject(obj)) {
+        for (const cell of this.getCellsForObject(obj)) {
             cell.push(obj);
         }
     }
 
     /** Removes the object from every cell it crosses. */
     public remove(obj: TrackObject): void {
-        for (let cell of this.getCellsForObject(obj)) {
+        for (const cell of this.getCellsForObject(obj)) {
             cell.remove(obj);
         }
     }
