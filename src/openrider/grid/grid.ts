@@ -105,7 +105,7 @@ export class Grid<T extends Cell> {
     }
 
     /** Cells within a distance of a position on each axis, created when needed. */
-    private cellsAround(pos: Vector, margin: number): IterableIterator<T> {
+    private *cellsAround(pos: Vector, margin: number): IterableIterator<T> {
         const from = Grid.gridCoords(new Vector(pos.x - margin, pos.y - margin), this.cellSize);
         const to = Grid.gridCoords(new Vector(pos.x + margin, pos.y + margin), this.cellSize);
         for (let x = from.x; x <= to.x; x++) {
@@ -128,7 +128,7 @@ export class Grid<T extends Cell> {
      * to integer positions: the cell of the start, then the cell each crossing enters. Computed
      * again each time rather than cached, which would keep every line of every track.
      */
-    public cellsCrossed(from: Vector, to: Vector): Generator<T, void, T> {
+    public *cellsCrossed(from: Vector, to: Vector): Generator<T, void, T> {
         const cellSize = this.cellSize;
         yield this.cellAt(from.x, from.y);
         if (from.x === to.x && from.y === to.y) {
