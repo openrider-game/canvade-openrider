@@ -97,7 +97,7 @@ export class Grid<T extends Cell> {
         }
     }
 
-    private getCellsForObject(obj: TrackObject): Generator<T, void, T> {
+    private getCellsForObject(obj: TrackObject): IterableIterator<T> {
         if (this.spriteMargin > 0 && obj.kind === 'item' && (obj as Item).sprite !== null) {
             return this.cellsAround(obj.pos, this.spriteMargin);
         }
@@ -105,7 +105,7 @@ export class Grid<T extends Cell> {
     }
 
     /** Cells within a distance of a position on each axis, created when needed. */
-    private cellsAround(pos: Vector, margin: number): Generator<T, void, T> {
+    private cellsAround(pos: Vector, margin: number): IterableIterator<T> {
         const from = Grid.gridCoords(new Vector(pos.x - margin, pos.y - margin), this.cellSize);
         const to = Grid.gridCoords(new Vector(pos.x + margin, pos.y + margin), this.cellSize);
         for (let x = from.x; x <= to.x; x++) {
