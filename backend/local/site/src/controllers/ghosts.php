@@ -121,5 +121,13 @@ function site_report_ghost_action(int $ghostId): void
     }
 
     site_report_ghost($db, $ghostId, $user['ID'], $reason);
+    $rider = $ghost['RIDER'] ?? site_ghost_name($ghost['GHOSTSTRING']);
+    site_notify_review(
+        $db,
+        "{$user['NAME']} reported the ghost of $rider on "
+        . site_track_title(['ID' => $ghost['TRACKID']] + $ghost) . ' ('
+        . site_duration((int) $ghost['TIME']) . "): $reason",
+        "/ghosts/$ghostId/"
+    );
     site_redirect("/ghosts/$ghostId/?reported=1");
 }

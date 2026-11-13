@@ -265,6 +265,9 @@ function site_ghost_endpoint(int $trackId): void
         if ($ghostId === null) {
             openrider_respond(404, ['error' => 'Track does not exist']);
         }
+        if ($reasons) {
+            site_notify_ghost_review($db, $ghostId, $user['NAME'], site_track_title($track), $time, $reasons);
+        }
 
         return ['ID' => $ghostId];
     });

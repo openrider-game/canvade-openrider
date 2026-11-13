@@ -41,6 +41,7 @@ The backend and the sample website are configured with environment variables:
 | `OPENRIDER_NODE`          | Node executable verifying the ghosts            | `node`                                           |
 | `OPENRIDER_VERIFY_GHOSTS` | `0` to save the ghosts without verifying them   | Verified                                         |
 | `OPENRIDER_ADMINS`        | User names of the admins, separated with commas | None                                             |
+| `OPENRIDER_REVIEW_WEBHOOK` | Discord or Slack webhook told of what to review | None: the header of the admins only          |
 | `OPENRIDER_LIVE_SECRET`   | Secret of the session server of the live races  | None: no live races                              |
 | `OPENRIDER_LIVE_URL`      | URL of the session server for the game          | `/live/` of the site, `ws://` or `wss://`        |
 
@@ -290,6 +291,14 @@ A logged in account reports a ghost of another account with a reason, once (`LOC
 20 reports an hour per account): the ghost stays on the leaderboard, and `/reviews/` lists the
 reported ghosts, the most reported first, for the admins to dismiss the reports or reject the ghost,
 deleting it with them.
+
+The admins are told of what waits for them (`notify.php`): the header of their pages counts the
+runs waiting for review and the reported ghosts, on their account menu and in the title of the tab.
+With `OPENRIDER_REVIEW_WEBHOOK`, a Discord webhook (Server settings, Integrations, Webhooks) or a
+Slack one (`hooks.slack.com`), each run sent to review and each report also posts a message to its
+channel, with the link of the page to look at: 10 messages at most in 10 minutes, then a single one
+telling that more wait. The message is posted once the request is answered with PHP-FPM, the rider
+not waiting for it, and a failure is only logged; the mentions are disabled on Discord.
 
 #### Thumbs up
 

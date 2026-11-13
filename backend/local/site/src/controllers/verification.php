@@ -116,6 +116,14 @@ function site_verification_endpoint(int $uploadId): void
             $reasons ? implode('; ', $reasons) : null,
             site_run_clock_seconds("verify:$uploadId")
         );
+        if ($reasons) {
+            site_notify_review(
+                $db,
+                "Verifying run of {$upload['TITLE']} by {$user['NAME']} (" . site_duration($time)
+                . ') waits for review: ' . implode('; ', $reasons),
+                '/reviews/'
+            );
+        }
 
         return ['ID' => $uploadId];
     });

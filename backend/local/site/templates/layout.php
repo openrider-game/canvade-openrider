@@ -13,7 +13,12 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><?= h($title) ?> - OpenRider</title>
+    <?php
+    // What waits for the admins, counted on each of their pages (see site_count_reviews())
+    $user = site_user();
+    $reviewCount = site_is_admin($user) ? site_count_reviews(openrider_db()) : 0;
+    ?>
+    <title><?= $reviewCount ? "($reviewCount) " : '' ?><?= h($title) ?> - OpenRider</title>
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <script>
         // The theme picked with the button of the header, before the page is drawn (see theme.js)
@@ -36,7 +41,7 @@
 </head>
 <body>
     <?php
-    $user = site_user();
+    // The account, read in the head
     $path = (string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
     // Sections of the site, each one current on its pages
     $sections = [
@@ -60,12 +65,18 @@
                 <a class="button" href="/create/">New track</a>
                 <?php if ($user !== null): ?>
                     <details class="account-menu">
-                        <summary class="button account-menu__toggle"><?= h($user['NAME']) ?></summary>
+                        <summary class="button account-menu__toggle">
+                            <?= h($user['NAME']) ?>
+                            <?php if ($reviewCount): ?>
+                                <span class="badge badge--review"><?= $reviewCount ?></span>
+                                <span class="visually-hidden">to review</span>
+                            <?php endif; ?>
+                        </summary>
                         <div class="account-menu__panel">
                             <a href="/users/<?= rawurlencode($user['NAME']) ?>/">Profile</a>
                             <a href="/drafts/">Drafts</a>
                             <?php if (site_is_admin($user)): ?>
-                                <a href="/reviews/">Reviews</a>
+                                <a href="/reviews/">Reviews<?= $reviewCount ? " ($reviewCount)" : '' ?></a>
                             <?php endif; ?>
                             <form method="post" action="/logout/">
                                 <input type="hidden" name="csrf" value="<?= h(site_csrf_token()) ?>" />

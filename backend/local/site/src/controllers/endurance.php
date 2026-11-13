@@ -272,6 +272,14 @@ function site_endurance_upload_endpoint(): void
             $reasons ? implode('; ', $reasons) : null,
             site_run_clock_seconds("endurance:$seed:$version")
         );
+        if ($reasons) {
+            site_notify_review(
+                $db,
+                "Endurance run of {$user['NAME']} on track $seed ($distance m, "
+                . site_duration($time) . ') waits for review: ' . implode('; ', $reasons),
+                '/reviews/'
+            );
+        }
 
         return [
             'ID' => $runId,

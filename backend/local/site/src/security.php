@@ -47,6 +47,9 @@ const SITE_RATE_LIMITS = [
     'template' => [30, 3600],
     // Ghosts reported to the admins, per account
     'report' => [20, 3600],
+    // Messages of the webhook of the reviews, for the whole site: see site_notify_review()
+    'review-notice' => [10, 600],
+    'review-notice-overflow' => [1, 600],
     // Failed logins, per address and per user name
     'login-address' => [20, 900],
     'login-name' => [10, 900],
