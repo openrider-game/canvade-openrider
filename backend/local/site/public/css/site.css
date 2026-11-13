@@ -720,3 +720,146 @@ section.live-results {
     font-weight: normal;
     vertical-align: middle;
 }
+
+/* Facts of a ghost, its label then its value, on one row on wide screens */
+
+.facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 16px;
+    margin: 16px 0;
+}
+
+.facts dt {
+    font-weight: bold;
+}
+
+.facts dd {
+    margin: 0;
+}
+
+.facts__current {
+    font-weight: bold;
+}
+
+@media (max-width: 600px) {
+    .facts {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+
+    .facts dd {
+        margin-bottom: 8px;
+    }
+}
+
+/* Inputs of a run: a timeline scrolled sideways, then the durations of the presses */
+
+.ghost-inputs {
+    margin: 8px 0 24px;
+}
+
+.ghost-inputs__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 24px;
+    margin: 8px 0;
+}
+
+.ghost-inputs__zoom {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ghost-inputs__swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-left: 8px;
+    vertical-align: middle;
+    background: var(--color-toggled);
+}
+
+.ghost-inputs__swatch--tick {
+    background: var(--color-error);
+}
+
+.ghost-inputs__frame {
+    display: flex;
+    border: var(--border);
+    padding: 8px;
+}
+
+/* The names of the keys, one per lane of the timeline: 18 pixels high, 4 apart */
+.ghost-inputs__keys {
+    flex: none;
+    margin: 0;
+    padding: 0 8px 0 0;
+    list-style: none;
+    font-size: 12px;
+    line-height: 18px;
+}
+
+.ghost-inputs__keys li {
+    height: 18px;
+    margin-bottom: 4px;
+}
+
+/* Its width never taken from the timeline it scrolls: in a table of the reviews, the timeline zoomed
+   in would widen the table, then be drawn wider again for it, without end */
+.ghost-inputs__scroll {
+    flex: 1;
+    min-width: 0;
+    contain: inline-size;
+    overflow-x: auto;
+}
+
+.ghost-inputs__timeline {
+    display: block;
+}
+
+.ghost-inputs__heading {
+    margin-top: 16px;
+}
+
+.ghost-inputs__histogram {
+    width: 100%;
+    max-width: 480px;
+    border-collapse: collapse;
+}
+
+/* Without the borders of a table of the reviews it may be in */
+.ghost-inputs .ghost-inputs__histogram th,
+.ghost-inputs .ghost-inputs__histogram td {
+    border: 0;
+    padding: 2px 8px 2px 0;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.ghost-inputs__histogram td:last-child {
+    width: 100%;
+}
+
+.ghost-inputs__bar {
+    display: block;
+    height: 12px;
+    background: var(--color-toggled);
+}
+
+.ghost-inputs__single .ghost-inputs__bar {
+    background: var(--color-error);
+}
+
+/* Reviews: the inputs of a run under its row, the reports of a ghost */
+
+.reviews__inputs td {
+    padding-top: 0;
+}
+
+.reviews__reports {
+    margin: 4px 0;
+    padding-left: 18px;
+}

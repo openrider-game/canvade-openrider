@@ -1,7 +1,8 @@
 <?php
 /**
  * Row of a ghost in the leaderboards of the track page: its rank, its rider racing it when
- * clicked (see `public/js/leaderboard.js`), its bike, its time, and its delete button.
+ * clicked (see `public/js/leaderboard.js`), its bike, its time linking to its page, and its delete
+ * button.
  *
  * @var array       $track  Track, see site_find_track().
  * @var array       $ghost  Ghost, see site_find_ghosts().
@@ -42,7 +43,10 @@ $verifying = (int) $track['VERIFICATIONGHOSTID'] === (int) $ghost['ID'];
         <?php endif; ?>
     </td>
     <td><?= h(site_ghost_bike($ghost['GHOSTSTRING'])) ?></td>
-    <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
+    <td class="leaderboard__time">
+        <?php // Its page: inputs, rider, and the record when it was saved ?>
+        <a href="/ghosts/<?= (int) $ghost['ID'] ?>/"><?= site_duration((int) $ghost['TIME']) ?></a>
+    </td>
     <td>
         <?php site_render('partials/thumbs', [
             'kind' => 'ghosts',

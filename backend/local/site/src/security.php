@@ -45,6 +45,8 @@ const SITE_RATE_LIMITS = [
     'thumb' => [120, 3600],
     // Templates saved from the editor, per account
     'template' => [30, 3600],
+    // Ghosts reported to the admins, per account
+    'report' => [20, 3600],
     // Failed logins, per address and per user name
     'login-address' => [20, 900],
     'login-name' => [10, 900],
@@ -140,33 +142,37 @@ function site_check_thumbnail(string $thumbnail): bool
 
 /**
  * Thresholds of the analysis of the inputs of the ghosts, past which an admin reviews them, see
- * site_analyse_ghost(). Measured on runs played by hand, holding at most 2 one tick presses and
- * 15 toggles a second on tracks of several minutes.
+ * site_analyse_ghost(): the presses of a single tick past both a number and a share of the
+ * presses of the run, so that a long run played by hand, gathering a few of them, is not
+ * reviewed for it; and the toggles within a second. Runs played by hand hold a few presses of a
+ * single tick, and at most 15 toggles a second.
  */
 const SITE_REVIEW_ONE_TICK_PRESSES = 5,
-    SITE_REVIEW_TOGGLES_PER_SECOND = 25,
-    SITE_REVIEW_RECORD_RATIO = 0.8;
+    SITE_REVIEW_ONE_TICK_SHARE = 0.1,
+    SITE_REVIEW_TOGGLES_PER_SECOND = 25;
 
 /**
  * Looks for the signs of a run played by a program in the inputs of a ghost: a human hardly
- * presses a key for a single tick (20 ms), or toggles keys dozens of times a second, and rarely
- * beats a record by far. Pausing to change the keys (spacebarring) gives neither.
+ * presses keys for a single tick (20 ms) again and again, nor toggles keys dozens of times a
+ * second. Pausing to change the keys (spacebarring) gives neither. A time far better than the
+ * record is not a sign: the players improve the records of the tracks.
  *
  * The turn key is left out of the presses: the game records each turn as a press of one tick.
  *
- * @param int|null $record Best time of the track before this ghost, null without any.
  * @return string[] Why the ghost looks suspicious, empty when it does not.
  */
-function site_analyse_ghost(string $ghostString, int $time, ?int $record): array
+function site_analyse_ghost(string $ghostString): array
 {
     $fields = explode(',', $ghostString);
     $toggles = [];
+    $presses = 0;
     $oneTickPresses = 0;
     // Up, down, left and right, then the turn key
     for ($key = 0; $key < 5; $key++) {
         $times = $fields[$key] === '' ? [] : array_map('intval', explode(' ', $fields[$key]));
         array_push($toggles, ...$times);
         for ($press = 0; $key < 4 && $press + 1 < count($times); $press += 2) {
+            $presses++;
             if ($times[$press + 1] - $times[$press] === 1) {
                 $oneTickPresses++;
             }
@@ -184,15 +190,14 @@ function site_analyse_ghost(string $ghostString, int $time, ?int $record): array
     }
 
     $reasons = [];
-    if ($oneTickPresses > SITE_REVIEW_ONE_TICK_PRESSES) {
-        $reasons[] = "$oneTickPresses key presses of a single tick";
+    if (
+        $oneTickPresses > SITE_REVIEW_ONE_TICK_PRESSES
+        && $oneTickPresses > SITE_REVIEW_ONE_TICK_SHARE * $presses
+    ) {
+        $reasons[] = "$oneTickPresses of $presses key presses of a single tick";
     }
     if ($mostPerSecond > SITE_REVIEW_TOGGLES_PER_SECOND) {
         $reasons[] = "$mostPerSecond key toggles within a second";
-    }
-    if ($record !== null && $time < $record * SITE_REVIEW_RECORD_RATIO) {
-        $percent = (int) round(100 * (1 - $time / $record));
-        $reasons[] = "$percent% faster than the record";
     }
 
     return $reasons;

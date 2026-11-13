@@ -34,6 +34,11 @@ function site_track_page(int $trackId): void
 
     $ghosts = site_find_ghosts($db, $trackId);
     $viewer = site_user();
+    // The time on the track of the runs saved from this page, see site_open_run_clock()
+    site_open_run_clock("track:$trackId");
+    if ($viewer !== null) {
+        site_record_track_visit($db, $viewer['ID'], $trackId);
+    }
     // The ghosts waiting for an admin are out of the ranking, listed for their account only
     $ranked = array_filter($ghosts, fn (array $ghost) => $ghost['REVIEW'] === null);
     $riders = site_group_riders($ranked);
@@ -246,7 +251,7 @@ function site_ghost_endpoint(int $trackId): void
             openrider_respond(404, ['error' => 'Track does not exist']);
         }
         site_check_ghost_run($db, $user, $track['CODE'], $ghostString, $time);
-        $reasons = site_analyse_ghost($ghostString, $time, site_find_best_time($db, $trackId));
+        $reasons = site_analyse_ghost($ghostString);
 
         $ghostId = site_insert_ghost(
             $db,
@@ -254,7 +259,8 @@ function site_ghost_endpoint(int $trackId): void
             site_name_ghost($ghostString, $user['NAME']),
             $trackId,
             $time,
-            $reasons ? implode('; ', $reasons) : null
+            $reasons ? implode('; ', $reasons) : null,
+            site_run_clock_seconds("track:$trackId")
         );
         if ($ghostId === null) {
             openrider_respond(404, ['error' => 'Track does not exist']);

@@ -55,6 +55,11 @@ function site_endurance_page(): void
 
     $db = site_db();
     $user = site_user();
+    // The time on the track of the runs saved from this page, see site_open_run_clock(): the
+    // track of the day without a seed
+    site_open_run_clock(
+        'endurance:' . ($seed ?? site_daily_endurance_seed()) . ':' . $version
+    );
     $open = $seed !== null && site_endurance_track_open($seed, $version);
     $riderCount = $seed === null ? 0 : site_count_endurance_runs($db, $seed, $version);
     $mine = $seed === null || $user === null
@@ -255,7 +260,7 @@ function site_endurance_upload_endpoint(): void
             openrider_respond(409, ['error' => 'Your run of the day is already better']);
         }
 
-        $reasons = site_analyse_ghost($ghostString, $time, null);
+        $reasons = site_analyse_ghost($ghostString);
         $runId = site_save_endurance_run(
             $db,
             $user['ID'],
@@ -264,7 +269,8 @@ function site_endurance_upload_endpoint(): void
             site_name_ghost($ghostString, $user['NAME']),
             $distance,
             $time,
-            $reasons ? implode('; ', $reasons) : null
+            $reasons ? implode('; ', $reasons) : null,
+            site_run_clock_seconds("endurance:$seed:$version")
         );
 
         return [

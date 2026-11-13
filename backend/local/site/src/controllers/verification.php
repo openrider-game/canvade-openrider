@@ -106,14 +106,15 @@ function site_verification_endpoint(int $uploadId): void
             openrider_respond(409, ['error' => 'This track is already verified']);
         }
         site_check_ghost_run($db, $user, $upload['CODE'], $ghostString, $time);
-        $reasons = site_analyse_ghost($ghostString, $time, null);
+        $reasons = site_analyse_ghost($ghostString);
 
         site_set_verification(
             $db,
             $uploadId,
             site_name_ghost($ghostString, $user['NAME']),
             $time,
-            $reasons ? implode('; ', $reasons) : null
+            $reasons ? implode('; ', $reasons) : null,
+            site_run_clock_seconds("verify:$uploadId")
         );
 
         return ['ID' => $uploadId];
@@ -135,6 +136,8 @@ function site_verify_page(int $uploadId): void
         site_not_found();
         return;
     }
+    // The time on the track of the verifying run, see site_open_run_clock()
+    site_open_run_clock("verify:$uploadId");
 
     site_render_page(
         'verify',

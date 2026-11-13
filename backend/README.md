@@ -119,13 +119,17 @@ account.
 - `/ghosts/` lists the ghosts of every track out of review, 50 a page, in two tabs: the newest ones,
   and the most liked ones (`?sort=liked`), with their track (opening it racing the ghost), rider,
   rank, time and thumbs up; the header links to it;
+- `/ghosts/<id>/` shows a ghost, its time linking to it from every list (see "Reviews"): its inputs,
+  the time its rider spent on the track before saving it, the record of the track then, raced
+  against it, the rider's other ghosts on the track and level, and the form reporting it to the
+  admins (`/ghosts/<id>/report/`); a ghost waiting for an admin only for its account and the admins;
 - `/users/` lists the accounts by name, 50 a page, with the number of their tracks and ghosts, and
   searches them by name (`?q=`), whatever its case; the header links to it;
 - `/users/<name>/` lists the tracks published by an account, and its ghosts with their rank, each
   with its thumbs up; a ghost links to its track racing it from the start
   (`/tracks/<id>/?ghosts=<ghost>`);
-- `/reviews/` lists the ghosts, the verifying runs and the endurance runs waiting for an admin, for
-  the admins only (see "Reviews");
+- `/reviews/` lists the ghosts, the verifying runs and the endurance runs waiting for an admin, and
+  the reported ghosts, for the admins only (see "Reviews");
 - `/register/` and `/login/` create an account (a user name of 3 to 20 letters, digits, `_` or `-`,
   and a password of 8 characters at least) and log in; the account menu of the header links to the
   profile, the drafts and the reviews (admins only) of the account, and logs out (`/logout/`);
@@ -199,8 +203,9 @@ ghost string. The first account created takes over the drafts without an account
   files, the three sections of an original track code (base 32 numbers, the items starting with
   their letter), and its name 60 characters at most. Its thumbnail, when it has one, is a 500x300 PNG as the track thumbnails. An
   account sees its own templates and the public ones only.
-- Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads, 60 ghosts or endurance runs, 30 templates and 120
-  thumbs up given or taken back an hour per account, 5 new accounts an hour per address, and 20
+- Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads, 60 ghosts or endurance runs, 30 templates, 20
+  reports and 120 thumbs up given or taken back an hour per account, 5 new accounts an hour per
+  address, and 20
   failed logins per address and 10 per user name over 15 minutes, after which even the right
   password is refused for a while.
 
@@ -250,19 +255,41 @@ keys (tool-assisted runs) gives valid ghosts too. The site analyses the inputs o
 verifying run and endurance run (`site_analyse_ghost()` in `security.php`), and sends to the admins
 the runs with:
 
-- more than 5 key presses of a single tick, left and right leans, accelerating and braking only (the
-  game records each turn as a press of a single tick);
-- more than 25 key toggles within a second;
-- a time more than 20% better than the record of the track, for the ghosts.
+- more than 5 key presses of a single tick that are also more than 10% of the presses of the run,
+  left and right leans, accelerating and braking only (the game records each turn as a press of a
+  single tick): a long run played by hand gathers a few of them among many presses;
+- more than 25 key toggles within a second.
 
-Runs played by hand, spacebarring included, hold at most 2 presses of a single tick and 15 toggles a
-second on tracks of several minutes. A ghost waiting for an admin is saved but out of the
+Runs played by hand, spacebarring included, hold a few presses of a single tick and at most 15
+toggles a second. A time far better than the record is not a sign: the records improve. A ghost waiting for an admin is saved but out of the
 leaderboard and the best times, shown to its account only; a verifying run waiting for an admin
 keeps its track from being published, and an endurance run waiting for an admin is out of the
 leaderboard, listed for the admins on the page of its track to race it. On `/reviews/`, the admins
 watch them and approve or reject them: a rejected ghost or endurance run is deleted, and a rejected
 verifying run dropped, its verifier saving another one. These signs catch the programs playing fast
 or precisely, not the ones imitating a human: the reviews are the safeguard.
+
+To review a run, the admins, and the riders for the ghosts out of review, see (`/ghosts/<id>/`, the
+time of a ghost linking to it, and `/reviews/`, a run unfolding its inputs):
+
+- its inputs, drawn from its ghost string (`public/js/ghost-inputs.js`): a timeline of the presses
+  of each key, zoomable, the presses of a single tick in red, and the durations of the presses,
+  spread over many durations when played by hand, on a few when played by a program;
+- the time its rider spent on the track before saving it, measured by the server: from the first
+  opening of the page of the track in the session of the rider (`site_open_run_clock()`) to the
+  saving of the run, never sent by the game. It cannot be made shorter than it was, only longer by
+  waiting: a record saved seconds after opening the track stands out, a long time proves nothing.
+  For the ghosts, the first opening of the track by the account is shown too
+  (`LOCAL_TRACK_VISITS`);
+- the record of the track when the ghost was saved, raced against it (`?ghosts=<ghost>,<record>`);
+- its rider: how old the account is, its ghosts and records, and its ghosts on the track, the oldest
+  first, to see how its time improved. The runs, accounts and times from before these were kept
+  show as unknown.
+
+A logged in account reports a ghost of another account with a reason, once (`LOCAL_GHOST_REPORTS`,
+20 reports an hour per account): the ghost stays on the leaderboard, and `/reviews/` lists the
+reported ghosts, the most reported first, for the admins to dismiss the reports or reject the ghost,
+deleting it with them.
 
 #### Thumbs up
 

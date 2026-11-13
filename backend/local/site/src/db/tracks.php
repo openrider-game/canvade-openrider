@@ -152,18 +152,6 @@ function site_find_visible_ghost(
     return $visible ? (string) $ghost['GHOSTSTRING'] : null;
 }
 
-/** Best time of a track among the ghosts not waiting for an admin, null without any. */
-function site_find_best_time(PDO $db, int $trackId): ?int
-{
-    $statement = $db->prepare(
-        'SELECT MIN(g."TIME") FROM "GHOSTS" g WHERE g."TRACKID" = :id AND ' . SITE_REVIEWED_GHOST
-    );
-    $statement->execute(['id' => $trackId]);
-    $best = $statement->fetchColumn();
-
-    return $best === null || $best === false ? null : (int) $best;
-}
-
 /**
  * The ghosts of an account, newest first, with the title of their track (`TITLE`, null when the
  * site has none), their rank on it among the ghosts not waiting for an admin (`RANK`, from 1),
@@ -198,6 +186,8 @@ function site_find_user_ghosts(PDO $db, int $userId, bool $withReviews = false):
  * backend does.
  *
  * @param string|null $review Why the ghost waits for an admin, null when it does not.
+ * @param int|null $trackSeconds Seconds its rider spent on the track before saving it, measured
+ *   by the server (see site_run_clock_seconds()), null when unknown.
  * @return int|null Id of the ghost, null when the track does not exist.
  */
 function site_insert_ghost(
@@ -206,9 +196,10 @@ function site_insert_ghost(
     string $ghostString,
     int $trackId,
     int $time,
-    ?string $review = null
+    ?string $review = null,
+    ?int $trackSeconds = null
 ): ?int {
-    $insert = function () use ($db, $userId, $ghostString, $trackId, $time, $review) {
+    $insert = function () use ($db, $userId, $ghostString, $trackId, $time, $review, $trackSeconds) {
         $track = $db->prepare('SELECT "ID" FROM "TRACKS" WHERE "ID" = :trackId');
         $track->execute(['trackId' => $trackId]);
         $exists = $track->fetch() !== false;
@@ -217,7 +208,7 @@ function site_insert_ghost(
             return null;
         }
 
-        $ghostId = site_insert_ghost_row($db, $userId, $ghostString, $trackId, $time);
+        $ghostId = site_insert_ghost_row($db, $userId, $ghostString, $trackId, $time, $trackSeconds);
         if ($review !== null) {
             site_insert_ghost_review($db, $ghostId, $review);
         }
@@ -228,13 +219,19 @@ function site_insert_ghost(
     return site_transaction($db, $insert);
 }
 
-/** Inserts a ghost and its account, in the transaction of the caller, returning its id. */
+/**
+ * Inserts a ghost and its account, in the transaction of the caller, returning its id, with the
+ * time it is saved at.
+ *
+ * @param int|null $trackSeconds See site_insert_ghost().
+ */
 function site_insert_ghost_row(
     PDO $db,
     int $userId,
     string $ghostString,
     int $trackId,
-    int $time
+    int $time,
+    ?int $trackSeconds = null
 ): int {
     $statement = $db->prepare(
         'INSERT INTO "GHOSTS" ("GHOSTSTRING", "TRACKID", "TIME")'
@@ -244,15 +241,22 @@ function site_insert_ghost_row(
     $ghostId = (int) $statement->fetchColumn();
     $statement->closeCursor();
 
-    $db->prepare('INSERT INTO "LOCAL_GHOST_OWNERS" ("GHOSTID", "USERID") VALUES (:id, :userId)')
-        ->execute(['id' => $ghostId, 'userId' => $userId]);
+    $db->prepare(
+        'INSERT INTO "LOCAL_GHOST_OWNERS" ("GHOSTID", "USERID", "CREATED", "TRACKSECONDS")'
+        . ' VALUES (:id, :userId, :created, :trackSeconds)'
+    )->execute([
+        'id' => $ghostId,
+        'userId' => $userId,
+        'created' => time(),
+        'trackSeconds' => $trackSeconds,
+    ]);
 
     return $ghostId;
 }
 
 /**
- * The ghosts waiting for an admin, oldest first, with their track (`TRACKID`, `TITLE`) and
- * account (`RIDER`).
+ * The ghosts waiting for an admin, oldest first, with their track (`TRACKID`, `TITLE`), account
+ * (`RIDER`), and the time spent on the track before saving them (`TRACKSECONDS`).
  *
  * @return array[]
  */
@@ -260,7 +264,7 @@ function site_find_ghost_reviews(PDO $db): array
 {
     return $db->query(
         'SELECT g."ID", g."TRACKID", g."TIME", d."TITLE", u."NAME" AS "RIDER",'
-        . ' r."REASONS" AS "REVIEW"'
+        . ' r."REASONS" AS "REVIEW", o."TRACKSECONDS"'
         . ' FROM "LOCAL_GHOST_REVIEWS" r'
         . ' JOIN "GHOSTS" g ON g."ID" = r."GHOSTID"'
         . ' LEFT JOIN "LOCAL_TRACK_DETAILS" d ON d."TRACKID" = g."TRACKID"'

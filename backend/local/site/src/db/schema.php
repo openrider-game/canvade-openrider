@@ -20,7 +20,9 @@
  *   seed on a version of the generator of the game,
  *   ranked on the endurance page;
  * - `LOCAL_TEMPLATES`: the objects saved by the accounts from the editor, private or public, to
- *   paste in their tracks (see db/templates.php).
+ *   paste in their tracks (see db/templates.php);
+ * - `LOCAL_TRACK_VISITS`: when each account first opened the page of each track, and
+ *   `LOCAL_GHOST_REPORTS`: the ghosts the accounts reported to the admins (see db/insights.php).
  *
  * The tracks and ghosts uploaded to the backend without the site have no account.
  */
@@ -143,6 +145,30 @@ function site_create_tables(PDO $db): void
         . ' "PUBLIC" INTEGER NOT NULL DEFAULT 0, "CREATED" INTEGER NOT NULL, "THUMBNAIL" TEXT)'
     );
     site_add_column($db, 'LOCAL_TEMPLATES', 'THUMBNAIL', 'TEXT');
+
+    // What the admins see of the runs besides their inputs (see db/insights.php), null for the
+    // accounts and runs from before: when the accounts were created and the ghosts saved, as Unix
+    // timestamps, and the seconds the riders spent on the track before saving their runs,
+    // measured by the server
+    site_add_column($db, 'LOCAL_USERS', 'CREATED', 'INTEGER');
+    site_add_column($db, 'LOCAL_GHOST_OWNERS', 'CREATED', 'INTEGER');
+    site_add_column($db, 'LOCAL_GHOST_OWNERS', 'TRACKSECONDS', 'INTEGER');
+    site_add_column($db, 'LOCAL_UPLOADS', 'VERIFICATIONSECONDS', 'INTEGER');
+    site_add_column($db, 'LOCAL_ENDURANCE_RUNS', 'TRACKSECONDS', 'INTEGER');
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_TRACK_VISITS" ('
+        . '"USERID" INTEGER NOT NULL REFERENCES "LOCAL_USERS" ("ID"),'
+        . ' "TRACKID" INTEGER NOT NULL, "FIRSTOPENED" INTEGER NOT NULL,'
+        . ' PRIMARY KEY ("USERID", "TRACKID"))'
+    );
+    // One report per account on each ghost, with its reason and time
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_GHOST_REPORTS" ('
+        . '"GHOSTID" INTEGER NOT NULL REFERENCES "GHOSTS" ("ID"),'
+        . ' "USERID" INTEGER NOT NULL REFERENCES "LOCAL_USERS" ("ID"),'
+        . ' "REASON" TEXT NOT NULL, "CREATED" INTEGER NOT NULL,'
+        . ' PRIMARY KEY ("GHOSTID", "USERID"))'
+    );
     $db->exec(
         'CREATE INDEX IF NOT EXISTS idx_local_templates_user ON "LOCAL_TEMPLATES" ("USERID")'
     );

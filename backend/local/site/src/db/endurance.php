@@ -101,7 +101,8 @@ function site_save_endurance_run(
     string $ghostString,
     int $distance,
     int $time,
-    ?string $review
+    ?string $review,
+    ?int $trackSeconds = null
 ): int {
     return site_transaction($db, function () use (
         $db,
@@ -111,7 +112,8 @@ function site_save_endurance_run(
         $ghostString,
         $distance,
         $time,
-        $review
+        $review,
+        $trackSeconds
     ) {
         $params = ['seed' => $seed, 'version' => $version, 'userId' => $userId];
         $db->prepare(
@@ -120,8 +122,10 @@ function site_save_endurance_run(
         )->execute($params);
         $statement = $db->prepare(
             'INSERT INTO "LOCAL_ENDURANCE_RUNS"'
-            . ' ("SEED", "VERSION", "USERID", "GHOSTSTRING", "DISTANCE", "TIME", "REVIEW")'
-            . ' VALUES (:seed, :version, :userId, :ghostString, :distance, :time, :review)'
+            . ' ("SEED", "VERSION", "USERID", "GHOSTSTRING", "DISTANCE", "TIME", "REVIEW",'
+            . ' "TRACKSECONDS")'
+            . ' VALUES (:seed, :version, :userId, :ghostString, :distance, :time, :review,'
+            . ' :trackSeconds)'
             . ' RETURNING "ID"'
         );
         $statement->execute($params + [
@@ -129,6 +133,7 @@ function site_save_endurance_run(
             'distance' => $distance,
             'time' => $time,
             'review' => $review,
+            'trackSeconds' => $trackSeconds,
         ]);
         $runId = (int) $statement->fetchColumn();
         $statement->closeCursor();
@@ -173,7 +178,7 @@ function site_find_endurance_reviews(PDO $db, ?int $seed = null, ?int $version =
     $onTrack = $seed !== null && $version !== null;
     $statement = $db->prepare(
         'SELECT e."ID", e."SEED", e."VERSION", e."DISTANCE", e."TIME", e."REVIEW",'
-        . ' u."NAME" AS "RIDER"'
+        . ' u."NAME" AS "RIDER", e."GHOSTSTRING", e."TRACKSECONDS"'
         . ' FROM "LOCAL_ENDURANCE_RUNS" e JOIN "LOCAL_USERS" u ON u."ID" = e."USERID"'
         . ' WHERE e."REVIEW" IS NOT NULL'
         . ($onTrack ? ' AND e."SEED" = :seed AND e."VERSION" = :version' : '')

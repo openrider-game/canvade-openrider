@@ -94,10 +94,10 @@ function site_insert_user(PDO $db, string $name, string $passwordHash): ?int
         $first = (int) $db->query('SELECT COUNT(*) FROM "LOCAL_USERS"')->fetchColumn() === 0;
 
         $statement = $db->prepare(
-            'INSERT INTO "LOCAL_USERS" ("NAME", "PASSWORDHASH") VALUES (:name, :hash)'
-            . ' RETURNING "ID"'
+            'INSERT INTO "LOCAL_USERS" ("NAME", "PASSWORDHASH", "CREATED")'
+            . ' VALUES (:name, :hash, :created) RETURNING "ID"'
         );
-        $statement->execute(['name' => $name, 'hash' => $passwordHash]);
+        $statement->execute(['name' => $name, 'hash' => $passwordHash, 'created' => time()]);
         $userId = (int) $statement->fetchColumn();
         // Closes the statement, SQLite refusing to commit while it is still running
         $statement->closeCursor();

@@ -18,7 +18,9 @@
  * | `/drafts/<id>/`                      | the game editing a draft                              |
  * | `/verify/<id>/`                      | the game racing a track waiting for verification      |
  * | `/verify/<id>/<verifier, decline, publish>/` | changing its verification, posted             |
- * | `/reviews/`                          | the ghosts and verifications waiting for an admin     |
+ * | `/ghosts/<id>/`                      | a ghost: its inputs, its rider, the record then      |
+ * | `/ghosts/<id>/report/`               | reporting it to the admins, posted                    |
+ * | `/reviews/`                          | the runs waiting for an admin, and the reports        |
  * | `/<tracks, ghosts, drafts, users>/<id or name>/delete/` | deleting it, posted        |
  * | `/assets/...`                        | the static files of `public/`                         |
  *
@@ -79,7 +81,8 @@ const SITE_GAME_REQUEST_PATTERN =
  * Actions of the admins on a ghost, a verifying run or an endurance run: its kind, id and the
  * action.
  */
-const SITE_REVIEW_ACTION_PATTERN = '#^/reviews/(ghosts|tracks|runs)/([0-9]+)/(approve|reject)/$#';
+const SITE_REVIEW_ACTION_PATTERN =
+    '#^/reviews/(ghosts|tracks|runs|reports)/([0-9]+)/(approve|reject|dismiss)/$#';
 
 /**
  * Answers a request of the site.
@@ -113,6 +116,10 @@ function site_handle(string $path): bool
         site_home_page();
     } elseif (preg_match('#^/tracks/([0-9]+)/?$#', $path, $match)) {
         site_track_page((int) $match[1]);
+    } elseif (preg_match('#^/ghosts/([0-9]+)/?$#', $path, $match)) {
+        site_ghost_page((int) $match[1]);
+    } elseif (preg_match('#^/ghosts/([0-9]+)/report/$#', $path, $match)) {
+        site_report_ghost_action((int) $match[1]);
     } elseif ($path === '/ghosts/') {
         site_ghosts_page();
     } elseif ($path === '/users/') {

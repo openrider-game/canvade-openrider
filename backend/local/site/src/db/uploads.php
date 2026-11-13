@@ -164,12 +164,19 @@ function site_set_verification(
     int $uploadId,
     ?string $ghostString,
     ?int $time,
-    ?string $review
+    ?string $review,
+    ?int $trackSeconds = null
 ): void {
     $db->prepare(
         'UPDATE "LOCAL_UPLOADS" SET "VERIFICATIONGHOST" = :ghost, "VERIFICATIONTIME" = :time,'
-        . ' "REVIEW" = :review WHERE "ID" = :id'
-    )->execute(['id' => $uploadId, 'ghost' => $ghostString, 'time' => $time, 'review' => $review]);
+        . ' "REVIEW" = :review, "VERIFICATIONSECONDS" = :seconds WHERE "ID" = :id'
+    )->execute([
+        'id' => $uploadId,
+        'ghost' => $ghostString,
+        'time' => $time,
+        'review' => $review,
+        'seconds' => $trackSeconds,
+    ]);
 }
 
 /** Approves the verifying run of a track waiting for an admin. */
@@ -187,7 +194,8 @@ function site_approve_verification(PDO $db, int $uploadId): void
 function site_find_verification_reviews(PDO $db): array
 {
     return $db->query(
-        'SELECT up."ID", up."TITLE", up."VERIFICATIONTIME", up."REVIEW", v."NAME" AS "VERIFIER"'
+        'SELECT up."ID", up."TITLE", up."VERIFICATIONTIME", up."REVIEW", v."NAME" AS "VERIFIER",'
+        . ' up."VERIFICATIONGHOST", up."VERIFICATIONSECONDS"'
         . ' FROM "LOCAL_UPLOADS" up'
         . ' LEFT JOIN "LOCAL_USERS" v ON v."ID" = up."VERIFIERID"'
         . ' WHERE up."REVIEW" IS NOT NULL ORDER BY up."ID"'
@@ -271,7 +279,8 @@ function site_publish_verified(PDO $db, array $upload): int
             (int) $upload['VERIFIERID'],
             $upload['VERIFICATIONGHOST'],
             $trackId,
-            (int) $upload['VERIFICATIONTIME']
+            (int) $upload['VERIFICATIONTIME'],
+            isset($upload['VERIFICATIONSECONDS']) ? (int) $upload['VERIFICATIONSECONDS'] : null
         );
 
         $db->prepare(

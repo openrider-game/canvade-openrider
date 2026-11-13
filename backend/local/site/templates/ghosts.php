@@ -77,7 +77,11 @@ $pageUrl = function (int $page) use ($mostLiked): string {
                             <?php endif; ?>
                         </td>
                         <td><?= (int) $ghost['RANK'] ?></td>
-                        <td class="leaderboard__time"><?= site_duration((int) $ghost['TIME']) ?></td>
+                        <td class="leaderboard__time">
+                            <a href="/ghosts/<?= (int) $ghost['ID'] ?>/">
+                                <?= site_duration((int) $ghost['TIME']) ?>
+                            </a>
+                        </td>
                         <td>
                             <?php site_render('partials/thumbs', [
                                 'kind' => 'ghosts',
