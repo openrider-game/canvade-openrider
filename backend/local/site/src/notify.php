@@ -95,8 +95,14 @@ function site_post_webhook(string $webhook, string $text): void
         'ignore_errors' => true,
     ]]);
     $response = @file_get_contents($webhook, false, $context);
-    $status = isset($http_response_header[0])
-        && preg_match('#^HTTP/\S+ (\d{3})#', $http_response_header[0], $match) ? (int) $match[1] : 0;
+    // The headers of the answer: http_get_last_response_headers() since PHP 8.4, the predefined
+    // $http_response_header being deprecated by PHP 8.5. The variable is read through
+    // get_defined_vars() so that PHP 8.5 never sees it in the code, which it warns of on compiling
+    $headers = function_exists('http_get_last_response_headers')
+        ? http_get_last_response_headers()
+        : (get_defined_vars()['http_response_header'] ?? null);
+    $status = isset($headers[0])
+        && preg_match('#^HTTP/\S+ (\d{3})#', $headers[0], $match) ? (int) $match[1] : 0;
     if ($response === false || $status < 200 || $status >= 300) {
         error_log("Review webhook failed ($status)");
     }
