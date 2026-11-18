@@ -14,6 +14,9 @@ export type TrackObjectKind = 'solid' | 'scenery' | 'item';
  *
  * Once added, an object is stored in every cell of the layer grids it crosses (see
  * {@link Grid}). Positions are in world units.
+ *
+ * Its state is declared here and kept by each kind: the items as fields, the lines in the columns
+ * of the lines of the track while on it (see `LineStore`).
  */
 export abstract class TrackObject {
     private static nextId = 0;
@@ -22,36 +25,22 @@ export abstract class TrackObject {
 
     /** Unique id, also used as key in the grid totals and in the runners reached sets. */
     public readonly id: number;
-    /**
-     * Id given by the edits of the track (see {@link TrackObject.uid}), null for a parsed object,
-     * whose id is its number, or an object never edited.
-     */
-    private uidText: string | null = null;
-    /** Number of the object in the track parsed, its id being `p<number>`; -1 for the others. */
-    private parsedNumber = -1;
 
     /**
      * Id of the object for the edits of the track, the same on every screen editing it (see
      * `TrackEditor`); null for the objects never edited, e.g. of the endurance tracks. Written
      * when read for a parsed object: a large track parses a million of them.
      */
-    public get uid(): string | null {
-        return this.uidText ?? (this.parsedNumber >= 0 ? `p${this.parsedNumber}` : null);
-    }
-
-    public set uid(uid: string | null) {
-        this.uidText = uid;
-        this.parsedNumber = -1;
-    }
+    public abstract get uid(): string | null;
+    public abstract set uid(uid: string | null);
 
     /** Gives a parsed object its id, `p<number>`, see {@link TrackObject.uid}. */
-    public setParsedUid(number: number): void {
-        this.uidText = null;
-        this.parsedNumber = number;
-    }
-    public pos: Vector;
+    public abstract setParsedUid(number: number): void;
+
+    /** Position of the object, in world units. */
+    public abstract pos: Vector;
     /** End of the object, equal to {@link TrackObject.pos} for objects without length. */
-    public endPos: Vector;
+    public abstract endPos: Vector;
 
     /**
      * Set while generating the track code, to avoid exporting an object twice.
@@ -59,34 +48,29 @@ export abstract class TrackObject {
      * Lines connected to an exported line are exported with it as a polyline, and linked items
      * with their group, so they are already recorded when the export reaches them.
      */
-    public recorded = false;
+    public abstract recorded: boolean;
 
     /** Layer the object is placed on, must be set before adding the object to the track. */
-    public layer: TrackLayer | null = null;
+    public abstract layer: TrackLayer | null;
     /**
      * Whether the object is currently on the track, making {@link TrackObject.addToTrack} and
      * {@link TrackObject.removeFromTrack} idempotent.
      */
-    public onTrack = false;
+    public abstract onTrack: boolean;
     /**
      * Command block hiding, showing or moving the object when a bike triggers it, null for the
      * objects outside of every command area (see `CommandRegistry`).
      */
-    public command: CommandBlock | null = null;
+    public abstract command: CommandBlock | null;
     /**
      * Rank of the object in a track generated around the bikes (see `EnduranceCourse`): the grid
      * cells keep their objects in that order, whatever the order they are added in, which the
      * collisions depend on. Null to keep the order of addition, as on the other tracks.
      */
-    public order: number | null = null;
+    public abstract order: number | null;
 
-    public constructor(
-        pos: Vector,
-        public readonly track: Track,
-    ) {
+    public constructor(public readonly track: Track) {
         this.id = TrackObject.nextId++;
-        this.pos = pos;
-        this.endPos = pos;
     }
 
     /**

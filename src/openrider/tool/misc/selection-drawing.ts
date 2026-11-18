@@ -16,16 +16,17 @@ export function objectsArea(
     objects: readonly TrackObject[],
     transform = ObjectTransform.NONE,
 ): Area {
-    const points = objects.flatMap((object) => [
-        transform.point(object.pos),
-        transform.point(object.endPos),
-    ]);
-    return {
-        left: Math.min(...points.map(({ x }) => x)),
-        top: Math.min(...points.map(({ y }) => y)),
-        right: Math.max(...points.map(({ x }) => x)),
-        bottom: Math.max(...points.map(({ y }) => y)),
-    };
+    // In a loop: spreading the points would pass more arguments than a call takes
+    const area = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity };
+    for (const object of objects) {
+        for (const { x, y } of [transform.point(object.pos), transform.point(object.endPos)]) {
+            area.left = Math.min(area.left, x);
+            area.top = Math.min(area.top, y);
+            area.right = Math.max(area.right, x);
+            area.bottom = Math.max(area.bottom, y);
+        }
+    }
+    return area;
 }
 
 /**

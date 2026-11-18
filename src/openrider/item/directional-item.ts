@@ -38,7 +38,9 @@ export abstract class DirectionalItem extends Item {
     }
 
     public override get spriteRotation(): number {
-        return (this.rotation * Math.PI) / 180;
+        // Within a turn: the stored rotations reach beyond one, the same arrow drawn and cached
+        // once whatever its turns (see `packItemSprites` and the stamps of `createPainter`)
+        return ((((this.rotation % 360) + 360) % 360) * Math.PI) / 180;
     }
 
     /** Its command block left out, as {@link DirectionalItem.touch}. */

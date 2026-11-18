@@ -195,6 +195,10 @@ function site_upload_page(int $uploadId): void
             'description' => site_form_text('description'),
             'verifier' => site_form_text('verifier'),
         ];
+        // Left empty: a description naming the track and its author
+        if ($values['description'] === '' && $values['title'] !== '') {
+            $values['description'] = site_default_description($values['title'], $user['NAME']);
+        }
         $verifier = $isDraft ? null : site_find_user_by_name($db, $values['verifier']);
         $errors = site_check_csrf()
             ? site_validate_track_details($values)
@@ -231,6 +235,7 @@ function site_upload_page(int $uploadId): void
         'isDraft' => $isDraft,
         'values' => $values,
         'errors' => $errors,
+        'author' => $user['NAME'],
     ], ['upload.css']);
 }
 
@@ -258,9 +263,16 @@ function site_editor_file(int $uploadId): void
     echo $upload['CODE'];
 }
 
+/** Description of a track uploaded without one: "<title> is an OpenRider track by <author>". */
+function site_default_description(string $title, string $author): string
+{
+    return "$title is an OpenRider track by $author";
+}
+
 /**
  * Error messages of the title and the description of a track, by field, empty when both are
- * valid: required, and at most SITE_TITLE_MAX_LENGTH and SITE_DESCRIPTION_MAX_LENGTH characters.
+ * valid: at most SITE_TITLE_MAX_LENGTH and SITE_DESCRIPTION_MAX_LENGTH characters, the title
+ * required (an empty description is written by site_default_description()).
  *
  * @param array $values `title` and `description`.
  * @return string[]
@@ -276,7 +288,9 @@ function site_validate_track_details(array $values): array
     foreach ($limits as $field => [$label, $maxLength]) {
         $value = $values[$field];
         if ($value === '') {
-            $errors[$field] = "$label is required.";
+            if ($field === 'title') {
+                $errors[$field] = "$label is required.";
+            }
         } elseif (!preg_match('/^.{1,' . $maxLength . '}$/su', $value)) {
             // Counts characters, not bytes; invalid UTF-8 does not match either
             $errors[$field] = "$label must be valid text of at most $maxLength characters.";

@@ -56,6 +56,8 @@ export class SelectTool extends Tool {
     public override alwaysRender = true;
 
     private selection: TrackObject[] = [];
+    /** Area of the selection, computed once per list selected, see {@link SelectTool.area}. */
+    private selectionArea: { of: readonly TrackObject[]; area: Area } | null = null;
     private gesture: Gesture = 'none';
     /** Pointer position where the gesture started, in world units. */
     private start = new Vector();
@@ -71,7 +73,10 @@ export class SelectTool extends Tool {
 
     /** Selected objects still on the track: undoing, or another editor, may remove some. */
     public get selected(): readonly TrackObject[] {
-        this.selection = this.selection.filter((object) => object.onTrack);
+        // The same list until objects leave the track, e.g. erased or undone: its area is kept
+        if (this.selection.some((object) => !object.onTrack)) {
+            this.selection = this.selection.filter((object) => object.onTrack);
+        }
         return this.selection;
     }
 
@@ -110,6 +115,7 @@ export class SelectTool extends Tool {
         super.onMouseUp(e);
         const gesture = this.gesture;
         this.gesture = 'none';
+        const options = this.optionsKey();
 
         if (gesture === 'select') {
             this.selectArea();
@@ -118,7 +124,17 @@ export class SelectTool extends Tool {
         } else if (gesture === 'place') {
             this.place();
         }
-        this.track.invalidateUI();
+        // Built again only when the options changed, e.g. not for a click on nothing selected
+        if (this.optionsKey() !== options) {
+            this.track.invalidateUI();
+        }
+    }
+
+    /** What the options show, to build the interface again only when it changes. */
+    private optionsKey(): string {
+        return this.getOptions()
+            .map(({ label, action, steps }) => `${label} ${Boolean(action)} ${Boolean(steps)}`)
+            .join('\n');
     }
 
     /** Selects the objects of the area dragged, a click letting go of the selection. */
@@ -365,15 +381,27 @@ export class SelectTool extends Tool {
         return new Vector(Math.round(x), Math.round(y));
     }
 
+    /**
+     * Area of the selection, untransformed: computed again only for another list of objects, the
+     * objects selected never moving (a transform replaces them with new ones).
+     */
+    private area(): Area {
+        const selected = this.selected;
+        if (this.selectionArea?.of !== selected) {
+            this.selectionArea = { of: selected, area: objectsArea(selected) };
+        }
+        return this.selectionArea.area;
+    }
+
     /** Center of the selection, the point it turns around. */
     private pivot(): Vector {
-        const { left, top, right, bottom } = objectsArea(this.selected);
+        const { left, top, right, bottom } = this.area();
         return new Vector((left + right) / 2, (top + bottom) / 2);
     }
 
     /** Position of the rotation handle, above the selection, in world units. */
     private handle(): Vector {
-        const { left, top, right } = objectsArea(this.selected);
+        const { left, top, right } = this.area();
         return new Vector((left + right) / 2, top - HANDLE_DISTANCE / this.track.zoomFactor);
     }
 
@@ -389,7 +417,7 @@ export class SelectTool extends Tool {
     /** Whether a point is in the selection area, with a margin around single points. */
     private inSelection(point: Vector): boolean {
         const margin = 10 / this.track.zoomFactor;
-        const { left, top, right, bottom } = objectsArea(this.selected);
+        const { left, top, right, bottom } = this.area();
         return (
             point.x >= left - margin &&
             point.x <= right + margin &&
@@ -422,7 +450,7 @@ export class SelectTool extends Tool {
             const transform = this.mouseDown
                 ? this.gestureTransform(this.gesture)
                 : ObjectTransform.NONE;
-            const area = objectsArea(selected);
+            const area = this.area();
             drawObjects(ctx, track, selected, transform);
             drawArea(ctx, track, area, transform);
             if (this.gesture !== 'move') {

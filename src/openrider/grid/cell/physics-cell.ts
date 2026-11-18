@@ -114,16 +114,23 @@ export class PhysicsCell extends Cell {
             const lines = this.lines;
             const boxes = new Float64Array(lines.length * 4);
             for (let i = 0; i < lines.length; i++) {
-                const { pos, endPos, command } = lines[i];
+                const { slot, store } = lines[i];
                 const box = i * 4;
-                if (command !== null) {
+                // Off the track, e.g. erased during a batch, or bound to a command block
+                if (slot < 0 || store.commands.has(slot)) {
                     boxes.fill(NaN, box, box + 4);
                     continue;
                 }
-                boxes[box] = Math.min(pos.x, endPos.x);
-                boxes[box + 1] = Math.min(pos.y, endPos.y);
-                boxes[box + 2] = Math.max(pos.x, endPos.x);
-                boxes[box + 3] = Math.max(pos.y, endPos.y);
+                const [x1, y1, x2, y2] = [
+                    store.x1[slot],
+                    store.y1[slot],
+                    store.x2[slot],
+                    store.y2[slot],
+                ];
+                boxes[box] = Math.min(x1, x2);
+                boxes[box + 1] = Math.min(y1, y2);
+                boxes[box + 2] = Math.max(x1, x2);
+                boxes[box + 3] = Math.max(y1, y2);
             }
             this.boxes = boxes;
             this.boxesVersion = commandsVersion;
@@ -145,13 +152,6 @@ export class PhysicsCell extends Cell {
             this.reachVersion = commandsVersion;
         }
         return this.reach;
-    }
-
-    /** Clears the touched flag of the lines, before checking a part against them. */
-    public untouch(): void {
-        for (const line of this.lines) {
-            line.touched = false;
-        }
     }
 
     /**

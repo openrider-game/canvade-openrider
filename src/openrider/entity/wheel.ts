@@ -17,7 +17,10 @@ export class Wheel extends Part {
 
     /** Moves the wheel along the line according to the engine, and brakes when down is pressed. */
     public override drive(normal: Vector): void {
-        this.pos.selfAdd(normal.scale(this.speedValue * this.bike.direction));
+        // As `pos.selfAdd(normal.scale(speedValue * direction))`, without allocating
+        const speed = this.speedValue * this.bike.direction;
+        this.pos.x += normal.x * speed;
+        this.pos.y += normal.y * speed;
         if (this.bike.runner.controls.downPressed) {
             this.addFriction(normal);
         }

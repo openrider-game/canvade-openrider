@@ -232,6 +232,21 @@ describe('Live edit session', () => {
         expect(cursors.has('uann')).toBe(false);
     });
 
+    test('builds the interface again only when the state changes', async () => {
+        await start();
+        const ann = parseTrack(TRACK_CODE);
+        const session = join('uAnn', ann);
+        await until(() => session.state.loaded, [ann]);
+        await settle([ann]);
+        ann.uiInvalidated = false;
+
+        // The same values received again, e.g. the riders of the results
+        session['setState']({ loaded: true, editors: [...session.state.editors] });
+        expect(ann.uiInvalidated).toBe(false);
+        session['setState']({ message: 'Host left' });
+        expect(ann.uiInvalidated).toBe(true);
+    });
+
     test('refuses the guests', async () => {
         await start();
         const guest = join('g123', parseTrack(TRACK_CODE));

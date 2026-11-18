@@ -8,6 +8,7 @@ import { SolidLine } from '../../src/openrider/item/line/solid-line';
 import { LinkedItem } from '../../src/openrider/item/linked-item';
 import type { TrackObject } from '../../src/openrider/item/track-object';
 import { SelectTool } from '../../src/openrider/tool/misc/select.tool';
+import { objectsArea } from '../../src/openrider/tool/misc/selection-drawing';
 import type { Track } from '../../src/openrider/track/track';
 import { createCanvasMock, stubBrowser } from '../helpers/canvas';
 import { mouseEvent, moveMouse, parseTrack } from '../helpers/track';
@@ -201,6 +202,45 @@ describe('Select tool', () => {
         ObjectClipboard.content = [];
         data.set('text/plain', 'hello#world#!');
         expect(tool.onClipboard('paste', clipboard)).toBe(false);
+    });
+
+    test('builds the interface again only when its options change', () => {
+        drag([-10, -10], [110, 30]);
+        track.uiInvalidated = false;
+
+        // Moved: the same options
+        drag([50, 0], [60, 0]);
+        expect(track.uiInvalidated).toBe(false);
+
+        // Let go of: other options
+        drag([1000, 1000], [1000, 1000]);
+        expect(track.uiInvalidated).toBe(true);
+        track.uiInvalidated = false;
+        drag([1000, 1000], [1000, 1000]);
+        expect(track.uiInvalidated).toBe(false);
+    });
+
+    test('keeps the area of the selection until an object of it leaves the track', () => {
+        drag([-10, -10], [110, 30]);
+        const selected = tool.selected;
+        const area = tool['area']();
+        // The same list and area while nothing changes
+        expect(tool.selected).toBe(selected);
+        expect(tool['area']()).toBe(area);
+
+        // The line from (0, 0) to (100, 0) erased: the area of the target and the block left
+        selected.find((object) => object instanceof SolidLine)!.removeFromTrack();
+        expect(tool.selected).toHaveLength(2);
+        expect(tool['area']()).toEqual({ left: 50, top: 20, right: 60, bottom: 20 });
+    });
+
+    test('measures the area of more objects than a call takes arguments', () => {
+        const many = Array.from({ length: 300_000 }, (_, i) => ({
+            pos: new Vector(i, -i),
+            endPos: new Vector(i + 1, 0),
+        })) as unknown as TrackObject[];
+
+        expect(objectsArea(many)).toEqual({ left: 0, top: -299_999, right: 300_000, bottom: 0 });
     });
 
     test('cuts and deletes, Delete and Escape working from the keyboard', () => {

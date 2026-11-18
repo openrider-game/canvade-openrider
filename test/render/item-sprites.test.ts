@@ -224,6 +224,20 @@ describe('Stacked items', () => {
         expect(looks).toEqual(['#00f 10', '#ff0 10', '#ff0 20']);
     });
 
+    test('are drawn once for arrows a turn apart, their rotation within a turn', () => {
+        // Two boosts on the same spot, stored as 30 and 390 degrees, and one stored as -330
+        const stacked = parseTrack('-50 1i 1k0 1i##B a a u,B a a c6,B k a -aa,#0 -a a -a##BMX#0 0');
+        const items = [...stacked.layers.main[0].grid.totalObjects.values()];
+
+        const sprites = new Float64Array(packItemSprites(items).buffer);
+
+        // One look per spot, turned the same within a turn
+        expect(sprites.length / 5).toBe(2);
+        expect(sprites[4]).toBe(sprites[9]);
+        expect(sprites[4]).toBeGreaterThanOrEqual(0);
+        expect(sprites[4]).toBeLessThan(2 * Math.PI);
+    });
+
     test('keep apart the items of the same spot in another state, out of the cell images', () => {
         const stacked = parseTrack('-50 1i 1k0 1i##T a a,T a a,#0 -a a -a##BMX#0 0');
         const [first, second] = [...stacked.targets.values()];

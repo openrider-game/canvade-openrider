@@ -5,7 +5,9 @@ import { Line } from './line';
  * ignored by the physics.
  */
 export class SceneryLine extends Line {
-    public readonly kind = 'scenery';
+    public get kind(): 'scenery' {
+        return 'scenery';
+    }
 
     protected onAdd(): void {
         this.grid.totalSceneryLines.set(this.id, this);

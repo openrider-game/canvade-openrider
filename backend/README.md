@@ -135,8 +135,9 @@ account.
   and a password of 8 characters at least) and log in; the account menu of the header links to the
   profile, the drafts and the reviews (admins only) of the account, and logs out (`/logout/`);
 - `/create/` runs the game editing a new track, whose upload opens the page of the upload;
-- `/uploads/<id>/` asks for the title (60 characters at most) and the description (500 characters at
-  most) of an uploaded track, both required. A track code also needs a verifier, the account itself
+- `/uploads/<id>/` asks for the title (60 characters at most, required) and the description (500
+  characters at most) of an uploaded track, a description left empty being "<title> is an
+  OpenRider track by <author>". A track code also needs a verifier, the account itself
   by default, and opens its verification page. An editor file cannot be raced: it is saved as a
   draft instead;
 - `/verify/<id>/` runs the game racing a track waiting for verification, for its author, its

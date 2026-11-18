@@ -157,10 +157,19 @@ export class LiveEditSession extends LiveConnection<LiveEditState> {
         SESSIONS.delete(this.track);
     }
 
-    /** Changes the state, the interface showing the buttons of the host following it. */
+    /**
+     * Changes the state, the interface showing the buttons of the host following it: built again
+     * only when a value changed, e.g. not for the results of the riders received again the same.
+     */
     protected override setState(changes: Partial<LiveEditState>): void {
+        const previous = this.state as Partial<LiveEditState>;
+        const changed = (Object.keys(changes) as Array<keyof LiveEditState>).some(
+            (key) => JSON.stringify(changes[key]) !== JSON.stringify(previous[key]),
+        );
         super.setState(changes);
-        this.track.invalidateUI();
+        if (changed) {
+            this.track.invalidateUI();
+        }
     }
 
     protected opened(): void {}

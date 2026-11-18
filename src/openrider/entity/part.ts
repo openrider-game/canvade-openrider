@@ -26,7 +26,10 @@ export class Part extends Entity implements Collidable {
 
     /** Slows the part down along the line it touches, according to {@link Part.motor}. */
     public addFriction(normal: Vector): void {
-        this.pos.selfAdd(normal.scale(-normal.dot(this.velocity) * this.motor));
+        // As `pos.selfAdd(normal.scale(-normal.dot(velocity) * motor))`, without allocating
+        const factor = -(normal.x * this.velocity.x + normal.y * this.velocity.y) * this.motor;
+        this.pos.x += normal.x * factor;
+        this.pos.y += normal.y * factor;
     }
 
     /**
@@ -34,17 +37,23 @@ export class Part extends Entity implements Collidable {
      * derives the new velocity from the actual displacement (verlet integration).
      */
     public override fixedUpdate(): void {
-        // Scaling by 1 is exact, so the physics of the tracks without zero gravity are unchanged
-        this.velocity
-            .selfAdd(this.bike.gravity.scale(this.bike.gravityValueScale))
-            .selfScale(this.bike.friction);
-        this.pos.selfAdd(this.velocity);
+        // Scaling by 1 is exact, so the physics of the tracks without zero gravity are unchanged.
+        // In plain numbers, as `velocity.selfAdd(gravity.scale(scale)).selfScale(friction)`
+        // computes them, allocating nothing on every tick
+        const { gravity, gravityValueScale, friction } = this.bike;
+        const { pos, velocity } = this;
+        velocity.x = (velocity.x + gravity.x * gravityValueScale) * friction;
+        velocity.y = (velocity.y + gravity.y * gravityValueScale) * friction;
+        pos.x += velocity.x;
+        pos.y += velocity.y;
         this.driving = false;
         if (this.touch) {
             this.bike.track.touch(this);
         }
-        this.velocity = this.pos.sub(this.oldPos);
-        this.oldPos.set(this.pos);
+        // Kept by no one else: updated in place
+        velocity.x = pos.x - this.oldPos.x;
+        velocity.y = pos.y - this.oldPos.y;
+        this.oldPos.set(pos);
         super.fixedUpdate();
     }
 

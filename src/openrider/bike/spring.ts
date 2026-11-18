@@ -27,10 +27,13 @@ export class Spring {
 
     /** Rotates the spring by moving both ends perpendicularly to it, in opposite directions. */
     public rotate(rad: number): void {
-        const distance = this.b.pos.sub(this.a.pos);
-        const perpendicular = new Vector(-distance.y / this.len, distance.x / this.len);
-        this.a.pos.selfAdd(perpendicular.scale(rad));
-        this.b.pos.selfAdd(perpendicular.scale(-rad));
+        // In plain numbers, with the operations of the vectors, allocating nothing on every tick
+        const perpendicularX = -(this.b.pos.y - this.a.pos.y) / this.len;
+        const perpendicularY = (this.b.pos.x - this.a.pos.x) / this.len;
+        this.a.pos.x += perpendicularX * rad;
+        this.a.pos.y += perpendicularY * rad;
+        this.b.pos.x += perpendicularX * -rad;
+        this.b.pos.y += perpendicularY * -rad;
     }
 
     /** Swaps the positions and velocities of both ends, to make a bike face the other way. */
@@ -51,7 +54,9 @@ export class Spring {
     }
 
     public getLength(): number {
-        return this.b.pos.sub(this.a.pos).getLength();
+        const x = this.b.pos.x - this.a.pos.x;
+        const y = this.b.pos.y - this.a.pos.y;
+        return Math.sqrt(x * x + y * y);
     }
 
     public clone(): Spring {
@@ -68,17 +73,30 @@ export class Spring {
      * before the parts are moved.
      */
     public fixedUpdate(): void {
-        let distance = this.b.pos.sub(this.a.pos);
-        const length = distance.getLength();
+        // In plain numbers, with the operations of the vectors in their order, allocating nothing
+        // on every tick: the recorded ghosts depend on every bit of the results
+        const { a, b } = this;
+        let distanceX = b.pos.x - a.pos.x;
+        let distanceY = b.pos.y - a.pos.y;
+        const length = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
         if (length < 1) {
             return;
         }
-        distance = distance.scale(1 / length);
-        const force = distance.scale((length - this.len) * this.springConstant);
+        const inverse = 1 / length;
+        distanceX *= inverse;
+        distanceY *= inverse;
+        const stretch = (length - this.len) * this.springConstant;
+        let forceX = distanceX * stretch;
+        let forceY = distanceY * stretch;
         const normalVelocity =
-            this.b.velocity.sub(this.a.velocity).dot(distance) * this.dampConstant;
-        force.selfAdd(distance.scale(normalVelocity));
-        this.b.velocity.selfAdd(force.scale(-1));
-        this.a.velocity.selfAdd(force);
+            ((b.velocity.x - a.velocity.x) * distanceX +
+                (b.velocity.y - a.velocity.y) * distanceY) *
+            this.dampConstant;
+        forceX += distanceX * normalVelocity;
+        forceY += distanceY * normalVelocity;
+        b.velocity.x += forceX * -1;
+        b.velocity.y += forceY * -1;
+        a.velocity.x += forceX;
+        a.velocity.y += forceY;
     }
 }

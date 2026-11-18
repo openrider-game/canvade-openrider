@@ -8,6 +8,7 @@
  * @var bool     $isDraft Whether the upload is an editor file, saved as a draft.
  * @var string[] $values  Posted `title`, `description` and `verifier` (the account by default).
  * @var string[] $errors  Error messages of the invalid fields, by field, or of the whole `form`.
+ * @var string   $author  Name of the account, in the description written for an empty one.
  */
 ?>
 <h1><?= $isDraft ? 'Save a draft' : 'Send a track to verification' ?></h1>
@@ -26,8 +27,8 @@
         </p>
     <?php else: ?>
         <p class="muted">
-            Give your <?= h(site_track_bike($upload['CODE'])) ?> track a title and a description,
-            and choose who verifies it: you, or another account. The track is published once its
+            Give your <?= h(site_track_bike($upload['CODE'])) ?> track a title and, if you like, a
+            description, and choose who verifies it: you, or another account. The track is published once its
             verifier finishes it, proving it can be finished; until then, only you and the verifier
             can race it.
         </p>
@@ -53,9 +54,11 @@
         </div>
 
         <div class="field">
-            <label class="field__label" for="upload-description">Description</label>
+            <label class="field__label" for="upload-description">Description (optional)</label>
+            <?php // Left empty, the site writes one naming the track and its author ?>
             <textarea class="field__input" id="upload-description" name="description" rows="5"
-                required maxlength="<?= SITE_DESCRIPTION_MAX_LENGTH ?>"
+                maxlength="<?= SITE_DESCRIPTION_MAX_LENGTH ?>"
+                placeholder="<?= h(site_default_description('Your track', $author)) ?>"
                 <?php if (isset($errors['description'])): ?>
                     aria-invalid="true" aria-describedby="upload-description-error"
                 <?php endif; ?>><?= h($values['description']) ?></textarea>

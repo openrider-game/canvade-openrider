@@ -13,6 +13,7 @@ import { TrackEditor } from '../edit/track-editor';
 import { HistoryManager } from '../history/history-manager';
 import { CommandRegistry } from '../item/command/command-registry';
 import { Line } from '../item/line/line';
+import { LineStore } from '../item/line/line-store';
 import type { ReachableItem } from '../item/reachable-item';
 import type { Target } from '../item/reachable/target';
 import type { TrackObject } from '../item/track-object';
@@ -39,6 +40,8 @@ export type { FollowedRider } from './rider-follower';
  */
 export class Track extends World {
     /** Layers of the track, a main and a foreground layer for a new track. */
+    /** The lines on the track, in columns rather than objects, see `LineStore`. */
+    public readonly lineStore = new LineStore();
     public readonly layers = new LayerStack(this);
 
     /** Start position of the bikes. */
@@ -268,9 +271,9 @@ export class Track extends World {
      * Collides a part with the 2x2 block of physics cells around it, on every main layer from
      * the bottom one to the top one.
      *
-     * The touched flags of the whole block are cleared first, so that a line spanning several
-     * cells collides only once. The main layers are checked in stack order, which the recorded
-     * ghosts depend on.
+     * Each layer is a new collision pass (see `Line.newPass`), so that a line spanning several
+     * cells of the block collides only once. The main layers are checked in stack order, which the
+     * recorded ghosts depend on.
      */
     public touch(part: Collidable): void {
         const offsets = CELL_BLOCK_ACTION_OFFSET_ORDER;
@@ -285,10 +288,7 @@ export class Track extends World {
             const b = grid.existing(x + offsets[1][0], y + offsets[1][1]);
             const c = grid.existing(x + offsets[2][0], y + offsets[2][1]);
             const d = grid.existing(x + offsets[3][0], y + offsets[3][1]);
-            a?.untouch();
-            b?.untouch();
-            c?.untouch();
-            d?.untouch();
+            Line.newPass();
             a?.touch(part);
             b?.touch(part);
             c?.touch(part);

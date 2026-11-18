@@ -1,6 +1,8 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../entity/collidable';
 import type { Track } from '../track/track';
+import type { TrackLayer } from '../track/track-layer';
+import type { CommandBlock } from './command/command-block';
 import { formatItem, type ItemEntity } from '../parser/track-document';
 import { painter } from '../render/painter';
 import { type ItemShape, spriteCode } from './item-sprite';
@@ -40,6 +42,41 @@ export abstract class Item extends TrackObject {
     public static readonly code: string = '';
 
     public readonly kind = 'item';
+
+    public pos: Vector;
+    public endPos: Vector;
+    public recorded = false;
+    public layer: TrackLayer | null = null;
+    public onTrack = false;
+    public command: CommandBlock | null = null;
+    public order: number | null = null;
+    /**
+     * Id given by the edits of the track (see {@link TrackObject.uid}), null for a parsed item,
+     * whose id is its number, or an item never edited.
+     */
+    private uidText: string | null = null;
+    /** Number of the item in the track parsed, its id being `p<number>`; -1 for the others. */
+    private parsedNumber = -1;
+
+    public constructor(pos: Vector, track: Track) {
+        super(track);
+        this.pos = pos;
+        this.endPos = pos;
+    }
+
+    public get uid(): string | null {
+        return this.uidText ?? (this.parsedNumber >= 0 ? `p${this.parsedNumber}` : null);
+    }
+
+    public set uid(uid: string | null) {
+        this.uidText = uid;
+        this.parsedNumber = -1;
+    }
+
+    public setParsedUid(number: number): void {
+        this.uidText = null;
+        this.parsedNumber = number;
+    }
 
     /** Static side of the item, giving its code and color. */
     public get itemClass(): ItemClass {
