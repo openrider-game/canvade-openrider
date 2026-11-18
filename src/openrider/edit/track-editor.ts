@@ -1,5 +1,6 @@
 import { Vector } from 'canvade';
 import { Cell } from '../grid/cell/cell';
+import { Line } from '../item/line/line';
 import { LinkedItemGroup } from '../item/linked-item-group';
 import type { TrackObject } from '../item/track-object';
 import { parseItem } from '../parser/track-document';
@@ -34,9 +35,10 @@ export class TrackEditor {
     public onEdit: ((edit: TrackEdit) => void) | null = null;
     private counter = 0;
     /**
-     * Objects on the track by id: lines, items, groups of linked items. Built on first use (see
-     * {@link TrackEditor.objects}), then followed: null until then, a raced track never needing
-     * it.
+     * Items and groups of linked items on the track by id, built on first use (see
+     * {@link TrackEditor.items}), then followed: null until then, a raced track never needing it.
+     * The lines are found by the store of the lines (see `LineStore.lineByUid`): a large track
+     * holds a million of them.
      */
     private index: Map<string, TrackObject> | null = null;
     /** Objects taken off the track by id, put back when added again. */
@@ -52,16 +54,16 @@ export class TrackEditor {
     }
 
     /**
-     * Objects on the track by id, the index being built from the layers on first use: the
-     * objects on the track with an id, as {@link TrackEditor.added} and
-     * {@link TrackEditor.removed} then keep it.
+     * Items on the track by id, the index being built from the layers on first use: the items on
+     * the track with an id, as {@link TrackEditor.added} and {@link TrackEditor.removed} then keep
+     * it.
      */
-    private get objects(): Map<string, TrackObject> {
+    private get items(): Map<string, TrackObject> {
         if (!this.index) {
             this.index = new Map();
             for (const layer of this.track.layers.all) {
-                for (const object of layer.objects()) {
-                    const unit = unitOf(object);
+                for (const item of layer.grid.totalObjects.values()) {
+                    const unit = unitOf(item);
                     if (unit.uid !== null) {
                         this.index.set(unit.uid, unit);
                     }
@@ -73,13 +75,13 @@ export class TrackEditor {
 
     /** Object of the track with an id, if on the track. */
     public object(uid: string): TrackObject | undefined {
-        return this.objects.get(uid);
+        return this.items.get(uid) ?? this.track.lineStore.lineByUid(uid);
     }
 
-    /** Follows the objects added to the track, called by `Track.add`, once indexed. */
+    /** Follows the items added to the track, called by `Track.add`, once indexed. */
     public added(object: TrackObject): void {
         const unit = unitOf(object);
-        if (this.index && unit.uid !== null) {
+        if (this.index && unit.uid !== null && !(unit instanceof Line)) {
             this.index.set(unit.uid, unit);
         }
     }
@@ -93,8 +95,13 @@ export class TrackEditor {
         if (unit.uid === null) {
             return;
         }
-        // Without an index yet, every object with an id is on the track until removed
-        if (!this.index) {
+        // A line found by its uid in the store, still indexed while removed
+        if (unit instanceof Line) {
+            if (this.track.lineStore.slotOfUid(unit.uid) === unit.slot) {
+                this.detached.set(unit.uid, unit);
+            }
+        } else if (!this.index) {
+            // Without an index yet, every item with an id is on the track until removed
             this.detached.set(unit.uid, unit);
         } else if (this.index.get(unit.uid) === unit) {
             this.index.delete(unit.uid);
@@ -111,7 +118,7 @@ export class TrackEditor {
     public add(objects: readonly TrackObject[]): TrackObject[] {
         const data = objects.map((object) => this.describe(object, this.newUid()));
         this.make({ type: 'add', objects: data });
-        return data.flatMap(({ uid }) => this.objects.get(uid) ?? []);
+        return data.flatMap(({ uid }) => this.object(uid) ?? []);
     }
 
     /**
@@ -122,7 +129,7 @@ export class TrackEditor {
     public addCodes(objects: ReadonlyArray<Omit<ObjectData, 'uid'>>): TrackObject[] {
         const data = objects.map((object) => ({ ...object, uid: this.newUid() }));
         this.make({ type: 'add', objects: data });
-        return data.flatMap(({ uid }) => this.objects.get(uid) ?? []);
+        return data.flatMap(({ uid }) => this.object(uid) ?? []);
     }
 
     /** Removes objects of the track, e.g. a selection deleted, as an edit that can be undone. */
@@ -155,7 +162,7 @@ export class TrackEditor {
                 { type: 'add', objects: added },
             ],
         });
-        return added.flatMap(({ uid }) => this.objects.get(uid) ?? []);
+        return added.flatMap(({ uid }) => this.object(uid) ?? []);
     }
 
     /** Records objects a tool already took off the track, e.g. erased, as an edit. */
@@ -231,7 +238,7 @@ export class TrackEditor {
                 edit.objects.forEach((data) => this.create(data));
                 break;
             case 'remove':
-                edit.objects.forEach(({ uid }) => this.objects.get(uid)?.removeFromTrack());
+                edit.objects.forEach(({ uid }) => this.object(uid)?.removeFromTrack());
                 break;
             case 'addLayer':
                 if (!layers.byUid(edit.layer.uid)) {
@@ -297,7 +304,7 @@ export class TrackEditor {
                 part.edits.forEach(visit);
             } else if (part.type === 'add') {
                 for (const { uid } of part.objects) {
-                    const object = this.objects.get(uid);
+                    const object = this.object(uid);
                     if (object) {
                         rankObject(object, seq * EDIT_ORDERS + index);
                     }
@@ -352,7 +359,7 @@ export class TrackEditor {
         snapshot.objects.forEach((data, index) => {
             // Ranked before being added, at the end of the cells: as taken off and put back there
             this.create(data, index);
-            const object = this.objects.get(data.uid);
+            const object = this.object(data.uid);
             if (object) {
                 rankObject(object, index);
             }
@@ -373,8 +380,11 @@ export class TrackEditor {
     private uidOf(object: TrackObject): string {
         if (object.uid === null) {
             object.uid = this.newUid();
-            if (object instanceof LinkedItemGroup ? object.instances[0]?.onTrack : object.onTrack) {
-                this.objects.set(object.uid, object);
+            // A line is indexed by the store, see `LineStore.indexUid`
+            const onTrack =
+                object instanceof LinkedItemGroup ? object.instances[0]?.onTrack : object.onTrack;
+            if (onTrack && !(object instanceof Line)) {
+                this.items.set(object.uid, object);
             }
         }
         return object.uid;
@@ -401,7 +411,7 @@ export class TrackEditor {
      */
     private create(data: ObjectData, order?: number): void {
         const layer = this.track.layers.byUid(data.layer);
-        if (!layer || this.objects.has(data.uid)) {
+        if (!layer || this.object(data.uid)) {
             return;
         }
 

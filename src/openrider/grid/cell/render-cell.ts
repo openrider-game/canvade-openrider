@@ -1,8 +1,9 @@
 import type { Item } from '../../item/item';
 import { type ItemSprites, packItemSprites } from '../../item/item-sprite';
+import type { LineStore } from '../../item/line/line-store';
 import { SCENERY_COLORS, SCENERY_STROKE_STYLES } from '../../item/line/scenery-colors';
 import type { TrackObject } from '../../item/track-object';
-import { type CellDrawing, flattenLines, flattenScenery, painter } from '../../render/painter';
+import { type CellDrawing, flattenScenerySlots, flattenSlots, painter } from '../../render/painter';
 import { RenderPriority, WorkerPool } from '../../thread/worker-pool';
 import { MIN_ZOOM } from '../../track/track.constants';
 import type { Track } from '../../track/track';
@@ -111,15 +112,24 @@ export class RenderCell extends Cell {
         this.edited(obj);
     }
 
+    public override pushSlot(store: LineStore, slot: number, scenery: boolean): void {
+        super.pushSlot(store, slot, scenery);
+        this.edited(() => store.handle(slot));
+    }
+
     public override remove(obj: TrackObject): void {
         super.remove(obj);
         this.edited(obj);
     }
 
-    /** Records an edit of the cell once it has images, as opposed to filling it, e.g. parsed. */
-    private edited(obj: TrackObject): void {
+    /**
+     * Records an edit of the cell once it has images, as opposed to filling it, e.g. parsed.
+     *
+     * @param obj - The object edited, or what makes it, only needed to patch the images.
+     */
+    private edited(obj: TrackObject | (() => TrackObject)): void {
         const hasImages = this.images.size > 0;
-        this.patcher.record(obj, hasImages);
+        this.patcher.record(hasImages && typeof obj === 'function' ? obj() : obj, hasImages);
         if (hasImages) {
             this.editedAt = performance.now();
         }
@@ -143,9 +153,10 @@ export class RenderCell extends Cell {
      * @param opacityFactor - Opacity of the lines, depending on the layer.
      */
     public drawing(zoom: number, opacityFactor: number): CellDrawing {
+        const store = this.store;
         this.packedLines ??= {
-            scenery: flattenScenery(this.scenery),
-            lines: flattenLines(this.lines),
+            scenery: store ? flattenScenerySlots(store, this.scenerySlots) : new Int32Array(0),
+            lines: store ? flattenSlots(store, this.lineSlots) : new Int32Array(0),
         };
         const { buffer, colors } = this.packedSprites;
         return {
@@ -179,7 +190,9 @@ export class RenderCell extends Cell {
      * renderer.
      */
     public isHeavy(): boolean {
-        return this.lines.length + this.scenery.length + this.sprites > FAST_RENDER_THRESHOLD;
+        return (
+            this.lineSlots.length + this.scenerySlots.length + this.sprites > FAST_RENDER_THRESHOLD
+        );
     }
 
     /**

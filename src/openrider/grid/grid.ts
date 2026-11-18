@@ -1,8 +1,11 @@
 import { Vector } from 'canvade';
 import type { Item } from '../item/item';
+import type { Line } from '../item/line/line';
+import type { LineStore } from '../item/line/line-store';
 import type { SceneryLine } from '../item/line/scenery-line';
 import type { SolidLine } from '../item/line/solid-line';
 import type { TrackObject } from '../item/track-object';
+import type { TrackLayer } from '../track/track-layer';
 import type { Cell } from './cell/cell';
 import { CELL_BLOCK_ACTION_OFFSET_ORDER, MAX_SPREAD } from './grid.constants';
 
@@ -13,6 +16,56 @@ import { CELL_BLOCK_ACTION_OFFSET_ORDER, MAX_SPREAD } from './grid.constants';
  */
 const KEY_SPAN = 2 ** 26,
     KEY_OFFSET = 2 ** 25;
+
+/**
+ * Lines of a kind on a layer, as a read-only map by id would list them: counted as they are added
+ * and removed, and read from the store of the lines (see `LineStore.slotsOf`), in the order they
+ * were added, as objects.
+ */
+export class LineTotals<T extends Line> {
+    /** Number of lines. */
+    public size = 0;
+    private store: LineStore | null = null;
+    private layer: TrackLayer | null = null;
+
+    public constructor(private readonly scenery: boolean) {}
+
+    /** Counts a line added to the track, see `Line.onAdd`. */
+    public added(line: T): void {
+        this.addedTo(line.store, line.layer);
+    }
+
+    /** Counts a line added to the track by slot, see `Track.addLineSlot`. */
+    public addedTo(store: LineStore, layer: TrackLayer | null): void {
+        this.store = store;
+        this.layer = layer;
+        this.size++;
+    }
+
+    /** Counts a line removed from the track. */
+    public removed(): void {
+        this.size--;
+    }
+
+    /** Slots of the lines, in the order they were added. */
+    public slots(): Iterable<number> {
+        return this.store && this.layer ? this.store.slotsOf(this.layer, this.scenery) : [];
+    }
+
+    /** The lines as objects, see `LineStore.handle`. */
+    public *values(): Generator<T> {
+        const store = this.store;
+        for (const slot of this.slots()) {
+            yield store!.handle(slot) as T;
+        }
+    }
+
+    public forEach(callback: (line: T) => void): void {
+        for (const line of this.values()) {
+            callback(line);
+        }
+    }
+}
 
 /** Constructor of a grid cell, taking its world position and size. */
 export interface CellClass<T extends Cell> {
@@ -34,11 +87,11 @@ export class Grid<T extends Cell> {
     public readonly cells = new Map<number | string, T>();
 
     /**
-     * Objects of the layer by id, including the lines too short or too long to be stored in the
-     * cells. Only maintained on the physics grid.
+     * Objects of the layer, including the lines too short or too long to be stored in the cells:
+     * the items by id, the lines read from the store. Only maintained on the physics grid.
      */
-    public readonly totalSolidLines = new Map<number, SolidLine>();
-    public readonly totalSceneryLines = new Map<number, SceneryLine>();
+    public readonly totalSolidLines = new LineTotals<SolidLine>(false);
+    public readonly totalSceneryLines = new LineTotals<SceneryLine>(true);
     public readonly totalObjects = new Map<number, Item>();
 
     /**
@@ -91,6 +144,13 @@ export class Grid<T extends Cell> {
     /** Stores the object in every cell it crosses. */
     public add(obj: TrackObject): void {
         this.getCellsForObject(obj).forEach((cell) => cell.push(obj));
+    }
+
+    /** Stores the line of a slot in every cell it crosses, without its object. */
+    public addSlot(store: LineStore, slot: number, scenery: boolean): void {
+        const from = new Vector(store.x1[slot], store.y1[slot]);
+        const to = new Vector(store.x2[slot], store.y2[slot]);
+        this.cellsCrossed(from, to).forEach((cell) => cell.pushSlot(store, slot, scenery));
     }
 
     /** Removes the object from every cell it crosses. */

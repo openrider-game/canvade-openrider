@@ -27,6 +27,18 @@ describe('Game configuration', () => {
         expect(GameConfig.trackPage(7)).toBe('/tracks/7/');
     });
 
+    test('draws the layers with WebGL, unless the host element or the page URL ask the canvas', () => {
+        GameConfig.configure(host());
+        expect(GameConfig.renderer).toBe('webgl');
+
+        GameConfig.configure(host({ renderer: 'canvas' }));
+        expect(GameConfig.renderer).toBe('canvas');
+        GameConfig.configure(host(), '?renderer=canvas');
+        expect(GameConfig.renderer).toBe('canvas');
+        GameConfig.configure(host(), '?renderer=other');
+        expect(GameConfig.renderer).toBe('webgl');
+    });
+
     test('races the downloaded track, unless the host element asks to edit it', () => {
         GameConfig.configure(host());
         expect(GameConfig.editTrack).toBe(false);

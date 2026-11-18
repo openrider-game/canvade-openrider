@@ -33,7 +33,7 @@ const starts = () => physicsCell().lines.map((line) => line.pos.x);
 describe('Objects removed in a batch', () => {
     test('leave their cells at its end, in a single pass keeping the order of the others', () => {
         const lines = addLines();
-        const list = physicsCell().lines;
+        const list = physicsCell().lineSlots;
         const filter = vi.spyOn(Array.prototype, 'filter');
 
         Cell.batch(() => {

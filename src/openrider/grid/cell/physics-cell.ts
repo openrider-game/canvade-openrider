@@ -1,6 +1,8 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../../entity/collidable';
-import type { Line } from '../../item/line/line';
+import { Line } from '../../item/line/line';
+import { type LineStore, ON_TRACK, RECORDED } from '../../item/line/line-store';
+import { SolidLine } from '../../item/line/solid-line';
 import type { TrackObject, TrackObjectKind } from '../../item/track-object';
 import { Cell } from './cell';
 
@@ -79,15 +81,23 @@ export class PhysicsCell extends Cell {
      * The lines in reach collide as without it.
      */
     private touchLines(part: Collidable): void {
+        const slots = this.lineSlots;
+        const store = this.store;
+        if (!slots.length || !store) {
+            return;
+        }
         const boxes = this.lineBoxes();
+        // The pass of the part on this layer, the same for every line of the cell
+        const pass = Line.currentPass;
+        const touchedPass = store.touchedPass;
         // Larger than the size and the velocity of the part, by a margin for the rounding
         const reach =
             Math.max(part.size, Math.abs(part.velocity.x) + Math.abs(part.velocity.y)) + 1;
-        for (let i = this.lines.length - 1; i >= 0; i--) {
-            const line = this.lines[i];
+        for (let i = slots.length - 1; i >= 0; i--) {
+            const slot = slots[i];
             // The lines changed while colliding: collided as they are
             if (this.boxes !== boxes) {
-                line.touch(part);
+                SolidLine.touchSlot(store, slot, part, pass);
                 continue;
             }
             const box = i * 4;
@@ -100,10 +110,10 @@ export class PhysicsCell extends Cell {
                 y > boxes[box + 3] + reach
             ) {
                 // Out of reach, as `SolidLine.collide` finds it, colliding once a check
-                line.touched = true;
+                touchedPass[slot] = pass;
             } else {
                 // In reach, or NaN for a line collided elsewhere
-                line.touch(part);
+                SolidLine.touchSlot(store, slot, part, pass);
             }
         }
     }
@@ -111,13 +121,14 @@ export class PhysicsCell extends Cell {
     /** The packed boxes of the solid lines, made again once they or their commands change. */
     private lineBoxes(): Float64Array {
         if (this.boxes === null || this.boxesVersion !== commandsVersion) {
-            const lines = this.lines;
-            const boxes = new Float64Array(lines.length * 4);
-            for (let i = 0; i < lines.length; i++) {
-                const { slot, store } = lines[i];
+            const slots = this.lineSlots;
+            const store = this.store!;
+            const boxes = new Float64Array(slots.length * 4);
+            for (let i = 0; i < slots.length; i++) {
+                const slot = slots[i];
                 const box = i * 4;
                 // Off the track, e.g. erased during a batch, or bound to a command block
-                if (slot < 0 || store.commands.has(slot)) {
+                if (!(store.flags[slot] & ON_TRACK) || store.commands.has(slot)) {
                     boxes.fill(NaN, box, box + 4);
                     continue;
                 }
@@ -159,16 +170,29 @@ export class PhysicsCell extends Cell {
      * yet.
      */
     public search(point: Vector, kind: TrackObjectKind, color = 0): Line | undefined {
-        const lines: Line[] =
-            kind === 'scenery' ? this.scenery : kind === 'solid' ? this.lines : [];
+        const slot = this.searchSlot(point.x, point.y, kind, color);
+        return slot < 0 ? undefined : this.store!.handle(slot);
+    }
 
-        return lines.find(
-            (line) =>
-                line.pos.x === point.x &&
-                line.pos.y === point.y &&
-                line.color === color &&
-                !line.recorded,
-        );
+    /** Slot of the line {@link PhysicsCell.search} finds, -1 without one. */
+    public searchSlot(x: number, y: number, kind: TrackObjectKind, color = 0): number {
+        const store = this.store;
+        const slots =
+            kind === 'scenery' ? this.scenerySlots : kind === 'solid' ? this.lineSlots : [];
+        if (!store) {
+            return -1;
+        }
+        for (const slot of slots) {
+            if (
+                store.x1[slot] === x &&
+                store.y1[slot] === y &&
+                store.color[slot] === color &&
+                !(store.flags[slot] & RECORDED)
+            ) {
+                return slot;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -183,19 +207,61 @@ export class PhysicsCell extends Cell {
         restrict: EraserRestriction,
     ): TrackObject[] {
         const deleted: TrackObject[] = [];
-        const candidates: TrackObject[] = [
-            ...(restrict.solid ? this.lines : []),
-            ...(restrict.scenery ? this.scenery : []),
-            ...(restrict.item ? this.objects : []),
+        const store = this.store;
+        // The lines read from the store, made objects only once erased
+        const slots = [
+            ...(restrict.solid ? this.lineSlots : []),
+            ...(restrict.scenery ? this.scenerySlots : []),
         ];
-
-        for (const candidate of candidates) {
-            const deletedObj = candidate.checkDelete(eraserPoint, radius);
+        for (const slot of slots) {
+            if (store && PhysicsCell.erases(store, slot, eraserPoint, radius)) {
+                const line = store.handle(slot);
+                line.removeFromTrack();
+                deleted.push(line);
+            }
+        }
+        for (const item of restrict.item ? [...this.objects] : []) {
+            const deletedObj = item.checkDelete(eraserPoint, radius);
             if (deletedObj) {
                 deleted.push(deletedObj);
             }
         }
 
         return deleted;
+    }
+
+    /**
+     * Whether the eraser reaches the line of a slot on the track, as `Line.checkDelete` finds it:
+     * the closest point of the line within its radius.
+     */
+    private static erases(
+        store: LineStore,
+        slot: number,
+        eraserPoint: Vector,
+        radius: number,
+    ): boolean {
+        if (!(store.flags[slot] & ON_TRACK)) {
+            return false;
+        }
+        const [x1, y1, x2, y2, len] = [
+            store.x1[slot],
+            store.y1[slot],
+            store.x2[slot],
+            store.y2[slot],
+            store.len[slot],
+        ];
+        // The unit vector of the line, and the distance along it to the closest point
+        const unitX = (x2 - x1) / len;
+        const unitY = (y2 - y1) / len;
+        const along = (eraserPoint.x - x1) * unitX + (eraserPoint.y - y1) * unitY;
+        let [closestX, closestY] = [x1, y1];
+        if (along >= len) {
+            [closestX, closestY] = [x2, y2];
+        } else if (along > 0) {
+            [closestX, closestY] = [x1 + unitX * along, y1 + unitY * along];
+        }
+        const dx = eraserPoint.x - closestX;
+        const dy = eraserPoint.y - closestY;
+        return Math.sqrt(dx * dx + dy * dy) <= radius;
     }
 }

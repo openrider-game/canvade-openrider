@@ -91,7 +91,7 @@ export abstract class TrackDebugRenderer {
 
                     if (cell.isHeavy()) {
                         ctx.fillStyle = '#000';
-                        const lines = cell.lines.length + cell.scenery.length;
+                        const lines = cell.lineSlots.length + cell.scenerySlots.length;
                         ctx.fillText(`workers: ${lines} lines`, pos.x + 4, pos.y + 14);
                     }
                 }

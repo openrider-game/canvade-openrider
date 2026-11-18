@@ -1,4 +1,6 @@
+import { Vector } from 'canvade';
 import { Line } from './line';
+import { LineStore } from './line-store';
 
 /**
  * Decorative line, rendered in its color (see {@link Line.color} and `SCENERY_COLORS`) and
@@ -10,10 +12,13 @@ export class SceneryLine extends Line {
     }
 
     protected onAdd(): void {
-        this.grid.totalSceneryLines.set(this.id, this);
+        this.grid.totalSceneryLines.added(this);
     }
 
     protected onDelete(): void {
-        this.grid.totalSceneryLines.delete(this.id);
+        this.grid.totalSceneryLines.removed();
     }
 }
+
+LineStore.factories.scenery = (track, slot) =>
+    Line.bindSlot(new SceneryLine(new Vector(), new Vector(), track), slot);

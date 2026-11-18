@@ -100,7 +100,7 @@ describe('Track objects storage', () => {
         const line = new SolidLine(new Vector(0, 0), new Vector(1, 0), track);
         addLine(line);
 
-        expect(track.layers.main[0].grid.totalSolidLines.has(line.id)).toBe(true);
+        expect([...track.layers.main[0].grid.totalSolidLines.values()]).toContain(line);
         expect(cellContent(track.layers.main[0].grid)).not.toContain(line);
     });
 
@@ -130,7 +130,7 @@ describe('Track objects storage', () => {
 
         expect(cellContent(track.layers.main[0].grid)).not.toContain(line);
         expect(cellContent(track.layers.main[0].cache)).not.toContain(line);
-        expect(track.layers.main[0].grid.totalSolidLines.has(line.id)).toBe(false);
+        expect([...track.layers.main[0].grid.totalSolidLines.values()]).not.toContain(line);
     });
 
     test('erases the objects of the allowed kinds and layers only', () => {

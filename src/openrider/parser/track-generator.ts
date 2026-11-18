@@ -1,17 +1,25 @@
+import type { PhysicsCell } from '../grid/cell/physics-cell';
+import type { Grid } from '../grid/grid';
 import type { Item } from '../item/item';
-import type { Line } from '../item/line/line';
-import type { TrackObject } from '../item/track-object';
+import { type LineStore, RECORDED } from '../item/line/line-store';
 import type { Track } from '../track/track';
 import type { TrackLayer } from '../track/track-layer';
-import { addScenery, type LayerDocument, type TrackDocument } from './track-document';
+import {
+    addScenery,
+    type LayerDocument,
+    type Polyline,
+    type TrackDocument,
+} from './track-document';
 import { TrackFormat } from './track-format';
 
-/** Section of a layer being serialized. */
+/** Section of a layer being serialized: its lines by slot, or its items. */
 interface GeneratorData {
-    objects: TrackObject[];
+    length: number;
     index: number;
-    /** Adds an object not recorded yet to the layer document. */
-    record(object: TrackObject): void;
+    /** Adds the entry of an index to the layer document, unless recorded already. */
+    record(index: number): void;
+    /** Clears the recorded flags of the entries, once the track is serialized. */
+    reset(): void;
 }
 
 /** Sections of a layer being serialized, into its document. */
@@ -57,27 +65,85 @@ export class TrackGenerator {
                 items: [],
             },
         }));
+        const store = track.lineStore;
         this.sections = this.layers.flatMap(({ layer, document }) => [
-            TrackGenerator.section(layer.grid.totalSolidLines, (object) =>
-                document.solid.push((object as Line).toPolyline()),
+            TrackGenerator.lineSection(store, layer, false, (polyline) =>
+                document.solid.push(polyline),
             ),
-            TrackGenerator.section(layer.grid.totalSceneryLines, (object) =>
-                addScenery(document.scenery, (object as Line).color, [
-                    (object as Line).toPolyline(),
-                ]),
+            TrackGenerator.lineSection(store, layer, true, (polyline, color) =>
+                addScenery(document.scenery, color, [polyline]),
             ),
-            TrackGenerator.section(layer.grid.totalObjects, (object) =>
-                document.items.push((object as Item).toEntity()),
+            TrackGenerator.itemSection([...layer.grid.totalObjects.values()], (item) =>
+                document.items.push(item.toEntity()),
             ),
         ]);
-        this.length = this.sections.reduce((total, data) => total + data.objects.length, 0);
+        this.length = this.sections.reduce((total, data) => total + data.length, 0);
     }
 
-    private static section(
-        objects: Map<number, TrackObject>,
-        record: (object: TrackObject) => void,
+    /** Section of the lines of a kind of a layer, read from the store by slot. */
+    private static lineSection(
+        store: LineStore,
+        layer: TrackLayer,
+        scenery: boolean,
+        record: (polyline: Polyline, color: number) => void,
     ): GeneratorData {
-        return { objects: Array.from(objects.values()), index: 0, record };
+        const totals = scenery ? layer.grid.totalSceneryLines : layer.grid.totalSolidLines;
+        const slots = Array.from(totals.slots());
+        return {
+            length: slots.length,
+            index: 0,
+            record: (index) => {
+                const slot = slots[index];
+                if (!(store.flags[slot] & RECORDED)) {
+                    record(
+                        TrackGenerator.polyline(store, layer.grid, slot, scenery),
+                        store.color[slot],
+                    );
+                }
+            },
+            reset: () => slots.forEach((slot) => (store.flags[slot] &= ~RECORDED)),
+        };
+    }
+
+    /** Section of the items of a layer. */
+    private static itemSection(items: Item[], record: (item: Item) => void): GeneratorData {
+        return {
+            length: items.length,
+            index: 0,
+            record: (index) => {
+                if (!items[index].recorded) {
+                    record(items[index]);
+                }
+            },
+            reset: () => items.forEach((item) => (item.recorded = false)),
+        };
+    }
+
+    /**
+     * Points of the line of a slot followed by the lines connected after it, of the same kind and
+     * color, not recorded yet, rounded, as `Line.toPolyline` writes them: every chained line is
+     * marked as recorded, so that it is not exported again on its own.
+     */
+    private static polyline(
+        store: LineStore,
+        grid: Grid<PhysicsCell>,
+        first: number,
+        scenery: boolean,
+    ): Polyline {
+        const polyline = [Math.round(store.x1[first]), Math.round(store.y1[first])];
+        const kind = scenery ? 'scenery' : 'solid';
+        const color = store.color[first];
+        for (let slot = first; slot >= 0;) {
+            store.flags[slot] |= RECORDED;
+            const [endX, endY] = [store.x2[slot], store.y2[slot]];
+            polyline.push(Math.round(endX), Math.round(endY));
+            const cell = grid.existing(
+                Math.floor(endX / grid.cellSize),
+                Math.floor(endY / grid.cellSize),
+            );
+            slot = cell ? cell.searchSlot(endX, endY, kind, color) : -1;
+        }
+        return polyline;
     }
 
     /** Updates {@link TrackGenerator.progress} from the state of every section. */
@@ -97,15 +163,12 @@ export class TrackGenerator {
             return;
         }
 
-        const l = Math.min(data.index + STEP_SIZE, data.objects.length);
+        const l = Math.min(data.index + STEP_SIZE, data.length);
         for (; data.index < l; data.index++) {
-            const obj = data.objects[data.index];
-            if (!obj.recorded) {
-                data.record(obj);
-            }
+            data.record(data.index);
         }
 
-        if (data.index >= data.objects.length) {
+        if (data.index >= data.length) {
             this.sectionIndex++;
             if (this.sectionIndex >= this.sections.length) {
                 this.finish();
@@ -121,7 +184,7 @@ export class TrackGenerator {
     /** Resets the recorded flags so that the track can be exported again. */
     private cleanup(): void {
         for (const data of this.sections) {
-            data.objects.forEach((obj) => (obj.recorded = false));
+            data.reset();
         }
     }
 

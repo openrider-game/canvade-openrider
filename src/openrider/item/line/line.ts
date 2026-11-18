@@ -58,6 +58,16 @@ export abstract class Line extends TrackObject {
         Line.pass++;
     }
 
+    /**
+     * Binds a new object to the slot of a line on the track, see `LineStore.handle`: its state is
+     * read from the store.
+     */
+    public static bindSlot<T extends Line>(line: T, slot: number): T {
+        line.slot = slot;
+        line.detached = null;
+        return line;
+    }
+
     /** The current collision pass, see {@link Line.touched}. */
     public static get currentPass(): number {
         return Line.pass;
@@ -233,12 +243,20 @@ export abstract class Line extends TrackObject {
             this.detached!.parsed = -1;
             return;
         }
+        // Indexed again by its new uid, see `LineStore.lineByUid`
+        const indexed = this.onTrack;
+        if (indexed) {
+            this.store.indexUid(this.slot, false);
+        }
         if (uid === null) {
             this.store.uids.delete(this.slot);
         } else {
             this.store.uids.set(this.slot, uid);
         }
         this.store.parsed[this.slot] = -1;
+        if (indexed) {
+            this.store.indexUid(this.slot, true);
+        }
     }
 
     public setParsedUid(number: number): void {
@@ -247,8 +265,15 @@ export abstract class Line extends TrackObject {
             this.detached!.parsed = number;
             return;
         }
+        const indexed = this.onTrack;
+        if (indexed) {
+            this.store.indexUid(this.slot, false);
+        }
         this.store.uids.delete(this.slot);
         this.store.parsed[this.slot] = number;
+        if (indexed) {
+            this.store.indexUid(this.slot, true);
+        }
     }
 
     /**
@@ -286,6 +311,7 @@ export abstract class Line extends TrackObject {
         }
         this.attach();
         super.addToTrack();
+        this.store.indexUid(this.slot, true);
     }
 
     /** Removes the line from the grids of its layer, then gives its state back to its object. */
@@ -293,7 +319,9 @@ export abstract class Line extends TrackObject {
         if (!this.onTrack) {
             return;
         }
+        // Still indexed while removed, for the editor to keep it by its uid (see `Track.remove`)
         super.removeFromTrack();
+        this.store.indexUid(this.slot, false);
         this.detach();
     }
 
@@ -356,9 +384,7 @@ export abstract class Line extends TrackObject {
     private next(): Line | undefined {
         const endPos = this.endPos;
         const gridCoords = Grid.gridCoords(endPos, this.grid.cellSize);
-        return this.grid
-            .cell(gridCoords.x, gridCoords.y)
-            .search(endPos, this.kind, this.color);
+        return this.grid.cell(gridCoords.x, gridCoords.y).search(endPos, this.kind, this.color);
     }
 
     private setFlag(flag: number, set: boolean): void {
@@ -369,9 +395,12 @@ export abstract class Line extends TrackObject {
         }
     }
 
-    /** Moves the state of the line into a new slot of the store, at the end. */
+    /**
+     * Moves the state of the line into a new slot of the store, at the end: from its object, or
+     * from the slot it is bound to, left by a line taken off the track (see `LineStore.handle`).
+     */
     private attach(): void {
-        const data = this.detached!;
+        const data = this.detached ?? this.snapshot();
         const store = this.store;
         const slot = store.allocate();
         store.x1[slot] = data.x1;
@@ -394,13 +423,24 @@ export abstract class Line extends TrackObject {
         }
         this.slot = slot;
         this.detached = null;
+        store.keep(slot, this);
     }
 
     /** Gives the state of the line back to its object, leaving its slot empty. */
     private detach(): void {
+        this.detached = this.snapshot();
+        this.store.uids.delete(this.slot);
+        this.store.commands.delete(this.slot);
+        this.store.release();
+        // Its slot stays bound to it, as the cells still list it until the end of a batch
+        this.slot = -1;
+    }
+
+    /** State of the line in its slot. */
+    private snapshot(): DetachedLine {
         const store = this.store;
         const slot = this.slot;
-        this.detached = {
+        return {
             x1: store.x1[slot],
             y1: store.y1[slot],
             x2: store.x2[slot],
@@ -415,8 +455,5 @@ export abstract class Line extends TrackObject {
             layer: store.layer[slot] === NO_LAYER ? null : store.layers[store.layer[slot]],
             command: store.commands.get(slot) ?? null,
         };
-        store.uids.delete(slot);
-        store.commands.delete(slot);
-        this.slot = -1;
     }
 }

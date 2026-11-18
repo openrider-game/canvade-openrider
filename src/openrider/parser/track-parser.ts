@@ -11,6 +11,7 @@ import { TrackLayer } from '../track/track-layer';
 import { MIN_ZOOM } from '../track/track.constants';
 import { Zoom } from '../track/zoom';
 import type { ItemEntity, Polyline, TrackDocument } from './track-document';
+import { TrackRenderer } from '../track/track-renderer';
 import { TrackFormat } from './track-format';
 
 /** Entities of a section, parsed up to {@link ParserData.index}. */
@@ -193,6 +194,8 @@ export class TrackParser {
         colors: number[] = [],
     ): ParserStep {
         const data = this.section(polylines.length);
+        const scenery = lineClass === SceneryLine;
+        const store = this.track.lineStore;
         return {
             label: `${label} (${layer.name})`,
             caching: false,
@@ -202,16 +205,18 @@ export class TrackParser {
                     const points = polylines[data.index];
                     const color = colors[data.index] ?? 0;
                     for (let k = 0; k + 3 < points.length; k += 2) {
-                        const line = new lineClass(
-                            new Vector(points[k], points[k + 1]),
-                            new Vector(points[k + 2], points[k + 3]),
-                            this.track,
+                        // In the store of the lines, without an object for each line
+                        const slot = store.addLine(
+                            layer,
+                            scenery,
+                            points[k],
+                            points[k + 1],
+                            points[k + 2],
+                            points[k + 3],
+                            color,
+                            this.objectCount++,
                         );
-
-                        line.color = color;
-                        line.layer = layer;
-                        line.setParsedUid(this.objectCount++);
-                        line.addToTrack();
+                        this.track.addLineSlot(layer, slot);
                     }
                 }
                 return TrackParser.finished(data, polylines.length);
@@ -312,7 +317,8 @@ export class TrackParser {
 
                 for (; this.cacheIndex < l; this.cacheIndex++) {
                     const cell = cacheCells[this.cacheIndex];
-                    if (!cell.isHeavy() || !WorkerPool.supported) {
+                    // Drawn by the GPU, without the images of the cells
+                    if (!cell.isHeavy() || !WorkerPool.supported || TrackRenderer.usesWebgl()) {
                         continue;
                     }
                     const zooms = [Zoom.toPixel(MIN_ZOOM, this.track.pixelRatio)];

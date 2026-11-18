@@ -53,6 +53,11 @@ export abstract class GameConfig {
     public static enduranceBest: { distance: number; time: number } | null = null;
     /** Ghosts racing from the start, by id, cleared once added to the race. */
     public static ghostIds: number[] = [];
+    /**
+     * Renderer of the lines and items of the layers: WebGL2 when the browser has it, else the
+     * canvas; `canvas` forces the canvas, from `data-renderer` or the `renderer` parameter.
+     */
+    public static renderer: 'webgl' | 'canvas' = 'webgl';
     /** Session server of the live races and token of the player, null outside of a session. */
     public static live: { url: string; token: string } | null = null;
 
@@ -91,6 +96,9 @@ export abstract class GameConfig {
             .map(Number)
             .filter((id) => Number.isInteger(id) && id > 0)
             .slice(0, MAX_INITIAL_GHOSTS);
+
+        GameConfig.renderer =
+            (host.dataset.renderer ?? params.get('renderer')) === 'canvas' ? 'canvas' : 'webgl';
 
         const { liveUrl, liveToken } = host.dataset;
         GameConfig.live = liveUrl && liveToken ? { url: liveUrl, token: liveToken } : null;

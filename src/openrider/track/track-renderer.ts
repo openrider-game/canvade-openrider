@@ -1,7 +1,9 @@
 import { Vector } from 'canvade';
+import { GameConfig } from '../config/game-config';
 import { RenderCell } from '../grid/cell/render-cell';
 import { Grid } from '../grid/grid';
 import { CACHE_CELL_SIZE, GRID_CELL_SIZE } from '../grid/grid.constants';
+import { GlLayerRenderer } from '../render/gl/gl-layer-renderer';
 import { WorkerPool } from '../thread/worker-pool';
 import type { Track } from './track';
 import { TrackDebugRenderer } from './track-debug-renderer';
@@ -16,6 +18,12 @@ export interface TrackRenderOptions {
      * default. Without it, they are rendered synchronously.
      */
     fastRender?: boolean;
+    /**
+     * Whether the lines and the item sprites are drawn with WebGL2 (see `GlLayerRenderer`), when
+     * the browser has it and the renderer is not forced to the canvas by default. Without it, the
+     * cells draw their cached images.
+     */
+    webgl?: boolean;
     /**
      * Whether the layers hidden in the editor are left out, false by default: the hidden layers
      * are only hidden while editing.
@@ -54,6 +62,7 @@ export abstract class TrackRenderer {
         const settings: Required<TrackRenderOptions> = {
             debug: false,
             fastRender: WorkerPool.supported,
+            webgl: TrackRenderer.usesWebgl(),
             hideHiddenLayers: false,
             ...renderOptions,
         };
@@ -100,6 +109,11 @@ export abstract class TrackRenderer {
                 track.layers.all.filter(shown),
             );
         }
+    }
+
+    /** Whether the layers are drawn with WebGL2 by default, see `TrackRenderOptions.webgl`. */
+    public static usesWebgl(): boolean {
+        return GameConfig.renderer === 'webgl' && GlLayerRenderer.get() !== null;
     }
 
     /**
@@ -149,11 +163,24 @@ export abstract class TrackRenderer {
         bounds: GridBounds,
         options: RenderOptions,
     ): void {
+        const cells: RenderCell[] = [];
         for (let x = bounds.topLeft.x; x <= bounds.bottomRight.x; x++) {
             for (let y = bounds.topLeft.y; y <= bounds.bottomRight.y; y++) {
-                if (layer.cache.has(x, y)) {
-                    TrackRenderer.renderCell(ctx, track, layer, layer.cache.cell(x, y), options);
+                const cell = layer.cache.existing(x, y);
+                if (cell) {
+                    cells.push(cell);
                 }
+            }
+        }
+        const gl = options.webgl ? GlLayerRenderer.get() : null;
+        if (gl && gl.drawLayer(ctx, track, layer, cells)) {
+            // The lines and sprites drawn by the GPU, the items drawn on every frame over them
+            for (const cell of cells) {
+                TrackRenderer.renderLive(ctx, cell, options);
+            }
+        } else {
+            for (const cell of cells) {
+                TrackRenderer.renderCell(ctx, track, layer, cell, options);
             }
         }
         // Over the cell images, see `ReachedItems`
@@ -202,6 +229,18 @@ export abstract class TrackRenderer {
             }
         }
 
+        TrackRenderer.renderLive(ctx, cell, options);
+    }
+
+    /**
+     * Draws the items of a cell drawn on every frame, e.g. the command blocks, and their ids with
+     * the debug overlay.
+     */
+    private static renderLive(
+        ctx: CanvasRenderingContext2D,
+        cell: RenderCell,
+        options: RenderOptions,
+    ): void {
         ctx.strokeStyle = '#000';
         for (const object of cell.liveObjects) {
             object.render(ctx);

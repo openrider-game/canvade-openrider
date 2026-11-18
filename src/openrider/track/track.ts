@@ -13,7 +13,7 @@ import { TrackEditor } from '../edit/track-editor';
 import { HistoryManager } from '../history/history-manager';
 import { CommandRegistry } from '../item/command/command-registry';
 import { Line } from '../item/line/line';
-import { LineStore } from '../item/line/line-store';
+import { LineStore, SCENERY } from '../item/line/line-store';
 import type { ReachableItem } from '../item/reachable-item';
 import type { Target } from '../item/reachable/target';
 import type { TrackObject } from '../item/track-object';
@@ -41,7 +41,7 @@ export type { FollowedRider } from './rider-follower';
 export class Track extends World {
     /** Layers of the track, a main and a foreground layer for a new track. */
     /** The lines on the track, in columns rather than objects, see `LineStore`. */
-    public readonly lineStore = new LineStore();
+    public readonly lineStore = new LineStore(this);
     public readonly layers = new LayerStack(this);
 
     /** Start position of the bikes. */
@@ -242,6 +242,28 @@ export class Track extends World {
         }
         this.commands.objectChanged(obj);
         this.editor.added(obj);
+    }
+
+    /**
+     * Stores a line added to the store without its object, e.g. parsed (see `LineStore.addLine`),
+     * as {@link Track.add} stores a line: its object is only made for the command blocks
+     * watching the objects added, or for a line kept out of the cells.
+     */
+    public addLineSlot(layer: TrackLayer, slot: number): void {
+        const store = this.lineStore;
+        const scenery = (store.flags[slot] & SCENERY) !== 0;
+        const len = store.len[slot];
+        const inCells = len >= MIN_LINE_LENGTH && len < MAX_LINE_LENGTH;
+        if (inCells) {
+            layer.grid.addSlot(store, slot, scenery);
+            if (!this.headless) {
+                layer.cache.addSlot(store, slot, scenery);
+            }
+        }
+        if (!inCells || this.commands.watching) {
+            this.commands.objectChanged(store.handle(slot));
+        }
+        (scenery ? layer.grid.totalSceneryLines : layer.grid.totalSolidLines).addedTo(store, layer);
     }
 
     /**

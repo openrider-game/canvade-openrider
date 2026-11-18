@@ -63,12 +63,21 @@ TypeScript rewrite of the [JavaScript game](https://github.com/tomiy/openrider) 
   editors editing a track together (see [backend/README.md](backend/README.md)).
 - **Touch screens**: a touch mode with riding buttons, a larger interface and two fingers dragging
   and zooming the view (see [Touch screens](#touch-screens)).
-- **Rendering**: the lines and items are cached in images per zoom level; the densest areas are
+- **Rendering**: with WebGL2, the lines and item sprites of each layer are drawn by the GPU
+  (`GlLayerRenderer`): the lines as segments in buffers of their cells, the items from an atlas of
+  their looks, zooming drawing nothing again and an edited cell only filling its buffers again; each
+  layer is copied onto the canvas at its opacity, the bikes between the main and the foreground
+  layers. `data-renderer="canvas"` or `?renderer=canvas` forces the canvas, used without WebGL2.
+  With the canvas, the lines and items are cached in images per zoom level; the densest areas are
   rendered in Web Workers when the browser supports them, an edited area showing its edits at once
   over its previous image until the new one is ready. The images of every cell share 256 MB
   (`MAX_IMAGE_BYTES`), the cells displayed least recently losing theirs first. A ghost dead for 10
   seconds lies still, its physics stopped (`SETTLE_TICKS`), and only the part of a ghost in view is
   drawn.
+- **Large tracks**: the lines are stored in columns of typed arrays (`LineStore`), about 200 bytes
+  per line with their grid cells, the cells listing them by slot; a line is made an object only for
+  the code handling objects, e.g. the editor and the tools. A parsed track fills the columns
+  directly, and the physics, the rendering and the exports read them.
 - **Display**: the track and the interface keep their size on every screen density, the track being
   drawn at the resolution of the screen; a debug mode shows the physics, the cache and live stats.
 - **Backend**: PHP endpoints storing the tracks and the ghosts, see
@@ -157,6 +166,7 @@ data attributes (see `src/openrider/config/game-config.ts`):
 | `data-ghosts`         | Ghosts racing from the start, their ids separated with commas              | `?ghosts=`, or none    |
 | `data-live-url`       | Session server of the live races, with `data-live-token` (see below)       | No live race           |
 | `data-live-token`     | Token of the player for a session racing the track of `data-track-id`      | No live race           |
+| `data-renderer`       | `canvas` to draw the layers with the canvas rather than WebGL2             | `?renderer=`, or WebGL |
 
 ```html
 <div id="game" data-track-id="3" data-base-url="/" data-track-url="/tracks/{id}/"></div>
@@ -449,11 +459,11 @@ src/
 │   ├── entity/           points with verlet physics, ragdoll, explosion
 │   ├── grid/             spatial grids: physics cells, cached render cells and their patches
 │   ├── history/          undo history of the edits
-│   ├── item/             lines and items of the tracks
+│   ├── item/             lines and items of the tracks, the lines stored in columns (LineStore)
 │   ├── live/             live races: runs sent and replayed, messages of the session server
 │   ├── numeric/          geometry and drawing helpers
 │   ├── parser/           track code parser and generator, ghost strings
-│   ├── render/           painter of the cells and items, shared with the workers
+│   ├── render/           painter of the cells and items, shared with the workers; WebGL layers (gl/)
 │   ├── request/          requests to the backend and the website
 │   ├── thread/           workers of the fast renderer
 │   ├── tool/             editor and race tools

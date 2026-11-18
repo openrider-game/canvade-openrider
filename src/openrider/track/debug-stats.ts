@@ -21,7 +21,7 @@ const CONTROL_SYMBOLS: Record<ControlName, string> = {
  */
 export function debugStats(track: Track, fps: number): string[] {
     const layers = track.layers.all;
-    const count = (pick: (layer: (typeof layers)[number]) => Map<number, unknown>) =>
+    const count = (pick: (layer: (typeof layers)[number]) => { size: number }) =>
         layers.reduce((total, layer) => total + pick(layer).size, 0);
     const runner = track.playerRunner;
     const inputs = CONTROL_NAMES.filter((name) => runner.controls[name]).map(

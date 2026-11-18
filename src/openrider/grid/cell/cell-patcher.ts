@@ -1,7 +1,7 @@
 import { ITEM_SPRITE_MARGIN, packItemSprites } from '../../item/item-sprite';
 import type { TrackObject } from '../../item/track-object';
 import { SCENERY_STROKE_STYLES } from '../../item/line/scenery-colors';
-import { type CellDrawing, flattenLines, flattenScenery, painter } from '../../render/painter';
+import { type CellDrawing, flattenScenerySlots, flattenSlots, painter } from '../../render/painter';
 import type { CellImage, RenderCell } from './render-cell';
 
 /**
@@ -55,9 +55,9 @@ export class CellPatcher {
      * Keeps an edit of the cell, once it has images to patch: not while the track is parsed. Past
      * {@link MAX_PATCHED_EDITS}, the edits kept are forgotten, the patched images being drawn again.
      */
-    public record(object: TrackObject, hasImages: boolean): void {
+    public record(object: TrackObject | (() => TrackObject), hasImages: boolean): void {
         const version = this.cell.contentVersion;
-        if (!hasImages || this.edits.length >= MAX_PATCHED_EDITS) {
+        if (!hasImages || typeof object === 'function' || this.edits.length >= MAX_PATCHED_EDITS) {
             this.edits = [];
             this.editsFrom = version;
             return;
@@ -192,6 +192,19 @@ export class CellPatcher {
             return boxes.some(([l, t, r, b]) => left <= r && right >= l && top <= b && bottom >= t);
         };
 
+        // The lines read from the store by slot, as `crosses` reads the objects
+        const store = cell.store;
+        const slotCrosses = (slot: number) => {
+            const left = Math.min(store!.x1[slot], store!.x2[slot]) - pad;
+            const right = Math.max(store!.x1[slot], store!.x2[slot]) + pad;
+            const top = Math.min(store!.y1[slot], store!.y2[slot]) - pad;
+            const bottom = Math.max(store!.y1[slot], store!.y2[slot]) + pad;
+            if (left > unionRight || right < unionLeft || top > unionBottom || bottom < unionTop) {
+                return false;
+            }
+            return boxes.some(([l, t, r, b]) => left <= r && right >= l && top <= b && bottom >= t);
+        };
+
         const offsetLeft = cell.x * zoom - 1;
         const offsetTop = cell.y * zoom - 1;
         const { buffer, colors } = packItemSprites(cell.objects.filter(crosses));
@@ -200,9 +213,13 @@ export class CellPatcher {
             opacityFactor,
             offsetLeft,
             offsetTop,
-            scenery: flattenScenery(cell.scenery.filter(crosses)),
+            scenery: store
+                ? flattenScenerySlots(store, cell.scenerySlots.filter(slotCrosses))
+                : new Int32Array(0),
             sceneryColors: SCENERY_STROKE_STYLES,
-            lines: flattenLines(cell.lines.filter(crosses)),
+            lines: store
+                ? flattenSlots(store, cell.lineSlots.filter(slotCrosses))
+                : new Int32Array(0),
             sprites: new Float64Array(buffer),
             spriteColors: colors,
         };

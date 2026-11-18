@@ -1,6 +1,7 @@
 import { Vector } from 'canvade';
 import type { Collidable } from '../../entity/collidable';
 import { Line } from './line';
+import { LineStore } from './line-store';
 
 /**
  * Normal given to the parts colliding, see `Collidable.drive`: reused rather than allocated on
@@ -15,11 +16,11 @@ export class SolidLine extends Line {
     }
 
     protected onAdd(): void {
-        this.grid.totalSolidLines.set(this.id, this);
+        this.grid.totalSolidLines.added(this);
     }
 
     protected onDelete(): void {
-        this.grid.totalSolidLines.delete(this.id);
+        this.grid.totalSolidLines.removed();
     }
 
     /**
@@ -27,9 +28,45 @@ export class SolidLine extends Line {
      * (see `CommandBlock.offsetFor`): nowhere while it is hidden, or moved by an offset.
      */
     public override touch(part: Collidable): void {
-        const command = this.command;
-        if (command === null) {
-            this.collide(part);
+        if (this.slot >= 0) {
+            SolidLine.touchSlot(this.store, this.slot, part);
+            return;
+        }
+
+        // Off the track, e.g. a line checked by the tests
+        const data = this.detached!;
+        const command = data.command;
+        const offset = command === null ? null : command.offsetFor(part.bike.runner);
+        if (command !== null && offset === null) {
+            return;
+        }
+        if (offset) {
+            part.pos.selfSub(offset);
+        }
+        if (data.touchedPass !== Line.currentPass) {
+            data.touchedPass = Line.currentPass;
+            SolidLine.collide(data.x1, data.y1, data.x2, data.y2, data.len, part);
+        }
+        if (offset) {
+            part.pos.selfAdd(offset);
+        }
+    }
+
+    /**
+     * Collides a part with the line of a slot, where its command block puts it for the runner of
+     * the part, as {@link SolidLine.touch}: read from the columns of the store, allocating
+     * nothing.
+     */
+    public static touchSlot(
+        store: LineStore,
+        slot: number,
+        part: Collidable,
+        pass = Line.currentPass,
+    ): void {
+        // Most tracks bind no line to a command block
+        const command = store.commands.size ? store.commands.get(slot) : undefined;
+        if (command === undefined) {
+            SolidLine.collideSlot(store, slot, part, pass);
             return;
         }
 
@@ -39,28 +76,47 @@ export class SolidLine extends Line {
         }
         // Moving the part the other way is moving the line, without changing its cells
         part.pos.selfSub(offset);
-        this.collide(part);
+        SolidLine.collideSlot(store, slot, part, pass);
         part.pos.selfAdd(offset);
     }
 
-    private collide(part: Collidable): void {
+    private static collideSlot(
+        store: LineStore,
+        slot: number,
+        part: Collidable,
+        pass: number,
+    ): void {
         // A line can span several cells, it must only collide once each time a part is checked
-        if (this.touched) {
+        if (store.touchedPass[slot] === pass) {
             return;
         }
-        this.touched = true;
+        store.touchedPass[slot] = pass;
+        SolidLine.collide(
+            store.x1[slot],
+            store.y1[slot],
+            store.x2[slot],
+            store.y2[slot],
+            store.len[slot],
+            part,
+        );
+    }
 
-        // In plain numbers rather than vectors, read from the columns of the lines, allocating
-        // nothing on every check, with the same operations in the same order: the recorded ghosts
-        // depend on every bit of the results
-        const slot = this.slot;
-        const store = this.store;
-        const detached = this.detached;
-        const startX = slot >= 0 ? store.x1[slot] : detached!.x1;
-        const startY = slot >= 0 ? store.y1[slot] : detached!.y1;
-        const endX = slot >= 0 ? store.x2[slot] : detached!.x2;
-        const endY = slot >= 0 ? store.y2[slot] : detached!.y2;
-        const len = slot >= 0 ? store.len[slot] : detached!.len;
+    /**
+     * Pushes a part out of a line from its start to its end, of a length, and makes it drive
+     * along it.
+     *
+     * In plain numbers rather than vectors, allocating nothing on every check, with the same
+     * operations in the same order as with vectors: the recorded ghosts depend on every bit of the
+     * results.
+     */
+    private static collide(
+        startX: number,
+        startY: number,
+        endX: number,
+        endY: number,
+        len: number,
+        part: Collidable,
+    ): void {
         // The vector of the line, from its start to its end
         const vectorX = endX - startX;
         const vectorY = endY - startY;
@@ -112,3 +168,6 @@ export class SolidLine extends Line {
         }
     }
 }
+
+LineStore.factories.solid = (track, slot) =>
+    Line.bindSlot(new SolidLine(new Vector(), new Vector(), track), slot);

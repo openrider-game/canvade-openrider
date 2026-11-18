@@ -4,6 +4,7 @@ import { MAX_LINE_LENGTH, MIN_LINE_LENGTH } from '../../track/track.constants';
 import type { Track } from '../../track/track';
 import type { TrackLayer } from '../../track/track-layer';
 import { Line } from '../line/line';
+import { type LineStore, ON_TRACK } from '../line/line-store';
 import type { TrackObject } from '../track-object';
 import type { CommandArea, CommandBlock } from './command-block';
 import { CommandGroup } from './command-group';
@@ -75,6 +76,14 @@ export class CommandRegistry {
         this.changedObjects.add(object);
     }
 
+    /**
+     * Whether the objects added must be told (see {@link CommandRegistry.objectChanged}) even when
+     * stored in the cells: with blocks on the track, which may act on them.
+     */
+    public get watching(): boolean {
+        return this.blocks.size > 0 || this.changedBlocks.size > 0;
+    }
+
     /** Whether an object is stored in the physics cells, as `Track.add` stores them. */
     private static inCells(object: TrackObject): boolean {
         return (
@@ -143,7 +152,24 @@ export class CommandRegistry {
      * objects.
      */
     public objectsIn(layer: TrackLayer, area: CommandArea): TrackObject[] {
+        const store = this.track.lineStore;
+        return this.entriesIn(layer, area).map((entry) =>
+            typeof entry === 'number' ? store.handle(entry) : entry,
+        );
+    }
+
+    /** Number of the objects {@link CommandRegistry.objectsIn} finds, without making objects. */
+    public countIn(layer: TrackLayer, area: CommandArea): number {
+        return this.entriesIn(layer, area).length;
+    }
+
+    /**
+     * Objects {@link CommandRegistry.objectsIn} finds, in its order: the lines by slot, read from
+     * the store, made objects only once found.
+     */
+    private entriesIn(layer: TrackLayer, area: CommandArea): Array<TrackObject | number> {
         const grid = layer.grid;
+        const store = this.track.lineStore;
         const size = grid.cellSize;
         const [fromX, toX] = [Math.floor(area.left / size), Math.floor(area.right / size)];
         const [fromY, toY] = [Math.floor(area.top / size), Math.floor(area.bottom / size)];
@@ -151,26 +177,61 @@ export class CommandRegistry {
         const objectCount =
             grid.totalSolidLines.size + grid.totalSceneryLines.size + grid.totalObjects.size;
 
-        const candidates = new Set<TrackObject>();
+        // Each candidate once, in the order first found
+        const candidates: Array<TrackObject | number> = [];
+        const seenSlots = new Set<number>();
+        const seenItems = new Set<TrackObject>();
+        const addSlot = (slot: number) => {
+            if (!seenSlots.has(slot)) {
+                seenSlots.add(slot);
+                candidates.push(slot);
+            }
+        };
+        const addItem = (item: TrackObject) => {
+            if (!seenItems.has(item)) {
+                seenItems.add(item);
+                candidates.push(item);
+            }
+        };
         if (cellCount > objectCount) {
-            grid.totalSolidLines.forEach((line) => candidates.add(line));
-            grid.totalSceneryLines.forEach((line) => candidates.add(line));
-            grid.totalObjects.forEach((item) => candidates.add(item));
+            for (const slot of grid.totalSolidLines.slots()) {
+                addSlot(slot);
+            }
+            for (const slot of grid.totalSceneryLines.slots()) {
+                addSlot(slot);
+            }
+            grid.totalObjects.forEach(addItem);
         } else {
             for (let x = fromX; x <= toX; x++) {
                 for (let y = fromY; y <= toY; y++) {
-                    if (grid.has(x, y)) {
-                        const cell = grid.cell(x, y);
-                        cell.lines.forEach((line) => candidates.add(line));
-                        cell.scenery.forEach((line) => candidates.add(line));
-                        cell.objects.forEach((item) => candidates.add(item));
+                    const cell = grid.existing(x, y);
+                    if (cell) {
+                        cell.lineSlots.forEach(addSlot);
+                        cell.scenerySlots.forEach(addSlot);
+                        cell.objects.forEach(addItem);
                     }
                 }
             }
         }
 
-        return [...candidates].filter(
-            (object) => object.onTrack && CommandRegistry.fits(object, area),
+        return candidates.filter((entry) =>
+            typeof entry === 'number'
+                ? CommandRegistry.slotFits(store, entry, area)
+                : entry.onTrack && CommandRegistry.fits(entry, area),
+        );
+    }
+
+    /** Whether the line of a slot is on the track and fits an area, as {@link fits} finds it. */
+    private static slotFits(store: LineStore, slot: number, area: CommandArea): boolean {
+        const len = store.len[slot];
+        const inside = (x: number, y: number) =>
+            x >= area.left && x <= area.right && y >= area.top && y <= area.bottom;
+        return (
+            (store.flags[slot] & ON_TRACK) !== 0 &&
+            len >= MIN_LINE_LENGTH &&
+            len < MAX_LINE_LENGTH &&
+            inside(store.x1[slot], store.y1[slot]) &&
+            inside(store.x2[slot], store.y2[slot])
         );
     }
 

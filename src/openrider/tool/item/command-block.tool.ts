@@ -131,7 +131,7 @@ export class CommandBlockTool extends ItemTool {
 
     /** Objects of the layer of the blocks inside an area, the ones the block would act on. */
     private objectsIn(area: CommandArea): number {
-        return this.track.commands.objectsIn(this.track.layers.itemLayer, area).length;
+        return this.track.commands.countIn(this.track.layers.itemLayer, area);
     }
 
     private placeBlock(): void {

@@ -1,4 +1,5 @@
 import { GameControlEvent, GameUpdateEvent } from 'canvade';
+import { Cell } from '../../openrider/grid/cell/cell';
 import type { Track } from '../../openrider/track/track';
 import { OpenRiderState } from '../openrider.state';
 import { ButtonDefinition, ToolbarDefinition } from './track-view.definitions';
@@ -83,5 +84,9 @@ export abstract class TrackViewState extends OpenRiderState {
 
     private updateTools(e: CustomEvent<GameUpdateEvent>): void {
         this.track.toolManager.update(e.detail.progress, e.detail.delta);
+        // Between two frames, out of the batches: no cell is read meanwhile
+        if (!Cell.batchingNow) {
+            this.track.lineStore.compactIfNeeded();
+        }
     }
 }

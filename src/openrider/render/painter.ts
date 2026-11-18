@@ -1,4 +1,5 @@
 import type { Line } from '../item/line/line';
+import type { LineStore } from '../item/line/line-store';
 
 /**
  * Drawing of a render cell, flattened so that it can be sent to a worker: its lines as
@@ -30,6 +31,44 @@ export function flattenLines(lines: readonly Line[]): Int32Array {
         flat[i * 4 + 1] = pos.y;
         flat[i * 4 + 2] = endPos.x;
         flat[i * 4 + 3] = endPos.y;
+    }
+    return flat;
+}
+
+/** Lines of slots flattened as {@link flattenLines} does, read from the store. */
+export function flattenSlots(store: LineStore, slots: readonly number[]): Int32Array {
+    const flat = new Int32Array(slots.length * 4);
+    for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        flat[i * 4] = store.x1[slot];
+        flat[i * 4 + 1] = store.y1[slot];
+        flat[i * 4 + 2] = store.x2[slot];
+        flat[i * 4 + 3] = store.y2[slot];
+    }
+    return flat;
+}
+
+/** Scenery lines of slots flattened as {@link flattenScenery} does, read from the store. */
+export function flattenScenerySlots(store: LineStore, slots: readonly number[]): Int32Array {
+    const starts: number[] = [];
+    for (const slot of slots) {
+        const color = store.color[slot];
+        starts[color] = (starts[color] ?? 0) + 1;
+    }
+    let start = 0;
+    starts.forEach((count, color) => {
+        starts[color] = start;
+        start += count;
+    });
+    const flat = new Int32Array(slots.length * 5);
+    for (const slot of slots) {
+        const color = store.color[slot];
+        const i = starts[color]++ * 5;
+        flat[i] = store.x1[slot];
+        flat[i + 1] = store.y1[slot];
+        flat[i + 2] = store.x2[slot];
+        flat[i + 3] = store.y2[slot];
+        flat[i + 4] = color;
     }
     return flat;
 }
