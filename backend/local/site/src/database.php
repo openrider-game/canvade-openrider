@@ -16,4 +16,5 @@ require_once __DIR__ . '/db/comments.php';
 require_once __DIR__ . '/db/audit.php';
 require_once __DIR__ . '/db/settings.php';
 require_once __DIR__ . '/db/forum.php';
+require_once __DIR__ . '/db/notifications.php';
 require_once __DIR__ . '/db/insights.php';

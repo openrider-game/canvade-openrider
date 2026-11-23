@@ -8,6 +8,8 @@
  * @var int     $page     Page shown, from 1.
  * @var int     $pages    Number of pages.
  * @var bool    $canOpen  Whether the account opens topics here, see site_forum_can_open_topic().
+ *
+ * The topics with posts the account did not read are marked, opening on the first of them.
  */
 
 $base = '/forum/' . rawurlencode($category['SLUG']) . '/';
@@ -16,11 +18,14 @@ $base = '/forum/' . rawurlencode($category['SLUG']) . '/';
 <h1><?= h($category['NAME']) ?></h1>
 <p class="muted"><?= h($category['DESCRIPTION']) ?></p>
 
-<?php if ($canOpen): ?>
-    <p><a class="button" href="<?= $base ?>new/">New topic</a></p>
-<?php elseif (site_user() === null): ?>
-    <p class="muted"><a href="/login/?next=<?= rawurlencode($base) ?>">Log in</a> to open a topic.</p>
-<?php endif; ?>
+<div class="forum-bar">
+    <?php site_render('partials/forum-search-form', ['query' => '', 'category' => $category]); ?>
+    <?php if ($canOpen): ?>
+        <a class="button" href="<?= $base ?>new/">New topic</a>
+    <?php elseif (site_user() === null): ?>
+        <p class="muted"><a href="/login/?next=<?= rawurlencode($base) ?>">Log in</a> to open a topic.</p>
+    <?php endif; ?>
+</div>
 
 <?php if (!$topics): ?>
     <p class="muted">No topic yet.</p>
@@ -36,11 +41,16 @@ $base = '/forum/' . rawurlencode($category['SLUG']) . '/';
             </thead>
             <tbody>
                 <?php foreach ($topics as $topic): ?>
-                    <tr>
+                    <?php $unread = (bool) $topic['UNREAD']; ?>
+                    <tr<?= $unread ? ' class="forum-topics__unread"' : '' ?>>
                         <td>
                             <?php if ($topic['PINNED']): ?><span class="forum-badge">Pinned</span><?php endif; ?>
                             <?php if ($topic['LOCKED']): ?><span class="forum-badge">Locked</span><?php endif; ?>
-                            <a href="/forum/topics/<?= (int) $topic['ID'] ?>/"><?= h($topic['TITLE']) ?></a>
+                            <?php if ($unread): ?>
+                                <a class="forum-badge forum-badge--new" href="/forum/topics/<?= (int) $topic['ID'] ?>/unread/"
+                                    title="Go to the first unread post">New</a>
+                            <?php endif; ?>
+                            <a href="/forum/topics/<?= (int) $topic['ID'] ?>/<?= $unread ? 'unread/' : '' ?>"><?= h($topic['TITLE']) ?></a>
                             <span class="muted">by <?= h($topic['AUTHOR'] ?? 'a deleted account') ?></span>
                         </td>
                         <td class="users__count"><?= (int) $topic['POSTS'] - 1 ?></td>

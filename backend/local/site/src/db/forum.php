@@ -25,18 +25,37 @@ const SITE_FORUM_POST_COLUMNS =
     . ' u."NAME" AS "AUTHOR", u."EMAIL", u."GRAVATAR"';
 
 /**
- * The categories in their order, each with its number of topics and posts and its topic with the
- * latest post (`LAST`, null without topic).
+ * Condition keeping the topics `t` with a post unread by the account of `:reader`, joined to its
+ * read position `r` (see SITE_FORUM_READ_JOIN): a post newer than the last one it read, and than
+ * the time before which everything is read for it (`:since`, see site_forum_read_since()).
  */
-function site_find_forum_categories(PDO $db): array
+const SITE_FORUM_UNREAD = '(t."LASTPOSTAT" > :since AND t."LASTPOSTID" > COALESCE(r."POSTID", 0))';
+
+/** Join of the read position `r` of the account of `:reader` on the topics `t`. */
+const SITE_FORUM_READ_JOIN =
+    ' LEFT JOIN "LOCAL_FORUM_READS" r ON r."TOPICID" = t."ID" AND r."USERID" = :reader';
+
+/**
+ * The categories in their order, each with its number of topics and posts, its topic with the
+ * latest post (`LAST`, null without topic), and with a reader its number of topics with unread
+ * posts (`UNREAD`, 0 without reader).
+ *
+ * @param ?array $reader The account reading, see site_forum_reader().
+ */
+function site_find_forum_categories(PDO $db, ?array $reader = null): array
 {
-    $categories = $db->query(
+    $unread = $reader === null ? '0' : '(SELECT COUNT(*) FROM "LOCAL_FORUM_TOPICS" t'
+        . SITE_FORUM_READ_JOIN . ' WHERE t."CATEGORYID" = c."ID" AND ' . SITE_FORUM_UNREAD . ')';
+    $statement = $db->prepare(
         'SELECT c.*,'
         . ' (SELECT COUNT(*) FROM "LOCAL_FORUM_TOPICS" t WHERE t."CATEGORYID" = c."ID") AS "TOPICS",'
         . ' (SELECT COALESCE(SUM(t."POSTS"), 0) FROM "LOCAL_FORUM_TOPICS" t'
-        . ' WHERE t."CATEGORYID" = c."ID") AS "POSTS"'
+        . ' WHERE t."CATEGORYID" = c."ID") AS "POSTS",'
+        . " $unread AS \"UNREAD\""
         . ' FROM "LOCAL_FORUM_CATEGORIES" c ORDER BY c."POSITION", c."ID"'
-    )->fetchAll(PDO::FETCH_ASSOC);
+    );
+    $statement->execute($reader ?? []);
+    $categories = $statement->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($categories as &$category) {
         $last = site_find_forum_topics($db, (int) $category['ID'], 0, 1, false);
@@ -73,24 +92,29 @@ function site_count_forum_topics(PDO $db, int $categoryId): int
 }
 
 /**
- * A page of the topics of a category, with their account (`AUTHOR`) and the one of their last
- * post (`LASTAUTHOR`, null once deleted).
+ * A page of the topics of a category, with their account (`AUTHOR`), the one of their last post
+ * (`LASTAUTHOR`, null once deleted), and whether the reader has posts to read there (`UNREAD`, 1
+ * or 0, always 0 without reader).
  *
- * @param bool $pinnedFirst Whether the pinned topics come first, else only by their last post.
+ * @param bool   $pinnedFirst Whether the pinned topics come first, else only by their last post.
+ * @param ?array $reader      The account reading, see site_forum_reader().
  */
 function site_find_forum_topics(
     PDO $db,
     int $categoryId,
     int $offset,
     int $limit,
-    bool $pinnedFirst = true
+    bool $pinnedFirst = true,
+    ?array $reader = null
 ): array {
     $statement = $db->prepare(
-        'SELECT t.*, u."NAME" AS "AUTHOR", lu."NAME" AS "LASTAUTHOR"'
-        . ' FROM "LOCAL_FORUM_TOPICS" t'
+        'SELECT t.*, u."NAME" AS "AUTHOR", lu."NAME" AS "LASTAUTHOR",'
+        . ($reader === null ? ' 0' : ' CASE WHEN ' . SITE_FORUM_UNREAD . ' THEN 1 ELSE 0 END')
+        . ' AS "UNREAD" FROM "LOCAL_FORUM_TOPICS" t'
         . ' LEFT JOIN "LOCAL_USERS" u ON u."ID" = t."USERID"'
         . ' LEFT JOIN "LOCAL_FORUM_POSTS" lp ON lp."ID" = t."LASTPOSTID"'
         . ' LEFT JOIN "LOCAL_USERS" lu ON lu."ID" = lp."USERID"'
+        . ($reader === null ? '' : SITE_FORUM_READ_JOIN)
         . ' WHERE t."CATEGORYID" = :id'
         . ' ORDER BY ' . ($pinnedFirst ? 't."PINNED" DESC, ' : '') . 't."LASTPOSTAT" DESC, t."ID" DESC'
         . ' LIMIT :limit OFFSET :offset'
@@ -98,6 +122,9 @@ function site_find_forum_topics(
     $statement->bindValue('id', $categoryId, PDO::PARAM_INT);
     $statement->bindValue('limit', $limit, PDO::PARAM_INT);
     $statement->bindValue('offset', $offset, PDO::PARAM_INT);
+    foreach ($reader ?? [] as $name => $value) {
+        $statement->bindValue($name, $value, PDO::PARAM_INT);
+    }
     $statement->execute();
 
     return $statement->fetchAll(PDO::FETCH_ASSOC);
@@ -169,13 +196,16 @@ function site_insert_forum_topic(PDO $db, int $categoryId, int $userId, string $
     return site_transaction($db, function () use ($db, $categoryId, $userId, $title, $text) {
         $statement = $db->prepare(
             'INSERT INTO "LOCAL_FORUM_TOPICS" ("CATEGORYID", "USERID", "TITLE", "CREATED", "LASTPOSTAT")'
-            . ' VALUES (:category, :userId, :title, :created, :created) RETURNING "ID"'
+            // A placeholder for each column: PostgreSQL's native prepares bind each name once
+            . ' VALUES (:category, :userId, :title, :created, :lastPostAt) RETURNING "ID"'
         );
+        $now = time();
         $statement->execute([
             'category' => $categoryId,
             'userId' => $userId,
             'title' => $title,
-            'created' => time(),
+            'created' => $now,
+            'lastPostAt' => $now,
         ]);
         $topicId = (int) $statement->fetchColumn();
         site_insert_forum_post_row($db, $topicId, $userId, $text);
@@ -271,18 +301,19 @@ function site_delete_forum_post(PDO $db, array $post): void
     }
     site_transaction($db, function () use ($db, $post) {
         site_delete_forum_posts_by_id($db, [(int) $post['ID']]);
-        // The last post and the count of the topic, without it
+        // The last post and the count of the topic, without it; the subqueries read the topic of
+        // the row updated, a placeholder being bound once with PostgreSQL's native prepares
         $db->prepare(
             'UPDATE "LOCAL_FORUM_TOPICS" SET'
-            . ' "POSTS" = (SELECT COUNT(*) FROM "LOCAL_FORUM_POSTS" p WHERE p."TOPICID" = :topic),'
-            . ' "LASTPOSTID" = (SELECT MAX(p."ID") FROM "LOCAL_FORUM_POSTS" p WHERE p."TOPICID" = :topic),'
-            . ' "LASTPOSTAT" = (SELECT MAX(p."CREATED") FROM "LOCAL_FORUM_POSTS" p WHERE p."TOPICID" = :topic)'
+            . ' "POSTS" = (SELECT COUNT(*) FROM "LOCAL_FORUM_POSTS" p WHERE p."TOPICID" = "LOCAL_FORUM_TOPICS"."ID"),'
+            . ' "LASTPOSTID" = (SELECT MAX(p."ID") FROM "LOCAL_FORUM_POSTS" p WHERE p."TOPICID" = "LOCAL_FORUM_TOPICS"."ID"),'
+            . ' "LASTPOSTAT" = (SELECT MAX(p."CREATED") FROM "LOCAL_FORUM_POSTS" p WHERE p."TOPICID" = "LOCAL_FORUM_TOPICS"."ID")'
             . ' WHERE "ID" = :topic'
         )->execute(['topic' => $post['TOPICID']]);
     });
 }
 
-/** Deletes a topic with its posts. */
+/** Deletes a topic with its posts, who read and follows it, and its notifications. */
 function site_delete_forum_topic(PDO $db, int $topicId): void
 {
     site_transaction($db, function () use ($db, $topicId) {
@@ -292,6 +323,10 @@ function site_delete_forum_topic(PDO $db, int $topicId): void
             ['topic' => $topicId]
         );
         site_delete_forum_posts_by_id($db, $postIds);
+        $params = ['topic' => $topicId];
+        $db->prepare('DELETE FROM "LOCAL_FORUM_READS" WHERE "TOPICID" = :topic')->execute($params);
+        $db->prepare('DELETE FROM "LOCAL_FORUM_WATCHES" WHERE "TOPICID" = :topic')->execute($params);
+        site_delete_notifications($db, SITE_NOTIFY_FORUM_REPLY, [$topicId]);
         $db->prepare('DELETE FROM "LOCAL_FORUM_TOPICS" WHERE "ID" = :id')->execute(['id' => $topicId]);
     });
 }
@@ -393,6 +428,8 @@ function site_forget_user_forum(PDO $db, int $userId): void
         ->execute($params);
     $db->prepare('UPDATE "LOCAL_FORUM_TOPICS" SET "USERID" = NULL WHERE "USERID" = :userId')->execute($params);
     $db->prepare('DELETE FROM "LOCAL_FORUM_REPORTS" WHERE "USERID" = :userId')->execute($params);
+    $db->prepare('DELETE FROM "LOCAL_FORUM_READS" WHERE "USERID" = :userId')->execute($params);
+    $db->prepare('DELETE FROM "LOCAL_FORUM_WATCHES" WHERE "USERID" = :userId')->execute($params);
 }
 
 /**
@@ -468,4 +505,178 @@ function site_save_forum_category(PDO $db, ?int $categoryId, array $fields): voi
 function site_delete_forum_category(PDO $db, int $categoryId): void
 {
     $db->prepare('DELETE FROM "LOCAL_FORUM_CATEGORIES" WHERE "ID" = :id')->execute(['id' => $categoryId]);
+}
+
+/**
+ * The account reading the forum, as the parameters of the queries telling what it has to read
+ * (`:reader` and `:since`), or null without account: nothing is unread then.
+ */
+function site_forum_reader(?array $user): ?array
+{
+    return $user === null ? null : ['reader' => $user['ID'], 'since' => site_forum_read_since($user)];
+}
+
+/**
+ * Time before which every post is read for an account: when it marked the whole forum read, else
+ * when it was created, the posts from before being no news to it. 0 for the accounts from before
+ * their creation times, to which every post is new until they mark the forum read.
+ */
+function site_forum_read_since(array $user): int
+{
+    return (int) ($user['FORUMREADAT'] ?? $user['CREATED'] ?? 0);
+}
+
+/** Last post of a topic an account read, 0 when it never opened it. */
+function site_find_forum_read(PDO $db, int $userId, int $topicId): int
+{
+    $statement = $db->prepare(
+        'SELECT "POSTID" FROM "LOCAL_FORUM_READS" WHERE "USERID" = :userId AND "TOPICID" = :topic'
+    );
+    $statement->execute(['userId' => $userId, 'topic' => $topicId]);
+
+    return (int) $statement->fetchColumn();
+}
+
+/** Marks a topic read by an account up to a post, never back to an older one. */
+function site_mark_forum_read(PDO $db, int $userId, int $topicId, int $postId): void
+{
+    // An upsert of SQLite and PostgreSQL alike
+    $db->prepare(
+        'INSERT INTO "LOCAL_FORUM_READS" ("USERID", "TOPICID", "POSTID") VALUES (:userId, :topic, :post)'
+        . ' ON CONFLICT ("USERID", "TOPICID") DO UPDATE SET "POSTID" = excluded."POSTID"'
+        . ' WHERE "LOCAL_FORUM_READS"."POSTID" < excluded."POSTID"'
+    )->execute(['userId' => $userId, 'topic' => $topicId, 'post' => $postId]);
+}
+
+/**
+ * Marks the whole forum read by an account: the posts until now are read, its read positions,
+ * all older, are no longer needed.
+ */
+function site_mark_forum_all_read(PDO $db, int $userId): void
+{
+    site_transaction($db, function () use ($db, $userId) {
+        $db->prepare('UPDATE "LOCAL_USERS" SET "FORUMREADAT" = :now WHERE "ID" = :userId')
+            ->execute(['now' => time(), 'userId' => $userId]);
+        $db->prepare('DELETE FROM "LOCAL_FORUM_READS" WHERE "USERID" = :userId')
+            ->execute(['userId' => $userId]);
+    });
+}
+
+/** The first post of a topic unread by an account, null when it read them all. */
+function site_find_forum_first_unread(PDO $db, int $topicId, int $lastRead, int $since): ?int
+{
+    $statement = $db->prepare(
+        'SELECT MIN("ID") FROM "LOCAL_FORUM_POSTS"'
+        . ' WHERE "TOPICID" = :topic AND "ID" > :lastRead AND "CREATED" > :since'
+    );
+    $statement->execute(['topic' => $topicId, 'lastRead' => $lastRead, 'since' => $since]);
+    $postId = $statement->fetchColumn();
+
+    return $postId === null || $postId === false ? null : (int) $postId;
+}
+
+/** Whether an account follows a topic: true or false as it chose, null when it never did. */
+function site_find_forum_watch(PDO $db, int $userId, int $topicId): ?bool
+{
+    $statement = $db->prepare(
+        'SELECT "WATCHING" FROM "LOCAL_FORUM_WATCHES" WHERE "USERID" = :userId AND "TOPICID" = :topic'
+    );
+    $statement->execute(['userId' => $userId, 'topic' => $topicId]);
+    $watching = $statement->fetchColumn();
+
+    return $watching === false ? null : (bool) $watching;
+}
+
+/**
+ * Follows a topic, or stops following it, for an account.
+ *
+ * @param bool $unlessChosen Whether its previous choice is kept, e.g. replying again to a topic
+ *   it stopped following.
+ */
+function site_set_forum_watch(PDO $db, int $userId, int $topicId, bool $watching, bool $unlessChosen = false): void
+{
+    $db->prepare(
+        'INSERT INTO "LOCAL_FORUM_WATCHES" ("USERID", "TOPICID", "WATCHING") VALUES (:userId, :topic, :watching)'
+        . ' ON CONFLICT ("USERID", "TOPICID") DO '
+        . ($unlessChosen ? 'NOTHING' : 'UPDATE SET "WATCHING" = excluded."WATCHING"')
+    )->execute(['userId' => $userId, 'topic' => $topicId, 'watching' => (int) $watching]);
+}
+
+/**
+ * The accounts following a topic.
+ *
+ * @return int[]
+ */
+function site_find_forum_watchers(PDO $db, int $topicId): array
+{
+    return site_select_ids(
+        $db,
+        'SELECT "USERID" FROM "LOCAL_FORUM_WATCHES" WHERE "TOPICID" = :topic AND "WATCHING" = 1',
+        ['topic' => $topicId]
+    );
+}
+
+/**
+ * Condition and parameters of the posts holding every word searched, the first post of a topic
+ * also by its title: the posts `p` of the topics `t`, without the text of the deleted accounts.
+ *
+ * @param string[] $words Words or phrases, in lowercase.
+ * @return array{0: string, 1: array}
+ */
+function site_forum_search_condition(array $words, ?int $categoryId): array
+{
+    $conditions = ['p."TEXT" <> \'\''];
+    $params = [];
+    foreach (array_values($words) as $index => $word) {
+        // A placeholder each, PDO not taking the same twice without emulating the statements
+        $params["text$index"] = site_like_pattern($word);
+        $params["title$index"] = site_like_pattern($word);
+        $conditions[] = "(LOWER(p.\"TEXT\") LIKE :text$index ESCAPE '!'"
+            . " OR (LOWER(t.\"TITLE\") LIKE :title$index ESCAPE '!' AND p.\"ID\" ="
+            . ' (SELECT MIN(o."ID") FROM "LOCAL_FORUM_POSTS" o WHERE o."TOPICID" = p."TOPICID")))';
+    }
+    if ($categoryId !== null) {
+        $conditions[] = 't."CATEGORYID" = :category';
+        $params['category'] = $categoryId;
+    }
+    return [implode(' AND ', $conditions), $params];
+}
+
+/** Number of posts found by a search, see site_forum_search_condition(). */
+function site_count_forum_search(PDO $db, array $words, ?int $categoryId): int
+{
+    [$condition, $params] = site_forum_search_condition($words, $categoryId);
+    $statement = $db->prepare(
+        'SELECT COUNT(*) FROM "LOCAL_FORUM_POSTS" p JOIN "LOCAL_FORUM_TOPICS" t ON t."ID" = p."TOPICID"'
+        . " WHERE $condition"
+    );
+    $statement->execute($params);
+
+    return (int) $statement->fetchColumn();
+}
+
+/**
+ * A page of the posts found by a search, the newest first, with their account (`AUTHOR`), topic
+ * (`TITLE`) and category (`SLUG`, `CATEGORY`), see site_forum_search_condition().
+ */
+function site_search_forum(PDO $db, array $words, ?int $categoryId, int $offset, int $limit): array
+{
+    [$condition, $params] = site_forum_search_condition($words, $categoryId);
+    $statement = $db->prepare(
+        'SELECT p."ID", p."TOPICID", p."TEXT", p."CREATED", u."NAME" AS "AUTHOR", t."TITLE",'
+        . ' c."SLUG", c."NAME" AS "CATEGORY"'
+        . ' FROM "LOCAL_FORUM_POSTS" p'
+        . ' JOIN "LOCAL_FORUM_TOPICS" t ON t."ID" = p."TOPICID"'
+        . ' JOIN "LOCAL_FORUM_CATEGORIES" c ON c."ID" = t."CATEGORYID"'
+        . ' LEFT JOIN "LOCAL_USERS" u ON u."ID" = p."USERID"'
+        . " WHERE $condition ORDER BY p.\"ID\" DESC LIMIT :limit OFFSET :offset"
+    );
+    foreach ($params as $name => $value) {
+        $statement->bindValue($name, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+    }
+    $statement->bindValue('limit', $limit, PDO::PARAM_INT);
+    $statement->bindValue('offset', $offset, PDO::PARAM_INT);
+    $statement->execute();
+
+    return $statement->fetchAll(PDO::FETCH_ASSOC);
 }

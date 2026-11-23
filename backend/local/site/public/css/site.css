@@ -199,25 +199,32 @@ a {
 }
 
 .account-menu__toggle {
-    display: block;
-    max-width: 12em;
-    overflow: hidden;
+    display: flex;
+    align-items: center;
     list-style: none;
     font-weight: bold;
-    text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.account-menu__name {
+    max-width: 12em;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .account-menu__toggle::-webkit-details-marker {
     display: none;
 }
 
+/* The arrow, its own flex item: a margin, the space before it being dropped */
+
 .account-menu__toggle::after {
-    content: " \25BE";
+    margin-left: 6px;
+    content: "\25BE";
 }
 
 .account-menu[open] .account-menu__toggle::after {
-    content: " \25B4";
+    content: "\25B4";
 }
 
 .account-menu__panel {
@@ -257,14 +264,40 @@ a {
 .account-menu__toggle:focus-visible,
 .account-menu__panel a:focus-visible,
 .account-menu__panel button:focus-visible,
-.site-header__link:focus-visible {
+.site-header__link:focus-visible,
+.nav-toggle:focus-visible,
+.nav-close:focus-visible {
     outline: 2px solid var(--color-toggled);
     outline-offset: 2px;
 }
 
+/* Burger menu (see nav.js): its button, the head and the button of its panel, wide screens without */
+
+.nav-toggle,
+.site-header__panel-head,
+.site-header__panel-create {
+    display: none;
+}
+
+.nav-toggle,
+.nav-close {
+    padding: 6px;
+    line-height: 0;
+}
+
+.nav-toggle svg,
+.nav-close svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+}
+
 /*
- * Narrow screens, phones held sideways included: the sections on their own row under the name of
- * the site and the account, which do not fit side by side under about 800 pixels
+ * Narrow screens, phones held sideways included: the name of the site and the account do not fit
+ * beside the sections under about 800 pixels. The sections go to a side panel opened by the burger,
+ * or without scripts, to their own row under the header.
  */
 
 @media (max-width: 820px) {
@@ -282,6 +315,80 @@ a {
         font-size: 20px;
     }
 
+    .js .site-header__inner {
+        flex-wrap: nowrap;
+        gap: 8px;
+    }
+
+    .js .nav-toggle {
+        display: block;
+        flex: none;
+    }
+
+    .js .site-header__nav {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 30;
+        flex-direction: column;
+        gap: 2px;
+        width: min(280px, 85vw);
+        padding: 12px var(--gutter) var(--gutter);
+        overflow-y: auto;
+        border-right: var(--border);
+        background: var(--color-background);
+        transform: translateX(-100%);
+        /* Out of reach of the focus once slid out */
+        visibility: hidden;
+        transition: transform 0.2s ease, visibility 0s linear 0.2s;
+    }
+
+    .js .site-header__nav.is-open {
+        transform: none;
+        visibility: visible;
+        transition: transform 0.2s ease;
+    }
+
+    .js .site-header__panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .site-header__panel-title {
+        font-size: 20px;
+        font-weight: bold;
+    }
+
+    .js .site-header__nav .site-header__link {
+        padding: 10px 8px;
+        font-size: 18px;
+    }
+
+    .js .site-header__nav .site-header__link[aria-current="page"] {
+        border-left: 4px solid var(--color-toggled);
+        padding-left: 4px;
+        text-decoration: none;
+    }
+
+    .js .site-header__panel-create {
+        display: block;
+        margin-top: 12px;
+        text-align: center;
+    }
+
+    .nav-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 29;
+        background: rgb(0 0 0 / 0.5);
+    }
+
+    .nav-open,
+    .nav-open body {
+        overflow: hidden;
+    }
+
     .site-header__account {
         gap: 4px;
         margin-left: auto;
@@ -291,8 +398,23 @@ a {
         padding-inline: 8px;
     }
 
-    .account-menu__toggle {
+    .account-menu__name {
         max-width: 7em;
+    }
+}
+
+/* Phones: "New track" in the side panel only, leaving the header room for the account */
+
+@media (max-width: 480px) {
+    .js .site-header__create {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .js .site-header__nav,
+    .js .site-header__nav.is-open {
+        transition: none;
     }
 }
 
@@ -657,6 +779,13 @@ textarea.field__input {
 .badge--review {
     border-color: var(--color-error);
     color: var(--color-error);
+}
+
+/* Notifications unread, next to the account */
+
+.badge--notification {
+    background: var(--color-toggled);
+    color: var(--color-toggled-text);
 }
 
 /* Ghosts of a shared link above the game, and the buttons sharing a link under it */

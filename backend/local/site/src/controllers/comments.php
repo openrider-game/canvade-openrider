@@ -52,8 +52,40 @@ function site_comment_post(int $trackId): void
         return;
     }
 
+    // The accounts of the comment thread are told of a reply, the author of the track of a comment
+    $accounts = $parentId === null ? [] : site_find_comment_thread_accounts($db, $parentId);
     $commentId = site_insert_comment($db, $trackId, $user['ID'], $parentId, $text);
-    site_redirect("/tracks/$trackId/#comment-$commentId");
+    if ($parentId !== null) {
+        site_notify($db, $accounts, SITE_NOTIFY_COMMENT_REPLY, $parentId, $commentId, $user['ID']);
+    } else {
+        $authorId = site_find_track($db, $trackId)['USERID'] ?? null;
+        if ($authorId !== null) {
+            site_notify($db, [(int) $authorId], SITE_NOTIFY_TRACK_COMMENT, $trackId, $commentId, $user['ID']);
+        }
+    }
+    site_comment_redirect($commentId);
+}
+
+/**
+ * Opens the page of the comments of a track holding a comment, on the comment: the comments are
+ * listed the newest first, a reply with its comment.
+ */
+function site_comment_redirect(int $commentId): void
+{
+    $db = site_db();
+    $comment = site_find_comment($db, $commentId);
+    if ($comment === null) {
+        site_not_found();
+        return;
+    }
+    $trackId = (int) $comment['TRACKID'];
+    $threadId = $comment['PARENTID'] === null ? $commentId : (int) $comment['PARENTID'];
+    $statement = $db->prepare(
+        'SELECT COUNT(*) FROM "LOCAL_COMMENTS" WHERE "TRACKID" = :track AND "PARENTID" IS NULL AND "ID" > :id'
+    );
+    $statement->execute(['track' => $trackId, 'id' => $threadId]);
+    $page = intdiv((int) $statement->fetchColumn(), SITE_COMMENTS_PER_PAGE) + 1;
+    site_redirect("/tracks/$trackId/" . ($page > 1 ? "?comments=$page" : '') . "#comment-$commentId");
 }
 
 /**

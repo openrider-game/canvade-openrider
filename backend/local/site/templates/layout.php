@@ -17,8 +17,11 @@
     // What waits for the admins, counted on each of their pages (see site_count_reviews())
     $user = site_user();
     $reviewCount = site_can($user, 'moderate') ? site_count_reviews(openrider_db()) : 0;
+    // The notifications of the account unread, see db/notifications.php
+    $notificationCount = $user === null ? 0 : site_count_notifications(openrider_db(), $user['ID']);
+    $headerCount = $reviewCount + $notificationCount;
     ?>
-    <title><?= $reviewCount ? "($reviewCount) " : '' ?><?= h($title) ?> - OpenRider</title>
+    <title><?= $headerCount ? "($headerCount) " : '' ?><?= h($title) ?> - OpenRider</title>
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <?php if ($user !== null): ?>
         <script>
@@ -58,6 +61,9 @@
         </script>
     <?php endif; ?>
     <script>
+        // Scripts running: the sections of the header in a burger menu on narrow screens, laid
+        // out before the page is drawn (see nav.js)
+        document.documentElement.classList.add("js");
         // The theme picked with the button of the header, before the page is drawn (see theme.js)
         let theme = null;
         try {
@@ -74,6 +80,7 @@
         <link rel="stylesheet" href="<?= h(site_asset_url("/assets/css/$style")) ?>" />
     <?php endforeach; ?>
     <script src="<?= h(site_asset_url('/assets/js/theme.js')) ?>" defer></script>
+    <script src="<?= h(site_asset_url('/assets/js/nav.js')) ?>" defer></script>
     <?php if ($user !== null): ?>
         <script src="<?= h(site_asset_url('/assets/js/settings-sync.js')) ?>" defer></script>
     <?php endif; ?>
@@ -97,25 +104,49 @@
     ?>
     <header class="site-header">
         <div class="site-header__inner">
+            <?php // Narrow screens: opens the sections in a side panel (see nav.js) ?>
+            <button class="button nav-toggle" type="button" aria-controls="site-nav"
+                aria-expanded="false" aria-label="Menu" title="Menu">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 6h18M3 12h18M3 18h18" />
+                </svg>
+            </button>
             <a class="site-header__home" href="/">OpenRider</a>
-            <nav class="site-header__nav" aria-label="Sections">
+            <nav class="site-header__nav" id="site-nav" aria-label="Sections">
+                <?php // Shown in the side panel only ?>
+                <div class="site-header__panel-head">
+                    <span class="site-header__panel-title">OpenRider</span>
+                    <button class="button nav-close" type="button" aria-label="Close the menu"
+                        title="Close the menu">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M5 5l14 14M19 5L5 19" />
+                        </svg>
+                    </button>
+                </div>
                 <?php foreach ($sections as [$label, $href, $current]): ?>
                     <a class="site-header__link" href="<?= $href ?>"
                         <?= $current ? 'aria-current="page"' : '' ?>><?= $label ?></a>
                 <?php endforeach; ?>
+                <a class="button site-header__panel-create" href="/create/">New track</a>
             </nav>
             <div class="site-header__account">
-                <a class="button" href="/create/">New track</a>
+                <a class="button site-header__create" href="/create/">New track</a>
                 <?php if ($user !== null): ?>
                     <details class="account-menu">
                         <summary class="button account-menu__toggle">
-                            <?= h($user['NAME']) ?>
+                            <?php // The name cut when long, never the badges after it ?>
+                            <span class="account-menu__name"><?= h($user['NAME']) ?></span>
+                            <?php if ($notificationCount): ?>
+                                <span class="badge badge--notification"><?= $notificationCount ?></span>
+                                <span class="visually-hidden">unread notifications</span>
+                            <?php endif; ?>
                             <?php if ($reviewCount): ?>
                                 <span class="badge badge--review"><?= $reviewCount ?></span>
                                 <span class="visually-hidden">to review</span>
                             <?php endif; ?>
                         </summary>
                         <div class="account-menu__panel">
+                            <a href="/notifications/">Notifications<?= $notificationCount ? " ($notificationCount)" : '' ?></a>
                             <a href="/users/<?= rawurlencode($user['NAME']) ?>/">Profile</a>
                             <a href="/drafts/">Drafts</a>
                             <a href="/settings/">Settings</a>

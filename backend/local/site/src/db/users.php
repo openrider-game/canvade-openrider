@@ -12,7 +12,8 @@ function site_find_user(PDO $db, int $userId): ?array
 {
     $statement = $db->prepare(
         'SELECT "ID", "NAME", "ROLE", "SUSPENDEDUNTIL", "SUSPENSIONREASON", "SESSIONVERSION",'
-        . ' "EMAIL", "EMAILDIGEST", "GRAVATAR", "CREATED" FROM "LOCAL_USERS" WHERE "ID" = :id'
+        . ' "EMAIL", "EMAILDIGEST", "GRAVATAR", "CREATED", "FORUMREADAT"'
+        . ' FROM "LOCAL_USERS" WHERE "ID" = :id'
     );
     $statement->execute(['id' => $userId]);
 

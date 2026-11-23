@@ -29,7 +29,10 @@
  *   game (see db/settings.php);
  * - `LOCAL_FORUM_CATEGORIES`, `LOCAL_FORUM_TOPICS`, `LOCAL_FORUM_POSTS`, `LOCAL_FORUM_EDITS` and
  *   `LOCAL_FORUM_REPORTS`: the forum, its posts, their previous versions and their reports (see
- *   db/forum.php);
+ *   db/forum.php), `LOCAL_FORUM_READS` and `LOCAL_FORUM_WATCHES`: what each account read of it
+ *   and the topics it follows;
+ * - `LOCAL_NOTIFICATIONS`: the replies and comments each account is told of (see
+ *   db/notifications.php);
  * - `LOCAL_TRACK_VISITS`: when each account first opened the page of each track, and
  *   `LOCAL_GHOST_REPORTS`: the ghosts the accounts reported to the admins (see db/insights.php).
  *
@@ -309,6 +312,40 @@ function site_create_forum_tables(PDO $db, string $id): void
         'CREATE INDEX IF NOT EXISTS idx_local_forum_posts_topic ON "LOCAL_FORUM_POSTS" ("TOPICID", "ID")'
     );
     $db->exec('CREATE INDEX IF NOT EXISTS idx_local_forum_edits_post ON "LOCAL_FORUM_EDITS" ("POSTID")');
+
+    // What each account read: the last post read of each topic opened, and the time it marked the
+    // whole forum read, the older posts being read (see site_forum_read_since())
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_FORUM_READS" ('
+        . '"USERID" INTEGER NOT NULL, "TOPICID" INTEGER NOT NULL, "POSTID" INTEGER NOT NULL,'
+        . ' PRIMARY KEY ("USERID", "TOPICID"))'
+    );
+    site_add_column($db, 'LOCAL_USERS', 'FORUMREADAT', 'INTEGER');
+    // The topics each account follows (1), told of their replies, or stopped following (0): its
+    // choice is kept, replying again not following them again
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_FORUM_WATCHES" ('
+        . '"USERID" INTEGER NOT NULL, "TOPICID" INTEGER NOT NULL, "WATCHING" INTEGER NOT NULL,'
+        . ' PRIMARY KEY ("USERID", "TOPICID"))'
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_local_forum_watches_topic ON "LOCAL_FORUM_WATCHES" ("TOPICID")'
+    );
+
+    // The notifications of the accounts (see db/notifications.php): what happened (`KIND`) to what
+    // (`SUBJECTID`), from the first post or comment unseen (`TARGETID`), grouped while unread:
+    // `COUNT` of them, by the account of the last one (`ACTORID`, null once deleted), at its time
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_NOTIFICATIONS" ('
+        . "\"ID\" $id, \"USERID\" INTEGER NOT NULL, \"KIND\" TEXT NOT NULL,"
+        . ' "SUBJECTID" INTEGER NOT NULL, "TARGETID" INTEGER NOT NULL, "ACTORID" INTEGER,'
+        . ' "COUNT" INTEGER NOT NULL DEFAULT 1, "CREATED" INTEGER NOT NULL,'
+        . ' "SEEN" INTEGER NOT NULL DEFAULT 0)'
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_local_notifications_user'
+        . ' ON "LOCAL_NOTIFICATIONS" ("USERID", "SEEN", "ID")'
+    );
 
     if ((int) $db->query('SELECT COUNT(*) FROM "LOCAL_FORUM_CATEGORIES"')->fetchColumn() === 0) {
         $insert = $db->prepare(

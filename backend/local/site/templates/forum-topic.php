@@ -17,6 +17,8 @@
  * @var string  $draft      Text of the reply form.
  * @var ?string $error      Why the reply sent was refused.
  * @var bool    $reported   Whether a post was just reported.
+ * @var ?int    $unreadFrom First post of the page new to the account, marked, null for none.
+ * @var bool    $watching   Whether the account follows the topic, told of its replies.
  */
 
 $user = site_user();
@@ -36,6 +38,19 @@ $csrf = h(site_csrf_token());
 
 <?php if ($reported): ?>
     <p class="settings__saved" role="status">Thanks, the moderators will look at it.</p>
+<?php endif; ?>
+
+<?php if ($user !== null): ?>
+    <form class="forum-watch" method="post" action="<?= $base . ($watching ? 'unwatch' : 'watch') ?>/">
+        <input type="hidden" name="csrf" value="<?= $csrf ?>" />
+        <input type="hidden" name="page" value="<?= $page ?>" />
+        <button class="button" type="submit" aria-pressed="<?= $watching ? 'true' : 'false' ?>">
+            <?= $watching ? 'Following' : 'Follow' ?>
+        </button>
+        <span class="muted">
+            <?= $watching ? 'You are told of the new replies.' : 'Follow the topic to be told of its replies.' ?>
+        </span>
+    </form>
 <?php endif; ?>
 
 <?php if ($moderator): ?>
@@ -73,7 +88,10 @@ $csrf = h(site_csrf_token());
     // Whether its topic is locked, for site_forum_can_edit()
     $post['LOCKED'] = $topic['LOCKED'];
     ?>
-    <article class="forum-post" id="post-<?= $id ?>">
+    <?php if ($id === $unreadFrom): ?>
+        <p class="forum-new" id="unread"><span>New</span></p>
+    <?php endif; ?>
+    <article class="forum-post<?= $unreadFrom !== null && $id >= $unreadFrom ? ' forum-post--unread' : '' ?>" id="post-<?= $id ?>">
         <aside class="forum-post__author">
             <?php site_render('partials/forum-avatar', ['account' => $post]); ?>
             <?php if ($post['AUTHOR'] === null): ?>

@@ -179,6 +179,126 @@
     margin-bottom: 8px;
 }
 
+/* The search and the buttons over the lists, wrapping on phones */
+
+.forum-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin-bottom: 16px;
+}
+
+.forum-bar p {
+    margin: 0;
+}
+
+.forum-search {
+    display: flex;
+    flex: 1 1 18em;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 36em;
+    margin-bottom: 16px;
+}
+
+.forum-bar .forum-search {
+    margin-bottom: 0;
+}
+
+.forum-search input[type="search"] {
+    flex: 1 1 12em;
+    min-width: 0;
+}
+
+.forum-search select {
+    width: auto;
+}
+
+/* What the account did not read: the topics and categories, then the posts from the first new */
+
+.forum-badge--new {
+    border-color: var(--color-toggled);
+    background: var(--color-toggled);
+    color: var(--color-toggled-text);
+    text-decoration: none;
+}
+
+.forum-topics__unread td:first-child > a:last-of-type {
+    font-weight: bold;
+}
+
+.forum-new {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 0 0;
+    color: var(--color-toggled);
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.forum-new::before,
+.forum-new::after {
+    content: "";
+    flex: 1;
+    border-top: 2px solid var(--color-toggled);
+}
+
+.forum-post--unread .forum-post__main {
+    border-left: 3px solid var(--color-toggled);
+    padding-left: 10px;
+}
+
+.forum-watch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+/* Results of a search, and the notifications */
+
+.forum-results,
+.notifications {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.forum-results__item,
+.notifications__item {
+    padding: 12px 0;
+    border-bottom: var(--border);
+    overflow-wrap: anywhere;
+}
+
+.forum-results__title {
+    font-weight: bold;
+}
+
+.forum-results__extract {
+    margin: 4px 0 0;
+}
+
+.notifications__item {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 16px;
+}
+
+.notifications__item--unread {
+    border-left: 3px solid var(--color-toggled);
+    padding-left: 10px;
+}
+
+.notifications__item:not(.notifications__item--unread) a {
+    color: var(--color-muted);
+}
+
 @media (max-width: 600px) {
     .forum-post {
         grid-template-columns: minmax(0, 1fr);

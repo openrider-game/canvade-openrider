@@ -12,6 +12,11 @@
  *
  * The posts are written in a small part of Markdown (see forum-format.php), previewed while
  * written by `forum-editor.js` with the same formatting (`POST /forum/preview/`).
+ *
+ * Each account sees what it did not read yet: the topics with new posts, and in a topic the first
+ * post new to it (see site_forum_reader()). It follows the topics it opens or replies to, unless
+ * it stopped following them, and is told of their replies (see db/notifications.php). The posts
+ * are searched by their words (`/forum/search/`).
  */
 
 /** Topics listed per page of a category, and posts per page of a topic. */
@@ -27,13 +32,19 @@ const SITE_FORUM_TITLE_MIN = 3,
 const SITE_FORUM_TOPIC_MIN_AGE = 600;
 
 /** Slugs of categories that would be routes of the forum. */
-const SITE_FORUM_RESERVED_SLUGS = ['topics', 'posts', 'preview'];
+const SITE_FORUM_RESERVED_SLUGS = ['topics', 'posts', 'preview', 'search', 'read'];
+
+/** Posts listed per page of a search, and characters of a search at most. */
+const SITE_FORUM_RESULTS_PER_PAGE = 20,
+    SITE_FORUM_SEARCH_MAX = 100;
 
 /** The categories, with their last topic. */
 function site_forum_page(): void
 {
+    $user = site_user();
     site_render_page('forum', 'Forum', [
-        'categories' => site_find_forum_categories(site_db()),
+        'categories' => site_find_forum_categories(site_db(), site_forum_reader($user)),
+        'user' => $user,
     ], ['forum.css']);
 }
 
@@ -56,7 +67,9 @@ function site_forum_category_page(string $slug): void
             $db,
             (int) $category['ID'],
             ($page - 1) * SITE_FORUM_TOPICS_PER_PAGE,
-            SITE_FORUM_TOPICS_PER_PAGE
+            SITE_FORUM_TOPICS_PER_PAGE,
+            true,
+            site_forum_reader(site_user())
         ),
         'page' => $page,
         'pages' => $pages,
@@ -139,6 +152,9 @@ function site_forum_new_topic(string $slug): void
         }
         if (!$errors) {
             $topicId = site_insert_forum_topic($db, (int) $category['ID'], $user['ID'], $title, $text);
+            // Followed by its account, and read up to its post
+            site_set_forum_watch($db, $user['ID'], $topicId, true);
+            site_mark_forum_read($db, $user['ID'], $topicId, (int) site_find_forum_topic($db, $topicId)['LASTPOSTID']);
             site_redirect("/forum/topics/$topicId/");
             return;
         }
@@ -184,6 +200,22 @@ function site_forum_topic_page(int $topicId, string $draft = '', ?string $error 
     $postIds = array_map('intval', array_column($posts, 'ID'));
     [$trackIds, $ghostIds] = site_forum_embed_ids(array_column($posts, 'TEXT'));
 
+    // The first post of the page new to the account, then the page read, with the notifications
+    // of its replies
+    $unreadFrom = null;
+    if ($user !== null && $postIds) {
+        $lastRead = site_find_forum_read($db, $user['ID'], $topicId);
+        $since = site_forum_read_since($user);
+        foreach ($posts as $post) {
+            if ((int) $post['ID'] > $lastRead && (int) $post['CREATED'] > $since) {
+                $unreadFrom = (int) $post['ID'];
+                break;
+            }
+        }
+        site_mark_forum_read($db, $user['ID'], $topicId, max($postIds));
+        site_mark_notifications_seen_about($db, $user['ID'], SITE_NOTIFY_FORUM_REPLY, [$topicId], max($postIds));
+    }
+
     // The quote of a post of the topic, in the reply
     $quoted = isset($_GET['quote']) ? site_find_forum_post($db, (int) $_GET['quote']) : null;
     if ($draft === '' && $quoted !== null && (int) $quoted['TOPICID'] === $topicId && $quoted['TEXT'] !== '') {
@@ -203,6 +235,8 @@ function site_forum_topic_page(int $topicId, string $draft = '', ?string $error 
         'moderator' => $moderator,
         'categories' => $moderator ? site_find_forum_categories($db) : [],
         'canReply' => $user !== null && !site_is_suspended($user) && (!$topic['LOCKED'] || $moderator),
+        'unreadFrom' => $unreadFrom,
+        'watching' => $user !== null && site_find_forum_watch($db, $user['ID'], $topicId) === true,
         'draft' => $draft,
         'error' => $error,
         'reported' => isset($_GET['reported']),
@@ -244,7 +278,121 @@ function site_forum_reply(int $topicId): void
     }
 
     $postId = site_insert_forum_post($db, $topicId, $user['ID'], $text);
+    // The accounts following the topic are told, then its account follows it, unless it chose not
+    site_notify($db, site_find_forum_watchers($db, $topicId), SITE_NOTIFY_FORUM_REPLY, $topicId, $postId, $user['ID']);
+    site_set_forum_watch($db, $user['ID'], $topicId, true, true);
+    site_mark_forum_read($db, $user['ID'], $topicId, $postId);
     site_forum_post_redirect($postId);
+}
+
+/** Opens a topic on its first post new to the account, else on its last post. */
+function site_forum_unread(int $topicId): void
+{
+    $db = site_db();
+    $topic = site_find_forum_topic($db, $topicId);
+    if ($topic === null) {
+        site_not_found();
+        return;
+    }
+    $user = site_user();
+    $postId = $user === null ? null : site_find_forum_first_unread(
+        $db,
+        $topicId,
+        site_find_forum_read($db, $user['ID'], $topicId),
+        site_forum_read_since($user)
+    );
+    site_forum_post_redirect($postId ?? (int) $topic['LASTPOSTID']);
+}
+
+/** Follows a topic, or stops following it, for the account, then back to its page. */
+function site_forum_watch(int $topicId, bool $watching): void
+{
+    if (!site_check_posted_form()) {
+        return;
+    }
+    $user = site_require_user();
+    if ($user === null) {
+        return;
+    }
+    $db = site_db();
+    if (site_find_forum_topic($db, $topicId) === null) {
+        site_not_found();
+        return;
+    }
+    site_set_forum_watch($db, $user['ID'], $topicId, $watching);
+    $page = max(1, (int) ($_POST['page'] ?? 1));
+    site_redirect("/forum/topics/$topicId/" . ($page > 1 ? "?page=$page" : ''));
+}
+
+/** Marks the whole forum read by the account, with the notifications of its replies. */
+function site_forum_read_all(): void
+{
+    if (!site_check_posted_form()) {
+        return;
+    }
+    $user = site_require_user();
+    if ($user === null) {
+        return;
+    }
+    $db = site_db();
+    site_mark_forum_all_read($db, $user['ID']);
+    site_mark_notifications_seen($db, $user['ID'], SITE_NOTIFY_FORUM_REPLY);
+    site_redirect('/forum/');
+}
+
+/**
+ * The posts holding every word searched (`q`, words or "phrases", see site_forum_search_words()),
+ * the newest first, in a category (`category`, its slug) or in the whole forum, by pages.
+ */
+function site_forum_search_page(): void
+{
+    $db = site_db();
+    $user = site_user();
+    $query = is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
+    // Invalid UTF-8 searches nothing
+    $query = preg_match('//u', $query) ? mb_substr($query, 0, SITE_FORUM_SEARCH_MAX, 'UTF-8') : '';
+    $slug = is_string($_GET['category'] ?? null) ? $_GET['category'] : '';
+    $category = $slug === '' ? null : site_find_forum_category($db, $slug);
+    $words = site_forum_search_words($query);
+
+    $results = [];
+    $count = 0;
+    $page = 1;
+    $pages = 1;
+    $error = null;
+    if ($query !== '' && !$words) {
+        $error = 'Search for words of 2 characters or more.';
+    } elseif ($words) {
+        $subject = $user === null ? site_client_address() : 'user:' . $user['ID'];
+        if (!site_take_rate_limit($db, 'forum-search', $subject)) {
+            http_response_code(429);
+            $error = 'Too many searches, try again in a few minutes.';
+        } else {
+            $categoryId = $category === null ? null : (int) $category['ID'];
+            $count = site_count_forum_search($db, $words, $categoryId);
+            $pages = max(1, (int) ceil($count / SITE_FORUM_RESULTS_PER_PAGE));
+            $page = min($pages, max(1, (int) filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT)));
+            $results = site_search_forum(
+                $db,
+                $words,
+                $categoryId,
+                ($page - 1) * SITE_FORUM_RESULTS_PER_PAGE,
+                SITE_FORUM_RESULTS_PER_PAGE
+            );
+        }
+    }
+
+    site_render_page('forum-search', $query === '' ? 'Search the forum' : "Search: $query", [
+        'query' => $query,
+        'words' => $words,
+        'category' => $category,
+        'categories' => site_find_forum_categories($db),
+        'results' => $results,
+        'count' => $count,
+        'page' => $page,
+        'pages' => $pages,
+        'error' => $error,
+    ], ['forum.css']);
 }
 
 /** Opens the page of the topic of a post, on the post. */

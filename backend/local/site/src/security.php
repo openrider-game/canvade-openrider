@@ -56,6 +56,8 @@ const SITE_RATE_LIMITS = [
     'forum-post' => [30, 3600],
     'forum-edit' => [30, 3600],
     'forum-preview' => [600, 3600],
+    // Searches of the forum, per account, else per address: each one reads every post
+    'forum-search' => [60, 600],
     // Messages of the webhook of the reviews, for the whole site: see site_notify_review()
     'review-notice' => [10, 600],
     'review-notice-overflow' => [1, 600],

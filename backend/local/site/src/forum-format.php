@@ -209,3 +209,84 @@ function site_forum_card(string $kind, array $subject): string
         . ' &middot; ' . site_duration((int) $subject['TIME']) . '</span>'
         . '</a>';
 }
+
+/** Words of a search at most. */
+const SITE_FORUM_SEARCH_WORDS = 6;
+
+/** Characters of the extract of a post found by a search. */
+const SITE_FORUM_SNIPPET_LENGTH = 240;
+
+/**
+ * Words of a search, in lowercase: the words separated with spaces, or "phrases" between double
+ * quotes, of 2 characters or more, each once, SITE_FORUM_SEARCH_WORDS at most.
+ *
+ * @return string[]
+ */
+function site_forum_search_words(string $query): array
+{
+    preg_match_all('/"([^"]*)"|(\S+)/u', $query, $matches, PREG_SET_ORDER);
+    $words = [];
+    foreach ($matches as $match) {
+        // A word, else a phrase, its spaces made single; a quote left open is no part of a word
+        $word = ($match[2] ?? '') !== '' ? trim($match[2], '"') : $match[1];
+        $word = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $word)), 'UTF-8');
+        if (mb_strlen($word, 'UTF-8') >= 2) {
+            $words[$word] = true;
+        }
+    }
+    return array_slice(array_keys($words), 0, SITE_FORUM_SEARCH_WORDS);
+}
+
+/**
+ * HTML of the extract of a post found by a search: its text on one line around the first word
+ * found, the words searched marked (`<mark>`), escaped as the rest.
+ *
+ * @param string[] $words See site_forum_search_words().
+ */
+function site_forum_snippet(string $text, array $words): string
+{
+    // The text read, without the marks of the formatting: the quote marks, the fences of the code
+    // blocks, the bold and code marks, and the addresses of the links named
+    $plain = preg_replace(
+        ['/^[ \t]*(?:>[ \t]?)+/mu', '/^[ \t]*```.*$/mu', '/\*\*|`/u', '/\[([^\]\n]+)\]\(https?:[^)\s]+\)/u'],
+        ['', '', '', '$1'],
+        $text
+    );
+    $plain = trim(preg_replace('/\s+/u', ' ', $plain));
+    $first = null;
+    foreach ($words as $word) {
+        $position = mb_stripos($plain, $word, 0, 'UTF-8');
+        if ($position !== false && ($first === null || $position < $first)) {
+            $first = $position;
+        }
+    }
+    // Some text before the first word, else the start of the post, e.g. found by its title
+    $start = max(0, ($first ?? 0) - 60);
+    $length = mb_strlen($plain, 'UTF-8');
+    $extract = mb_substr($plain, $start, SITE_FORUM_SNIPPET_LENGTH, 'UTF-8');
+
+    return ($start > 0 ? '&hellip;' : '') . site_forum_mark($extract, $words)
+        . ($start + SITE_FORUM_SNIPPET_LENGTH < $length ? '&hellip;' : '');
+}
+
+/**
+ * HTML of a text, escaped, with the words searched marked (`<mark>`), whatever their case.
+ *
+ * @param string[] $words See site_forum_search_words().
+ */
+function site_forum_mark(string $text, array $words): string
+{
+    if (!$words) {
+        return h($text);
+    }
+    // The longest first, so that a word holding another is marked whole
+    usort($words, fn (string $a, string $b) => mb_strlen($b, 'UTF-8') <=> mb_strlen($a, 'UTF-8'));
+    $pattern = '/(' . implode('|', array_map(fn (string $word) => preg_quote($word, '/'), $words)) . ')/iu';
+    $parts = preg_split($pattern, $text, -1, PREG_SPLIT_DELIM_CAPTURE) ?: [$text];
+    $html = '';
+    foreach ($parts as $index => $part) {
+        // The words found are at the odd indexes, between the rest
+        $html .= $index % 2 === 1 ? '<mark>' . h($part) . '</mark>' : h($part);
+    }
+    return $html;
+}

@@ -141,6 +141,7 @@ account.
 - `/settings/` changes the password of the account, logs its other sessions out, saves its
   preferences and its optional e-mail address, and deletes it (see "Settings");
 - `/forum/` is the forum: its categories, their topics and the posts (see "Forum");
+- `/notifications/` lists the replies and comments the account is told of (see "Notifications");
 - `/create/` runs the game editing a new track, whose upload opens the page of the upload;
 - `/uploads/<id>/` asks for the title (60 characters at most, required) and the description (500
   characters at most) of an uploaded track, a description left empty being "<title> is an
@@ -337,7 +338,8 @@ characters, 20 an hour. The replies stay on one level, a reply to a reply answer
 The track page lists 30 comments a page, the newest first (`?comments=<page>`), each with its
 replies, the oldest first, and their thumbs up. Comments are not edited, and only the moderators
 and admins delete them, a comment with its replies (`POST /comments/<id>/delete/`, a button under each comment for
-them). They leave with their track (`LOCAL_COMMENTS`, `src/db/comments.php`), and an account deleted
+them). The author of the track is told of the comments, and the accounts of a comment and its
+replies of the new replies (see "Notifications"). They leave with their track (`LOCAL_COMMENTS`, `src/db/comments.php`), and an account deleted
 leaves its comments without their text, so that the replies to them still read.
 
 #### Moderation
@@ -405,6 +407,41 @@ the queries in `src/db/forum.php` (`LOCAL_FORUM_*`).
   without account, so that the discussions still read.
 - The admins edit, create and delete (once empty) the categories on `/admin/forum/`. The site
   creates Announcements, General, Tracks and Help & Bugs when the forum has no category.
+- Each account sees what it did not read: the forum counts the topics with new posts in each
+  category, a category marks them "New", opening on the first post unread
+  (`/forum/topics/<id>/unread/`), and a topic marks its first new post. The site keeps the last
+  post each account read in each topic (`LOCAL_FORUM_READS`); the posts from before the account
+  was created are read, and "Mark all as read" (`POST /forum/read/`) reads everything until now
+  (`FORUMREADAT` of `LOCAL_USERS`). The accounts from before their creation times find every
+  topic new until they mark the forum read.
+- An account follows the topics it opens or replies to, and is told of their replies (see
+  "Notifications"); "Follow" on a topic follows it or stops (`POST /forum/topics/<id>/watch/` or
+  `unwatch/`, `LOCAL_FORUM_WATCHES`), and replying again keeps that choice.
+- `/forum/search/?q=` lists the posts holding every word searched, the newest first, 20 a page,
+  with an extract marking the words; a first post is also found by the title of its topic.
+  "Phrases" between double quotes are searched whole, 6 words at most of 2 characters or more,
+  in a category (`category=<slug>`) or the whole forum. The search reads every post (`LIKE`,
+  whatever the case; SQLite only folds the case of ASCII letters): 60 searches in 10 minutes per
+  account, or per address for the visitors.
+
+#### Notifications
+
+The header counts the notifications an account did not read, next to its name and in the title
+of the tab, and `/notifications/` lists its last 50, the unread ones first (`LOCAL_NOTIFICATIONS`,
+`src/db/notifications.php`):
+
+- the replies in the forum topics it follows;
+- the comments on its tracks;
+- the replies to a comment it wrote or replied to.
+
+The notifications of the same thing are one while unread, counting them ("3 new replies in ...,
+the last by ..."), so that a busy topic makes one line. A notification opens the first reply or
+comment it tells of (`/notifications/<id>/`, `/comments/<id>/` opening the page of the comments
+holding a comment), and reading it there, e.g. the page of the topic or the track, reads it too.
+"Mark all as read" reads them all (`POST /notifications/read/`). The read ones are deleted after
+90 days, those of a topic, a track or a comment with them, and an account deleted leaves its own
+notifications. A suspended account still reads its notifications and the forum, and follows
+topics. Nothing is sent by e-mail.
 
 #### Roles and suspensions
 

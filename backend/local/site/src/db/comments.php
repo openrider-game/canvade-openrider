@@ -107,16 +107,18 @@ function site_find_track_comments(PDO $db, int $trackId, int $page): array
 function site_delete_comment(PDO $db, int $commentId): void
 {
     site_transaction($db, function () use ($db, $commentId) {
-        $params = ['id' => $commentId];
+        // A placeholder for each use: PostgreSQL's native prepares bind each name once
+        $params = ['id' => $commentId, 'parentId' => $commentId];
         $ids = site_select_ids(
             $db,
-            'SELECT "ID" FROM "LOCAL_COMMENTS" WHERE "ID" = :id OR "PARENTID" = :id',
+            'SELECT "ID" FROM "LOCAL_COMMENTS" WHERE "ID" = :id OR "PARENTID" = :parentId',
             $params
         );
         foreach ($ids as $id) {
             site_delete_thumbs($db, 'comment', (int) $id);
         }
-        $db->prepare('DELETE FROM "LOCAL_COMMENTS" WHERE "ID" = :id OR "PARENTID" = :id')
+        site_delete_notifications($db, SITE_NOTIFY_COMMENT_REPLY, $ids);
+        $db->prepare('DELETE FROM "LOCAL_COMMENTS" WHERE "ID" = :id OR "PARENTID" = :parentId')
             ->execute($params);
     });
 }
@@ -132,6 +134,8 @@ function site_delete_track_comments(PDO $db, int $trackId): void
     foreach ($ids as $commentId) {
         site_delete_thumbs($db, 'comment', (int) $commentId);
     }
+    site_delete_notifications($db, SITE_NOTIFY_COMMENT_REPLY, $ids);
+    site_delete_notifications($db, SITE_NOTIFY_TRACK_COMMENT, [$trackId]);
     $db->prepare('DELETE FROM "LOCAL_COMMENTS" WHERE "TRACKID" = :id')->execute(['id' => $trackId]);
 }
 

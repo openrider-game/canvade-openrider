@@ -29,6 +29,9 @@
  * | `/admin/audit/`                      | what the moderators and admins did, for admins        |
  * | `/admin/forum/`                      | the categories of the forum, for admins               |
  * | `/forum/...`                         | the forum, see site_forum_route()                     |
+ * | `/notifications/`                    | the notifications of the account                      |
+ * | `/notifications/<id>/`, `.../read/`  | opening one, reading it; reading them all, posted     |
+ * | `/comments/<id>/`                    | a comment, on the page of the comments of its track   |
  * | `/assets/...`                        | the static files of `public/`                         |
  *
  * Racing and browsing are open to everyone; creating tracks, saving drafts and ghosts need an
@@ -66,6 +69,7 @@ require_once __DIR__ . '/src/controllers/comments.php';
 require_once __DIR__ . '/src/controllers/editor.php';
 require_once __DIR__ . '/src/controllers/endurance.php';
 require_once __DIR__ . '/src/controllers/forum.php';
+require_once __DIR__ . '/src/controllers/notifications.php';
 require_once __DIR__ . '/src/controllers/ghosts.php';
 require_once __DIR__ . '/src/controllers/reviews.php';
 require_once __DIR__ . '/src/controllers/settings.php';
@@ -177,6 +181,14 @@ function site_handle(string $path): bool
         site_comment_post((int) $match[1]);
     } elseif (preg_match('#^/comments/([0-9]+)/delete/$#', $path, $match)) {
         site_comment_delete((int) $match[1]);
+    } elseif (preg_match('#^/comments/([0-9]+)/$#', $path, $match)) {
+        site_comment_redirect((int) $match[1]);
+    } elseif ($path === '/notifications/') {
+        site_notifications_page();
+    } elseif ($path === '/notifications/read/') {
+        site_notifications_read();
+    } elseif (preg_match('#^/notifications/([0-9]+)/$#', $path, $match)) {
+        site_notification_open((int) $match[1]);
     } elseif (preg_match('#^/(tracks|ghosts|drafts|users)/([^/]+)/delete/$#', $path, $match)) {
         site_delete($match[1], rawurldecode($match[2]));
     } elseif (preg_match('#^/verify/([0-9]+)/?$#', $path, $match)) {
@@ -238,11 +250,15 @@ function site_handle(string $path): bool
  * | `/forum/`                                 | the categories                                 |
  * | `/forum/<category>/`, `.../new/`          | its topics, and the form opening one           |
  * | `/forum/topics/<id>/`, `.../reply/`       | a topic and its posts (`?page=`), and a reply  |
+ * | `/forum/topics/<id>/unread/`              | a topic, on its first post unread              |
+ * | `/forum/topics/<id>/<watch, unwatch>/`    | following it, or not, posted                   |
  * | `/forum/topics/<id>/<pin, unpin, lock, unlock, move>/` | moderation of a topic, posted     |
  * | `/forum/posts/<id>/`                      | a post, on the page of its topic               |
  * | `/forum/posts/<id>/<edit, delete, report>/` | changing it                                  |
  * | `/forum/posts/<id>/thumb/`                | its thumbs up, see site_thumb()                |
  * | `/forum/preview/`                         | the preview of a post being written, posted    |
+ * | `/forum/search/`                          | the posts holding words (`?q=`, `category`)    |
+ * | `/forum/read/`                            | marking the whole forum read, posted           |
  *
  * @return bool Whether the path is a route of the forum.
  */
@@ -252,6 +268,14 @@ function site_forum_route(string $path): bool
         site_forum_page();
     } elseif ($path === '/forum/preview/') {
         site_forum_preview();
+    } elseif ($path === '/forum/search/') {
+        site_forum_search_page();
+    } elseif ($path === '/forum/read/') {
+        site_forum_read_all();
+    } elseif (preg_match('#^/forum/topics/([0-9]+)/unread/$#', $path, $match)) {
+        site_forum_unread((int) $match[1]);
+    } elseif (preg_match('#^/forum/topics/([0-9]+)/(watch|unwatch)/$#', $path, $match)) {
+        site_forum_watch((int) $match[1], $match[2] === 'watch');
     } elseif (preg_match('#^/forum/topics/([0-9]+)/$#', $path, $match)) {
         site_forum_topic_page((int) $match[1]);
     } elseif (preg_match('#^/forum/topics/([0-9]+)/reply/$#', $path, $match)) {
@@ -286,7 +310,9 @@ function site_suspended_may_post(string $path): bool
     if (!site_is_suspended($user)) {
         return true;
     }
-    return in_array($path, ['/login/', '/logout/', '/register/'], true)
+    // Reading the forum and the notifications, and following topics, post nothing to the others
+    return in_array($path, ['/login/', '/logout/', '/register/', '/forum/read/', '/notifications/read/'], true)
+        || preg_match('#^/forum/topics/[0-9]+/(watch|unwatch)/$#', $path)
         || strpos($path, '/settings/') === 0
         || $path === '/users/' . rawurlencode($user['NAME']) . '/delete/'
         || $path === '/users/' . $user['NAME'] . '/delete/';

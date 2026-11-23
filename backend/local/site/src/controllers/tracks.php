@@ -64,6 +64,16 @@ function site_track_page(int $trackId): void
         $commentIds[] = (int) $comment['ID'];
         array_push($commentIds, ...array_map('intval', array_column($comment['REPLIES'], 'ID')));
     }
+    // The notifications of the comments seen read: on the track, and the replies on this page
+    if ($viewer !== null) {
+        site_mark_notifications_seen_about($db, $viewer['ID'], SITE_NOTIFY_TRACK_COMMENT, [$trackId]);
+        site_mark_notifications_seen_about(
+            $db,
+            $viewer['ID'],
+            SITE_NOTIFY_COMMENT_REPLY,
+            array_map('intval', array_column($commentPage['comments'], 'ID'))
+        );
+    }
 
     $live = site_live_session();
     site_render_page(
