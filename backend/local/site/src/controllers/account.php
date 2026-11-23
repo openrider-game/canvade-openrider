@@ -83,6 +83,9 @@ function site_delete(string $kind, string $key): void
         $track = site_find_track($db, $id);
         if ($track !== null && site_can_delete($user, $track['USERID'])) {
             site_delete_track($db, $id);
+            if ((int) $track['USERID'] !== $user['ID']) {
+                site_audit($db, $user, 'delete', "track #$id", (string) ($track['TITLE'] ?? ''));
+            }
             site_redirect('/');
             return;
         }
@@ -94,9 +97,12 @@ function site_delete(string $kind, string $key): void
         if (
             $ghost !== null
             && site_can_delete($user, $ghost['USERID'])
-            && (!$verifying || site_is_admin($user))
+            && (!$verifying || site_can($user, 'moderate'))
         ) {
             site_delete_ghost($db, $id);
+            if ((int) $ghost['USERID'] !== $user['ID']) {
+                site_audit($db, $user, 'delete', "ghost #$id", 'on track #' . (int) $ghost['TRACKID']);
+            }
             site_redirect('/tracks/' . (int) $ghost['TRACKID'] . '/');
             return;
         }
@@ -108,11 +114,15 @@ function site_delete(string $kind, string $key): void
             return;
         }
     } else {
+        // An account deletes itself; the admins delete the others, but not another admin
         $target = site_find_user_by_name($db, $key);
-        if ($target !== null && site_can_delete($user, $target['ID'])) {
+        if ($target !== null && site_can_delete_account($user, $target)) {
+            $own = (int) $target['ID'] === $user['ID'];
             site_delete_user($db, (int) $target['ID']);
-            if ((int) $target['ID'] === $user['ID']) {
+            if ($own) {
                 site_log_out();
+            } else {
+                site_audit($db, $user, 'delete', 'account ' . $target['NAME']);
             }
             site_redirect('/');
             return;

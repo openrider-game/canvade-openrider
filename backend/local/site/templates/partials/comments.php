@@ -18,7 +18,7 @@ $user = site_user();
 $trackId = (int) $track['ID'];
 $action = "/tracks/$trackId/comments/";
 
-$admin = site_is_admin($user);
+$admin = site_can($user, 'moderate');
 
 /** A comment or a reply: its account, its date, its text, its thumbs up and its deletion. */
 $renderComment = function (array $comment) use ($user, $thumbed, $admin): void {

@@ -66,6 +66,10 @@ function site_templates_endpoint(): void
         }
 
         if ($action === 'save') {
+            // Listing and reading the templates stay open to a suspended account, not saving
+            if (site_is_suspended($user)) {
+                openrider_respond(403, ['error' => site_suspension_message($user)]);
+            }
             site_check_post_size();
             $name = trim(openrider_string_param('name'));
             // Counts characters, not bytes; invalid UTF-8 does not match either

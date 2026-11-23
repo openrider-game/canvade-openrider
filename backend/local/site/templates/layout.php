@@ -16,25 +16,67 @@
     <?php
     // What waits for the admins, counted on each of their pages (see site_count_reviews())
     $user = site_user();
-    $reviewCount = site_is_admin($user) ? site_count_reviews(openrider_db()) : 0;
+    $reviewCount = site_can($user, 'moderate') ? site_count_reviews(openrider_db()) : 0;
     ?>
     <title><?= $reviewCount ? "($reviewCount) " : '' ?><?= h($title) ?> - OpenRider</title>
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <?php if ($user !== null): ?>
+        <script>
+            // The preferences of the account, written to the storage of the browser before the
+            // page and the game read them, unless changed in this browser since the account last
+            // had them (`openrider.synced`, as stored, e.g. sent on a page left before the account
+            // saved them): those are kept, then sent by settings-sync.js
+            window.openriderAccount = <?= json_encode(
+                site_account_settings($user),
+                JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+            ) ?>;
+            try {
+                const account = window.openriderAccount;
+                let synced = JSON.parse(localStorage.getItem("openrider.synced") ?? "null");
+                synced = synced?.user === account.user ? synced : { user: account.user };
+                for (const name of ["theme", "controls"]) {
+                    const key = "openrider." + name;
+                    const local = localStorage.getItem(key);
+                    // As stored: no theme stored for the one of the system
+                    const remote = name === "theme" && account.theme === "system" ? null : account[name];
+                    // Nothing stored, e.g. the storage cleared: the account's
+                    const changedHere = name in synced && local !== null && local !== synced[name];
+                    if (account[name] === null || (changedHere && local !== remote)) {
+                        continue;
+                    }
+                    if (remote === null) {
+                        localStorage.removeItem(key);
+                    } else {
+                        localStorage.setItem(key, remote);
+                    }
+                    synced[name] = remote;
+                }
+                localStorage.setItem("openrider.synced", JSON.stringify(synced));
+            } catch {
+                // Storage blocked: the theme is set below all the same
+            }
+        </script>
+    <?php endif; ?>
     <script>
         // The theme picked with the button of the header, before the page is drawn (see theme.js)
+        let theme = null;
         try {
-            const theme = localStorage.getItem("openrider.theme");
-            if (theme === "light" || theme === "dark") {
-                document.documentElement.dataset.theme = theme;
-            }
+            theme = localStorage.getItem("openrider.theme");
         } catch {
-            // Storage blocked: the theme of the system
+            // Storage blocked: the theme of the account, else of the system
+        }
+        theme = theme ?? window.openriderAccount?.theme;
+        if (theme === "light" || theme === "dark") {
+            document.documentElement.dataset.theme = theme;
         }
     </script>
     <?php foreach ($styles as $style): ?>
         <link rel="stylesheet" href="<?= h(site_asset_url("/assets/css/$style")) ?>" />
     <?php endforeach; ?>
     <script src="<?= h(site_asset_url('/assets/js/theme.js')) ?>" defer></script>
+    <?php if ($user !== null): ?>
+        <script src="<?= h(site_asset_url('/assets/js/settings-sync.js')) ?>" defer></script>
+    <?php endif; ?>
     <?php foreach ($scripts as $script): ?>
         <script src="<?= h(site_asset_url($script)) ?>" defer></script>
     <?php endforeach; ?>
@@ -75,8 +117,13 @@
                         <div class="account-menu__panel">
                             <a href="/users/<?= rawurlencode($user['NAME']) ?>/">Profile</a>
                             <a href="/drafts/">Drafts</a>
-                            <?php if (site_is_admin($user)): ?>
+                            <a href="/settings/">Settings</a>
+                            <?php if (site_can($user, 'moderate')): ?>
                                 <a href="/reviews/">Reviews<?= $reviewCount ? " ($reviewCount)" : '' ?></a>
+                            <?php endif; ?>
+                            <?php if (site_can($user, 'manage_users')): ?>
+                                <a href="/admin/users/">Accounts</a>
+                                <a href="/admin/audit/">Audit log</a>
                             <?php endif; ?>
                             <form method="post" action="/logout/">
                                 <input type="hidden" name="csrf" value="<?= h(site_csrf_token()) ?>" />
@@ -98,6 +145,9 @@
         </div>
     </header>
     <main class="page">
+        <?php if (site_is_suspended($user)): ?>
+            <p class="suspension-notice" role="status"><?= h(site_suspension_message($user)) ?></p>
+        <?php endif; ?>
         <?= $content ?>
     </main>
 </body>

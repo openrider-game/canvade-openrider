@@ -61,7 +61,7 @@ $verifying = (int) $track['VERIFICATIONGHOSTID'] === (int) $ghost['ID'];
             <?php // The verifying run is the proof of the track: admins only ?>
             <?php if (
                 site_can_delete($user, $ghost['USERID'])
-                && (!$verifying || site_is_admin($user))
+                && (!$verifying || site_can($user, 'moderate'))
             ): ?>
                 <?php site_render('partials/delete-form', [
                     'action' => '/ghosts/' . (int) $ghost['ID'] . '/delete/',

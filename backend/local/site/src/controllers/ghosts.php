@@ -56,7 +56,7 @@ function site_ghost_page(int $ghostId): void
     $ghost = site_find_ghost_details($db, $ghostId);
     $ownerId = $ghost === null || $ghost['USERID'] === null ? null : (int) $ghost['USERID'];
     $own = $viewer !== null && $ownerId === $viewer['ID'];
-    if ($ghost === null || ($ghost['REVIEW'] !== null && !$own && !site_is_admin($viewer))) {
+    if ($ghost === null || ($ghost['REVIEW'] !== null && !$own && !site_can($viewer, 'moderate'))) {
         site_not_found();
         return;
     }

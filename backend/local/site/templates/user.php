@@ -4,6 +4,8 @@
  *
  * @var int     $userId Id of the account.
  * @var string  $name   User name.
+ * @var bool    $deletable Whether the account looking, an admin, can delete it, see
+ *                         site_can_delete_account(); its own is deleted from `/settings/`.
  * @var array[] $tracks Tracks of the account, newest first, see site_find_tracks().
  * @var array[] $ghosts Ghosts of the account, newest first, see site_find_user_ghosts(): those
  *                      waiting for an admin only for the account itself and the admins.
@@ -14,7 +16,7 @@ $viewer = site_user();
 ?>
 <h1><?= h($name) ?></h1>
 
-<?php if (site_can_delete($viewer, $userId)): ?>
+<?php if ($deletable): ?>
     <?php site_render('partials/delete-form', [
         'action' => '/users/' . rawurlencode($name) . '/delete/',
         'label' => 'Delete the account',

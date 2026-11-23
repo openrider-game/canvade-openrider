@@ -2,10 +2,17 @@
 
 /** Queries of the accounts of the sample website, in `LOCAL_USERS`. */
 
-/** An account by its id, or null when it does not exist. */
+/**
+ * An account by its id, with its stored role (`ROLE`, see site_role()), its suspension
+ * (`SUSPENDEDUNTIL`, `SUSPENSIONREASON`) and the version of its sessions (`SESSIONVERSION`, see
+ * site_user()), or null when it does not exist.
+ */
 function site_find_user(PDO $db, int $userId): ?array
 {
-    $statement = $db->prepare('SELECT "ID", "NAME" FROM "LOCAL_USERS" WHERE "ID" = :id');
+    $statement = $db->prepare(
+        'SELECT "ID", "NAME", "ROLE", "SUSPENDEDUNTIL", "SUSPENSIONREASON", "SESSIONVERSION",'
+        . ' "CREATED" FROM "LOCAL_USERS" WHERE "ID" = :id'
+    );
     $statement->execute(['id' => $userId]);
 
     return $statement->fetch(PDO::FETCH_ASSOC) ?: null;
@@ -33,7 +40,7 @@ function site_like_pattern(string $text): string
 function site_find_users(PDO $db, string $search, int $offset, int $limit): array
 {
     $statement = $db->prepare(
-        'SELECT u."ID", u."NAME",'
+        'SELECT u."ID", u."NAME", u."ROLE", u."SUSPENDEDUNTIL", u."SUSPENSIONREASON",'
         . ' (SELECT COUNT(*) FROM "LOCAL_TRACK_DETAILS" d WHERE d."USERID" = u."ID") AS "TRACKS",'
         . ' (SELECT COUNT(*) FROM "LOCAL_GHOST_OWNERS" o WHERE o."USERID" = u."ID"'
         . ' AND o."GHOSTID" NOT IN (SELECT "GHOSTID" FROM "LOCAL_GHOST_REVIEWS")) AS "GHOSTS"'
@@ -70,7 +77,8 @@ function site_count_users(PDO $db, string $search): int
 function site_find_user_by_name(PDO $db, string $name): ?array
 {
     $statement = $db->prepare(
-        'SELECT "ID", "NAME", "PASSWORDHASH" FROM "LOCAL_USERS" WHERE LOWER("NAME") = LOWER(:name)'
+        'SELECT "ID", "NAME", "PASSWORDHASH", "ROLE", "SUSPENDEDUNTIL", "SUSPENSIONREASON"'
+        . ' FROM "LOCAL_USERS" WHERE LOWER("NAME") = LOWER(:name)'
     );
     $statement->execute(['name' => $name]);
 
@@ -114,4 +122,24 @@ function site_insert_user(PDO $db, string $name, string $passwordHash): ?int
     }
 
     return $userId;
+}
+
+/** Sets the stored role of an account, see site_role(). */
+function site_set_user_role(PDO $db, int $userId, string $role): void
+{
+    $db->prepare('UPDATE "LOCAL_USERS" SET "ROLE" = :role WHERE "ID" = :id')
+        ->execute(['role' => $role, 'id' => $userId]);
+}
+
+/**
+ * Suspends an account, or lifts its suspension.
+ *
+ * @param ?int $until Unix timestamp the suspension ends at, 0 for good, null to lift it.
+ */
+function site_set_user_suspension(PDO $db, int $userId, ?int $until, ?string $reason): void
+{
+    $db->prepare(
+        'UPDATE "LOCAL_USERS" SET "SUSPENDEDUNTIL" = :until, "SUSPENSIONREASON" = :reason'
+        . ' WHERE "ID" = :id'
+    )->execute(['until' => $until, 'reason' => $until === null ? null : $reason, 'id' => $userId]);
 }

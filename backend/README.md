@@ -40,7 +40,7 @@ The backend and the sample website are configured with environment variables:
 | `OPENRIDER_DB_PASSWORD`   | Password of the database                        | `postgres`                                       |
 | `OPENRIDER_NODE`          | Node executable verifying the ghosts            | `node`                                           |
 | `OPENRIDER_VERIFY_GHOSTS` | `0` to save the ghosts without verifying them   | Verified                                         |
-| `OPENRIDER_ADMINS`        | User names of the admins, separated with commas | None                                             |
+| `OPENRIDER_ADMINS`        | User names of the admins who cannot be demoted, separated with commas | None                       |
 | `OPENRIDER_REVIEW_WEBHOOK` | Discord or Slack webhook told of what to review | None: the header of the admins only          |
 | `OPENRIDER_LIVE_SECRET`   | Secret of the session server of the live races  | None: no live races                              |
 | `OPENRIDER_LIVE_URL`      | URL of the session server for the game          | `/live/` of the site, `ws://` or `wss://`        |
@@ -130,11 +130,16 @@ account.
 - `/users/<name>/` lists the tracks published by an account, and its ghosts with their rank, each
   with its thumbs up; a ghost links to its track racing it from the start
   (`/tracks/<id>/?ghosts=<ghost>`);
-- `/reviews/` lists the ghosts, the verifying runs and the endurance runs waiting for an admin, and
-  the reported ghosts, for the admins only (see "Reviews");
+- `/reviews/` lists the ghosts, the verifying runs and the endurance runs waiting for a moderator,
+  and the reported ghosts, for the moderators and admins only (see "Reviews");
+- `/admin/users/` and `/admin/audit/` give the roles and suspend the accounts, and list what the
+  moderators and admins did, for the admins only (see "Roles and suspensions");
 - `/register/` and `/login/` create an account (a user name of 3 to 20 letters, digits, `_` or `-`,
   and a password of 8 characters at least) and log in; the account menu of the header links to the
-  profile, the drafts and the reviews (admins only) of the account, and logs out (`/logout/`);
+  profile, the drafts, the settings, the reviews (moderators) and the admin pages (admins) of the
+  account, and logs out (`/logout/`);
+- `/settings/` changes the password of the account, logs its other sessions out, saves its
+  preferences and deletes it (see "Settings");
 - `/create/` runs the game editing a new track, whose upload opens the page of the upload;
 - `/uploads/<id>/` asks for the title (60 characters at most, required) and the description (500
   characters at most) of an uploaded track, a description left empty being "<title> is an
@@ -211,8 +216,13 @@ name of its ghost string. The first account created takes over the drafts withou
   hour per address, and 20 failed logins per address and 10 per user name over 15 minutes, after
   which even the right password is refused for a while.
 
-Not covered: captchas, changing a password, and the moderation of the titles and descriptions before
-they are published.
+- Sessions: each account has a version of its sessions (`SESSIONVERSION` of `LOCAL_USERS`), kept by
+  a session when it logs in. Changing the password, or logging the other sessions out from the
+  settings, raises it: the other sessions are logged out at their next request, the one changing
+  it staying logged in under a new session id. A wrong current password counts as a failed login.
+
+Not covered: captchas, resetting a forgotten password (the site has no e-mail addresses), and the
+moderation of the titles and descriptions before they are published.
 
 #### Verification
 
@@ -323,8 +333,8 @@ An account logged in comments a published track under its leaderboard, or replie
 (`POST /tracks/<id>/comments/`, with `text` and `parent` for a reply, and the CSRF token): 1 to 1000
 characters, 20 an hour. The replies stay on one level, a reply to a reply answering its comment.
 The track page lists 30 comments a page, the newest first (`?comments=<page>`), each with its
-replies, the oldest first, and their thumbs up. Comments are not edited, and only the admins delete
-them, a comment with its replies (`POST /comments/<id>/delete/`, a button under each comment for
+replies, the oldest first, and their thumbs up. Comments are not edited, and only the moderators
+and admins delete them, a comment with its replies (`POST /comments/<id>/delete/`, a button under each comment for
 them). They leave with their track (`LOCAL_COMMENTS`, `src/db/comments.php`), and an account deleted
 leaves its comments without their text, so that the replies to them still read.
 
@@ -332,8 +342,64 @@ leaves its comments without their text, so that the replies to them still read.
 
 An account deletes its own tracks (with all their ghosts), ghosts (except a verifying run), drafts,
 tracks waiting for verification, templates and account (with everything it made), with the buttons
-of their pages. The admins, named in `OPENRIDER_ADMINS`, delete those of any account but the
-templates, and review the suspicious runs.
+of their pages. The moderators and admins delete those of any account but the templates and the
+accounts, and review the suspicious runs; the admins also delete the accounts of the users and
+moderators.
+
+#### Settings
+
+`/settings/`, linked from the account menu, changes the password with the current one, logs the
+other sessions out (see "Security"), and deletes the account, the button having moved there from
+the account page, which only shows it to the admins.
+
+The preferences follow the account from a browser to another (`LOCAL_USER_SETTINGS`,
+`src/controllers/settings.php`): the theme of the site (`system`, `light` or `dark`) and the keys
+of the game. The game and the theme button keep them in the storage of the browser
+(`openrider.controls`, `openrider.theme`) and do not know of the accounts: the layout writes the
+preferences of the account to the storage before the page and the game run, and
+`public/js/settings-sync.js` sends what changed there (`POST /settings/sync/`), at once for the
+theme and for what the account never saved, e.g. the keys bound before registering, and the keys
+bound in the game once the page is hidden or left. A value changed in this browser but not yet
+saved by the account, e.g. sent with a beacon on leaving a page, is kept by the next page rather
+than overwritten (`openrider.synced` keeps what the account is known to have). The site checks
+the values: a theme of the three, and key bindings of the format of the game, 8 KB and 64 controls
+at most. The settings page also chooses the theme and gives every key its default back. A
+suspended account still changes its settings.
+
+#### Roles and suspensions
+
+Each account has a role (`ROLE` of `LOCAL_USERS`, `site_role()` in `src/auth.php`), each role its
+capabilities (`SITE_ROLE_CAPABILITIES`, checked with `site_can()`):
+
+| Role        | Can                                                                                      |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| `user`      | handle its own content; the default of a new account                                     |
+| `moderator` | `moderate`: delete the tracks, ghosts and comments of the others, review the runs        |
+| `admin`     | `moderate` and `manage_users`: give the roles, suspend and delete the accounts, read the audit log |
+
+The accounts named in `OPENRIDER_ADMINS` are admins whatever their stored role: they start the
+site, and are neither demoted, suspended nor deleted by another admin. On `/admin/users/`, an admin
+searches the accounts and gives them a role, or suspends them for 1, 7 or 30 days or for good, with
+a reason of 200 characters at most told to the account, and lifts a suspension. No admin changes
+its own role or suspends itself, and an admin is demoted before being suspended or deleted.
+
+A suspended account still reads the site, logs in and out and deletes its own account, but posts
+nothing: no comment, thumbs up, report, upload, ghost, verification or template; the site answers
+403 with the reason (`site_suspended_may_post()` in `app.php` for the pages, and
+`site_require_active_api_user()` for the endpoints of the game). A notice above each of its pages
+tells until when and why. A suspended moderator or admin loses its capabilities meanwhile.
+
+The roles given, the suspensions, the content of the others deleted and the runs reviewed are
+recorded with their account and date in `LOCAL_AUDIT` (`src/db/audit.php`), listed on
+`/admin/audit/`, 100 a page, the newest first.
+
+A role is also given from the command line, e.g. to the first moderators, with the database
+configured by the environment as for the site (recorded in the audit log by "command line"):
+
+```sh
+php backend/local/site/bin/role.php <name> <user|moderator|admin>
+php backend/local/site/bin/role.php <name>    # prints its role
+```
 
 #### Files
 
@@ -344,6 +410,7 @@ local/
 ├── sample.sql            sample tracks, ghosts, titles and descriptions
 └── site/
     ├── app.php           front controller: routes of the site and static files
+    ├── bin/role.php      gives a role to an account from the command line
     ├── src/              accounts, security, database queries, formatting, template rendering
     ├── templates/        layout, pages and partials (track and template cards, game host element, delete button)
     └── public/           static files served under /assets/: css/, js/ and the favicon
@@ -427,7 +494,8 @@ The site is served by Apache with PHP, at the root of a domain (its links start 
 3. Create the tables of the backend in the database, `db/tables.sql` for PostgreSQL: the site
    adds its own on the first request. Without the local router, no sample data is loaded.
 4. Set the environment variables of the configuration: the database, the Node executable when
-   `node` is not in the path of the web server, and the admins.
+   `node` is not in the path of the web server, and the first admins (`OPENRIDER_ADMINS`), who
+   give the other roles from `/admin/users/`.
 5. Serve the site over HTTPS.
 
 `.htaccess`, at the root of the project, sends the pages to `backend/site.php`, the front controller

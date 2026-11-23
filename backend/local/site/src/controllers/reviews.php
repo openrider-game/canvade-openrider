@@ -12,7 +12,7 @@ function site_reviews_page(): void
     if ($user === null) {
         return;
     }
-    if (!site_is_admin($user)) {
+    if (!site_can($user, 'moderate')) {
         site_not_found();
         return;
     }
@@ -45,7 +45,7 @@ function site_review_action(string $kind, int $id, string $action): void
     if ($user === null) {
         return;
     }
-    if (!site_is_admin($user)) {
+    if (!site_can($user, 'moderate')) {
         site_not_found();
         return;
     }
@@ -74,5 +74,7 @@ function site_review_action(string $kind, int $id, string $action): void
     } else {
         site_set_verification($db, $id, null, null, null);
     }
+    $names = ['ghosts' => 'ghost', 'tracks' => 'verification of upload', 'runs' => 'endurance run', 'reports' => 'reported ghost'];
+    site_audit($db, $user, $action, $names[$kind] . " #$id");
     site_redirect('/reviews/');
 }

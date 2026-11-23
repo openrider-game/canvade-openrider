@@ -71,11 +71,18 @@ function site_comment_delete(int $commentId): void
     }
     $db = site_db();
     $comment = site_find_comment($db, $commentId);
-    if ($comment === null || !site_is_admin($user)) {
+    if ($comment === null || !site_can($user, 'moderate')) {
         site_not_found();
         return;
     }
 
     site_delete_comment($db, $commentId);
+    site_audit(
+        $db,
+        $user,
+        'delete',
+        "comment #$commentId",
+        'on track #' . (int) $comment['TRACKID'] . ': ' . mb_substr((string) $comment['TEXT'], 0, 80, 'UTF-8')
+    );
     site_redirect('/tracks/' . (int) $comment['TRACKID'] . '/#comments');
 }

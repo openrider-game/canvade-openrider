@@ -70,6 +70,20 @@ function site_require_api_user(string $message): ?array
     return $user;
 }
 
+/**
+ * The account logged in, for an endpoint of the game saving something, e.g. a ghost: answers 401
+ * without one, and 403 with the reason for a suspended account.
+ */
+function site_require_active_api_user(string $message): ?array
+{
+    $user = site_require_api_user($message);
+    if ($user !== null && site_is_suspended($user)) {
+        openrider_respond(403, ['error' => site_suspension_message($user)]);
+    }
+
+    return $user;
+}
+
 /** A text field of the posted form, trimmed with `\n` line breaks, empty when missing. */
 function site_form_text(string $name): string
 {

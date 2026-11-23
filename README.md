@@ -312,7 +312,8 @@ a control waits for the next key pressed, with its modifiers, `Escape` cancellin
 running another control of the same screen is shown in red, as `N` may run Redo in the editor and
 New Track in endurance mode but not two tools of the editor. Each control, or all of them, get their
 default keys back. The keys are kept in the browser (`localStorage`), the tooltips showing the
-current ones (see `src/openrider/controls/`).
+current ones (see `src/openrider/controls/`). The sample website also saves them to the account
+logged in, so that they follow it to its other browsers (see "Settings" in `backend/README.md`).
 
 ### Touch screens
 

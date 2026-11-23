@@ -99,7 +99,7 @@ function site_upload_endpoint(?int $draftId): void
 {
     openrider_handle(function (PDO $db) use ($draftId) {
         site_create_tables($db);
-        $user = site_require_api_user('Log in to upload your track');
+        $user = site_require_active_api_user('Log in to upload your track');
         site_check_post_size();
 
         $code = openrider_code_param('trackCode');

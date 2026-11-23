@@ -23,6 +23,10 @@
  *   paste in their tracks (see db/templates.php);
  * - `LOCAL_COMMENTS`: the comments of the accounts on the tracks, and their replies (see
  *   db/comments.php);
+ * - `LOCAL_AUDIT`: what the moderators and the admins did, e.g. the roles given and the content
+ *   of the others deleted (see db/audit.php);
+ * - `LOCAL_USER_SETTINGS`: the preferences of each account, e.g. its theme and the keys of the
+ *   game (see db/settings.php);
  * - `LOCAL_TRACK_VISITS`: when each account first opened the page of each track, and
  *   `LOCAL_GHOST_REPORTS`: the ghosts the accounts reported to the admins (see db/insights.php).
  *
@@ -166,6 +170,28 @@ function site_create_tables(PDO $db): void
     // timestamps, and the seconds the riders spent on the track before saving their runs,
     // measured by the server
     site_add_column($db, 'LOCAL_USERS', 'CREATED', 'INTEGER');
+    // The role of each account (see site_role()), and its suspension: until a Unix timestamp, 0
+    // for good, null without one, with the reason told to the account
+    site_add_column($db, 'LOCAL_USERS', 'ROLE', "TEXT NOT NULL DEFAULT 'user'");
+    site_add_column($db, 'LOCAL_USERS', 'SUSPENDEDUNTIL', 'INTEGER');
+    site_add_column($db, 'LOCAL_USERS', 'SUSPENSIONREASON', 'TEXT');
+    // Raised to log the other sessions of an account out, e.g. on a password change: a session
+    // keeps the version it logged in with (see site_user())
+    site_add_column($db, 'LOCAL_USERS', 'SESSIONVERSION', 'INTEGER NOT NULL DEFAULT 0');
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_USER_SETTINGS" ('
+        . '"USERID" INTEGER NOT NULL REFERENCES "LOCAL_USERS" ("ID"),'
+        . ' "NAME" TEXT NOT NULL, "VALUE" TEXT NOT NULL, "UPDATED" INTEGER NOT NULL,'
+        . ' PRIMARY KEY ("USERID", "NAME"))'
+    );
+    // What the moderators and the admins did: the name of the account acting is kept, as the
+    // account may be deleted since
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_AUDIT" ('
+        . "\"ID\" $id, \"CREATED\" INTEGER NOT NULL, \"ACTORID\" INTEGER,"
+        . ' "ACTORNAME" TEXT NOT NULL, "ACTION" TEXT NOT NULL, "TARGET" TEXT NOT NULL,'
+        . ' "DETAILS" TEXT NOT NULL)'
+    );
     site_add_column($db, 'LOCAL_GHOST_OWNERS', 'CREATED', 'INTEGER');
     site_add_column($db, 'LOCAL_GHOST_OWNERS', 'TRACKSECONDS', 'INTEGER');
     site_add_column($db, 'LOCAL_UPLOADS', 'VERIFICATIONSECONDS', 'INTEGER');

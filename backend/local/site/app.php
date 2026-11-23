@@ -11,6 +11,8 @@
  * | `/users/`                            | the accounts, searched by name                        |
  * | `/users/<name>/`                     | the tracks and ghosts of an account                   |
  * | `/register/`, `/login/`, `/logout/`  | the account forms                                     |
+ * | `/settings/`                         | the password, preferences and deletion of the account |
+ * | `/settings/<password, sessions, preferences, sync>/` | changing them, posted                 |
  * | `/create/`                           | the game editing a new track                          |
  * | `/uploads/<id>/`                     | the form sending an upload to verification, or a draft |
  * | `/uploads/<id>/track-editor.ortrack` | the editor file of a draft, to download               |
@@ -19,14 +21,18 @@
  * | `/verify/<id>/`                      | the game racing a track waiting for verification      |
  * | `/verify/<id>/<verifier, decline, publish>/` | changing its verification, posted             |
  * | `/ghosts/<id>/`                      | a ghost: its inputs, its rider, the record then      |
- * | `/ghosts/<id>/report/`               | reporting it to the admins, posted                    |
- * | `/reviews/`                          | the runs waiting for an admin, and the reports        |
+ * | `/ghosts/<id>/report/`               | reporting it to the moderators, posted                |
+ * | `/reviews/`                          | the runs waiting for a moderator, and the reports     |
  * | `/<tracks, ghosts, drafts, users>/<id or name>/delete/` | deleting it, posted        |
+ * | `/admin/users/`                      | the roles and suspensions of the accounts, for admins |
+ * | `/admin/users/<id>/<role, suspend, unsuspend>/` | changing them, posted                      |
+ * | `/admin/audit/`                      | what the moderators and admins did, for admins        |
  * | `/assets/...`                        | the static files of `public/`                         |
  *
  * Racing and browsing are open to everyone; creating tracks, saving drafts and ghosts need an
  * account, and the drafts and uploads are only seen by their own account. An account deletes
- * what it made, and the admins anything, see site_can_delete().
+ * what it made, and the moderators anything, see site_can_delete(). The roles (user, moderator,
+ * admin) and the suspensions are in src/auth.php; a suspended account reads but posts nothing.
  *
  * A track code is published once verified, as in Geometry Dash: its author, or the account it
  * names, finishes it on its verification page, then its author publishes it. The ghosts and the
@@ -52,11 +58,13 @@ require_once __DIR__ . '/src/notify.php';
 require_once __DIR__ . '/src/security.php';
 require_once __DIR__ . '/src/view.php';
 require_once __DIR__ . '/src/controllers/account.php';
+require_once __DIR__ . '/src/controllers/admin.php';
 require_once __DIR__ . '/src/controllers/comments.php';
 require_once __DIR__ . '/src/controllers/editor.php';
 require_once __DIR__ . '/src/controllers/endurance.php';
 require_once __DIR__ . '/src/controllers/ghosts.php';
 require_once __DIR__ . '/src/controllers/reviews.php';
+require_once __DIR__ . '/src/controllers/settings.php';
 require_once __DIR__ . '/src/controllers/templates.php';
 require_once __DIR__ . '/src/controllers/thumbs.php';
 require_once __DIR__ . '/src/controllers/tracks.php';
@@ -113,6 +121,18 @@ function site_handle(string $path): bool
 
     // Started before any output, the pages showing the account in their header
     site_start_session();
+
+    // A suspended account reads the site but posts nothing: no comment, like, report, upload
+    // nor verification. It still logs in and out, changes its settings, and deletes its account.
+    if ($posted && !site_suspended_may_post($path)) {
+        // The thumbs buttons post with fetch and read JSON back
+        if (strpos($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') !== false) {
+            openrider_respond(403, ['error' => site_suspension_message(site_user())]);
+        }
+        http_response_code(403);
+        site_render_message('Account suspended', site_suspension_message(site_user()));
+        return true;
+    }
 
     if ($path === '/') {
         site_home_page();
@@ -173,11 +193,43 @@ function site_handle(string $path): bool
         site_reviews_page();
     } elseif (preg_match(SITE_REVIEW_ACTION_PATTERN, $path, $match)) {
         site_review_action($match[1], (int) $match[2], $match[3]);
+    } elseif ($path === '/settings/') {
+        site_settings_page();
+    } elseif ($path === '/settings/password/') {
+        site_settings_password();
+    } elseif ($path === '/settings/sessions/') {
+        site_settings_sessions();
+    } elseif ($path === '/settings/preferences/') {
+        site_settings_preferences();
+    } elseif ($path === '/settings/sync/') {
+        site_settings_sync();
+    } elseif ($path === '/admin/users/') {
+        site_admin_users_page();
+    } elseif (preg_match('#^/admin/users/([0-9]+)/(role|suspend|unsuspend)/$#', $path, $match)) {
+        site_admin_user_action((int) $match[1], $match[2]);
+    } elseif ($path === '/admin/audit/') {
+        site_admin_audit_page();
     } else {
         return false;
     }
 
     return true;
+}
+
+/**
+ * Whether the account logged in may post to a path: always when it is not suspended, else only
+ * to log in or out, to register, to change its settings, and to delete its own account.
+ */
+function site_suspended_may_post(string $path): bool
+{
+    $user = site_user();
+    if (!site_is_suspended($user)) {
+        return true;
+    }
+    return in_array($path, ['/login/', '/logout/', '/register/'], true)
+        || strpos($path, '/settings/') === 0
+        || $path === '/users/' . rawurlencode($user['NAME']) . '/delete/'
+        || $path === '/users/' . $user['NAME'] . '/delete/';
 }
 
 /**

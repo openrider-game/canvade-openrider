@@ -50,6 +50,8 @@ function site_user_page(string $name): void
     site_render_page('user', $user['NAME'], [
         'userId' => $userId,
         'name' => $user['NAME'],
+        // Its own account from the settings, the others for the admins
+        'deletable' => site_can_delete_account($viewer, $user) && (int) ($viewer['ID'] ?? 0) !== $userId,
         'tracks' => site_find_tracks($db, $userId),
         'ghosts' => $ghosts,
         // What the account looking thumbed up, its buttons pressed

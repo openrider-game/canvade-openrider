@@ -79,7 +79,7 @@ function site_endurance_page(): void
             $version,
             $rider,
             $user['ID'] ?? null,
-            site_is_admin($user)
+            site_can($user, 'moderate')
         );
 
     // A live session races a given track, the one of the button below for a new track
@@ -132,7 +132,7 @@ function site_endurance_page(): void
             'live' => $live,
             'newLive' => $newLive,
             // The admins watch the runs waiting for them before approving them
-            'reviews' => $seed !== null && site_is_admin($user)
+            'reviews' => $seed !== null && site_can($user, 'moderate')
                 ? site_find_endurance_reviews($db, $seed, $version)
                 : [],
         ],
@@ -217,7 +217,7 @@ function site_endurance_upload_endpoint(): void
 {
     openrider_handle(function (PDO $db) {
         site_create_tables($db);
-        $user = site_require_api_user('Log in to save your run');
+        $user = site_require_active_api_user('Log in to save your run');
         site_check_post_size();
 
         $seed = openrider_int_param('seed', 0);
@@ -305,7 +305,7 @@ function site_endurance_ghost_endpoint(): void
             openrider_int_param('seed', 0),
             openrider_int_param('version'),
             $user['ID'] ?? null,
-            site_is_admin($user)
+            site_can($user, 'moderate')
         );
         if ($ghostString === null) {
             openrider_respond(404, ['error' => 'Run does not exist']);

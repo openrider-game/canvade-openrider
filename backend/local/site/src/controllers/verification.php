@@ -22,7 +22,7 @@ function site_find_pending_track(PDO $db, int $uploadId, ?array $user): ?array
     }
 
     $allowed = in_array($user['ID'], [(int) $upload['USERID'], (int) $upload['VERIFIERID']], true)
-        || site_is_admin($user);
+        || site_can($user, 'moderate');
     return $allowed ? $upload : null;
 }
 
@@ -91,7 +91,7 @@ function site_verification_endpoint(int $uploadId): void
 {
     openrider_handle(function (PDO $db) use ($uploadId) {
         site_create_tables($db);
-        $user = site_require_api_user('Log in to verify this track');
+        $user = site_require_active_api_user('Log in to verify this track');
         site_check_post_size();
         [$ghostString, $time] = site_read_ghost_params($uploadId);
 

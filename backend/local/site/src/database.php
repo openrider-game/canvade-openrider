@@ -13,4 +13,6 @@ require_once __DIR__ . '/db/deletions.php';
 require_once __DIR__ . '/db/endurance.php';
 require_once __DIR__ . '/db/templates.php';
 require_once __DIR__ . '/db/comments.php';
+require_once __DIR__ . '/db/audit.php';
+require_once __DIR__ . '/db/settings.php';
 require_once __DIR__ . '/db/insights.php';

@@ -868,3 +868,49 @@ section.live-results {
     margin: 4px 0;
     padding-left: 18px;
 }
+
+/* Above each page of a suspended account: until when, and why */
+
+.suspension-notice {
+    max-width: var(--content-width);
+    margin: 0 auto 16px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-error);
+    border-radius: 6px;
+    color: var(--color-error);
+}
+
+/* Settings page: its sections one under the other, and what was just saved */
+
+.settings__section {
+    max-width: var(--content-width);
+    margin-bottom: 32px;
+}
+
+.settings__saved {
+    padding: 8px 12px;
+    border: 1px solid currentColor;
+    border-radius: 6px;
+}
+
+.settings__inline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.settings__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 0 0 12px;
+    padding: 0;
+    border: 0;
+}
+
+.settings__subhead {
+    margin: 20px 0 4px;
+    font-size: 1rem;
+}

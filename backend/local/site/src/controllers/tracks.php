@@ -132,7 +132,7 @@ function site_linked_ghosts(array $ghosts, ?array $viewer): array
     $byId = [];
     foreach ($ghosts as $ghost) {
         $visible = $ghost['REVIEW'] === null
-            || site_is_admin($viewer)
+            || site_can($viewer, 'moderate')
             || ($viewer !== null && (int) $ghost['USERID'] === $viewer['ID']);
         if ($visible) {
             $byId[(int) $ghost['ID']] = $ghost + [
@@ -164,7 +164,7 @@ function site_track_ghost_endpoint(int $trackId): void
             $trackId,
             openrider_int_param('id'),
             $user['ID'] ?? null,
-            site_is_admin($user)
+            site_can($user, 'moderate')
         );
         if ($ghostString === null) {
             openrider_respond(404, ['error' => 'Ghost does not exist']);
@@ -258,7 +258,7 @@ function site_ghost_endpoint(int $trackId): void
 {
     openrider_handle(function (PDO $db) use ($trackId) {
         site_create_tables($db);
-        $user = site_require_api_user('Log in to save your ghost');
+        $user = site_require_active_api_user('Log in to save your ghost');
         site_check_post_size();
         [$ghostString, $time] = site_read_ghost_params($trackId);
 
