@@ -50,8 +50,12 @@ function site_thumb(string $kind, int $subjectId): void
         $subject = site_find_track($db, $subjectId);
     } elseif ($kind === 'ghost') {
         $subject = site_find_ghost($db, $subjectId);
-    } else {
+    } elseif ($kind === 'comment') {
         $subject = site_find_comment($db, $subjectId);
+    } else {
+        $subject = site_find_forum_post($db, $subjectId);
+        // Not the post of a deleted account
+        $subject = $subject === null || $subject['TEXT'] === '' ? null : $subject;
     }
     if ($subject === null || !site_can_thumb($user, $subject)) {
         // Unknown, or not for the account: not told apart

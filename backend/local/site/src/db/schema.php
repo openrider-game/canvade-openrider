@@ -27,6 +27,9 @@
  *   of the others deleted (see db/audit.php);
  * - `LOCAL_USER_SETTINGS`: the preferences of each account, e.g. its theme and the keys of the
  *   game (see db/settings.php);
+ * - `LOCAL_FORUM_CATEGORIES`, `LOCAL_FORUM_TOPICS`, `LOCAL_FORUM_POSTS`, `LOCAL_FORUM_EDITS` and
+ *   `LOCAL_FORUM_REPORTS`: the forum, its posts, their previous versions and their reports (see
+ *   db/forum.php);
  * - `LOCAL_TRACK_VISITS`: when each account first opened the page of each track, and
  *   `LOCAL_GHOST_REPORTS`: the ghosts the accounts reported to the admins (see db/insights.php).
  *
@@ -178,6 +181,12 @@ function site_create_tables(PDO $db): void
     // Raised to log the other sessions of an account out, e.g. on a password change: a session
     // keeps the version it logged in with (see site_user())
     site_add_column($db, 'LOCAL_USERS', 'SESSIONVERSION', 'INTEGER NOT NULL DEFAULT 0');
+    // The e-mail address an account may give, never shown: whether it wants the digests, and
+    // whether its Gravatar shows next to its posts (see site_avatar_url())
+    site_add_column($db, 'LOCAL_USERS', 'EMAIL', 'TEXT');
+    site_add_column($db, 'LOCAL_USERS', 'EMAILDIGEST', 'INTEGER NOT NULL DEFAULT 0');
+    site_add_column($db, 'LOCAL_USERS', 'GRAVATAR', 'INTEGER NOT NULL DEFAULT 0');
+    site_create_forum_tables($db, $id);
     $db->exec(
         'CREATE TABLE IF NOT EXISTS "LOCAL_USER_SETTINGS" ('
         . '"USERID" INTEGER NOT NULL REFERENCES "LOCAL_USERS" ("ID"),'
@@ -250,4 +259,70 @@ function site_transaction(PDO $db, callable $queries)
     }
 
     return $result;
+}
+
+/**
+ * Creates the tables of the forum, and its first categories when it has none (see
+ * SITE_FORUM_DEFAULT_CATEGORIES).
+ *
+ * @param string $id Definition of an id column of the database.
+ */
+function site_create_forum_tables(PDO $db, string $id): void
+{
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_FORUM_CATEGORIES" ('
+        . "\"ID\" $id, \"SLUG\" TEXT NOT NULL UNIQUE, \"NAME\" TEXT NOT NULL,"
+        . ' "DESCRIPTION" TEXT NOT NULL, "POSITION" INTEGER NOT NULL,'
+        . ' "STAFFONLY" INTEGER NOT NULL DEFAULT 0)'
+    );
+    // The number of posts and the last one are kept on the topic, for the lists
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_FORUM_TOPICS" ('
+        . "\"ID\" $id, \"CATEGORYID\" INTEGER NOT NULL REFERENCES \"LOCAL_FORUM_CATEGORIES\" (\"ID\"),"
+        . ' "USERID" INTEGER REFERENCES "LOCAL_USERS" ("ID"), "TITLE" TEXT NOT NULL,'
+        . ' "CREATED" INTEGER NOT NULL, "LASTPOSTAT" INTEGER NOT NULL, "LASTPOSTID" INTEGER,'
+        . ' "POSTS" INTEGER NOT NULL DEFAULT 0, "PINNED" INTEGER NOT NULL DEFAULT 0,'
+        . ' "LOCKED" INTEGER NOT NULL DEFAULT 0)'
+    );
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_FORUM_POSTS" ('
+        . "\"ID\" $id, \"TOPICID\" INTEGER NOT NULL REFERENCES \"LOCAL_FORUM_TOPICS\" (\"ID\"),"
+        . ' "USERID" INTEGER REFERENCES "LOCAL_USERS" ("ID"), "TEXT" TEXT NOT NULL,'
+        . ' "CREATED" INTEGER NOT NULL, "EDITED" INTEGER)'
+    );
+    // The previous versions of the posts edited, read by the moderators
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_FORUM_EDITS" ('
+        . "\"ID\" $id, \"POSTID\" INTEGER NOT NULL, \"USERID\" INTEGER,"
+        . ' "TEXT" TEXT NOT NULL, "CREATED" INTEGER NOT NULL)'
+    );
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_FORUM_REPORTS" ('
+        . '"POSTID" INTEGER NOT NULL, "USERID" INTEGER NOT NULL REFERENCES "LOCAL_USERS" ("ID"),'
+        . ' "REASON" TEXT NOT NULL, "CREATED" INTEGER NOT NULL, PRIMARY KEY ("POSTID", "USERID"))'
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_local_forum_topics_category'
+        . ' ON "LOCAL_FORUM_TOPICS" ("CATEGORYID", "PINNED", "LASTPOSTAT")'
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_local_forum_posts_topic ON "LOCAL_FORUM_POSTS" ("TOPICID", "ID")'
+    );
+    $db->exec('CREATE INDEX IF NOT EXISTS idx_local_forum_edits_post ON "LOCAL_FORUM_EDITS" ("POSTID")');
+
+    if ((int) $db->query('SELECT COUNT(*) FROM "LOCAL_FORUM_CATEGORIES"')->fetchColumn() === 0) {
+        $insert = $db->prepare(
+            'INSERT INTO "LOCAL_FORUM_CATEGORIES" ("SLUG", "NAME", "DESCRIPTION", "POSITION", "STAFFONLY")'
+            . ' VALUES (:slug, :name, :description, :position, :staffOnly)'
+        );
+        foreach (SITE_FORUM_DEFAULT_CATEGORIES as $position => [$slug, $name, $description, $staffOnly]) {
+            $insert->execute([
+                'slug' => $slug,
+                'name' => $name,
+                'description' => $description,
+                'position' => $position,
+                'staffOnly' => (int) $staffOnly,
+            ]);
+        }
+    }
 }

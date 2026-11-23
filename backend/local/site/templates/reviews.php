@@ -11,6 +11,7 @@
  * @var array[] $runs          Endurance runs waiting for an admin, see
  *                             site_find_endurance_reviews().
  * @var array[] $reports       Reported ghosts, see site_find_ghost_reports().
+ * @var array[] $posts         Reported forum posts, see site_find_forum_reports().
  */
 
 /**
@@ -261,4 +262,39 @@ $inputsRow = function (string $ghostString, int $columns): void { ?>
             </tbody>
         </table>
     </div>
+<?php endif; ?>
+
+<h2>Forum reports</h2>
+<?php if (!$posts): ?>
+    <p class="muted">No forum post reported.</p>
+<?php else: ?>
+    <p class="muted">
+        Forum posts the accounts reported, the most reported first. Deleting the first post of a
+        topic deletes the topic.
+    </p>
+    <?php foreach ($posts as $reported): ?>
+        <article class="forum-post">
+            <aside class="forum-post__author">
+                <a href="/forum/posts/<?= (int) $reported['ID'] ?>/"><?= h($reported['TITLE']) ?></a>
+                <span class="muted">by <?= h($reported['AUTHOR'] ?? 'a deleted account') ?></span>
+            </aside>
+            <div class="forum-post__main">
+                <div class="forum-post__body"><?= site_forum_format((string) $reported['TEXT']) ?></div>
+                <ul class="reviews__reports">
+                    <?php foreach ($reported['REPORTS'] as $report): ?>
+                        <li>
+                            <?= h($report['REASON']) ?>
+                            <span class="muted">
+                                by <?= h($report['REPORTER'] ?? 'a deleted account') ?>,
+                                <?= h(gmdate('Y-m-d', (int) $report['CREATED'])) ?>
+                            </span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+                <div class="forum-post__actions">
+                    <?php $actions('posts', (int) $reported['ID'], ['dismiss' => 'Dismiss', 'reject' => 'Delete the post']); ?>
+                </div>
+            </div>
+        </article>
+    <?php endforeach; ?>
 <?php endif; ?>

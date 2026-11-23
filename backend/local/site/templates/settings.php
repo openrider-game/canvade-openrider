@@ -8,13 +8,14 @@
  * @var int      $boundControls  Number of controls of the game bound to another key.
  * @var bool     $controlsSaved  Whether the account saved its keys yet.
  * @var string   $saved          What was just saved: `password`, `sessions` or `preferences`.
- * @var string[] $errors         Errors of the password form, by field (`current`, `password`).
+ * @var string[] $errors         Errors of the forms, by field (`current`, `password`, `email`).
  */
 
 $messages = [
     'password' => 'Password changed. Your other sessions are logged out.',
     'sessions' => 'Your other sessions are logged out.',
     'preferences' => 'Preferences saved.',
+    'email' => 'E-mail settings saved.',
 ];
 $csrf = h(site_csrf_token());
 ?>
@@ -101,6 +102,43 @@ $csrf = h(site_csrf_token());
             <button class="button" type="submit">Default keys</button>
         </form>
     <?php endif; ?>
+</section>
+
+<section class="settings__section" aria-labelledby="settings-email">
+    <h2 id="settings-email">E-mail and picture</h2>
+    <p class="muted">
+        Optional, and never shown. The site sends no e-mail yet: the digests start once it does,
+        after you confirm the address.
+    </p>
+    <form method="post" action="/settings/email/">
+        <input type="hidden" name="csrf" value="<?= $csrf ?>" />
+        <div class="field">
+            <label class="field__label" for="settings-address">E-mail address</label>
+            <input class="field__input" id="settings-address" name="email" type="email"
+                autocomplete="email" maxlength="<?= SITE_EMAIL_MAX ?>" value="<?= h($user['EMAIL'] ?? '') ?>"
+                <?php if (isset($errors['email'])): ?>aria-invalid="true"<?php endif; ?> />
+            <?php if (isset($errors['email'])): ?>
+                <p class="field__error" role="alert"><?= h($errors['email']) ?></p>
+            <?php endif; ?>
+        </div>
+        <fieldset class="settings__choices settings__choices--stacked">
+            <legend class="visually-hidden">With the address</legend>
+            <label>
+                <input type="checkbox" name="digest" <?= !empty($user['EMAILDIGEST']) ? 'checked' : '' ?> />
+                Send me digests of the forum and the site
+            </label>
+            <label>
+                <input type="checkbox" name="gravatar" <?= !empty($user['GRAVATAR']) ? 'checked' : '' ?> />
+                Show my <a href="https://gravatar.com/" rel="noopener">Gravatar</a> next to my posts
+            </label>
+        </fieldset>
+        <p class="field__help muted">
+            The Gravatar is loaded from gravatar.com, which then sees the visitors of your posts,
+            and its address holds a hash of your e-mail address, which someone knowing the
+            address could match.
+        </p>
+        <button class="button" type="submit">Save</button>
+    </form>
 </section>
 
 <section class="settings__section" aria-labelledby="settings-delete">

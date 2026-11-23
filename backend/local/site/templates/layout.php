@@ -92,6 +92,7 @@
         ['Endurance', '/endurance/', strpos($path, '/endurance/') === 0],
         ['Templates', '/templates/', strpos($path, '/templates/') === 0],
         ['Users', '/users/', strpos($path, '/users/') === 0],
+        ['Forum', '/forum/', strpos($path, '/forum/') === 0],
     ];
     ?>
     <header class="site-header">
@@ -124,6 +125,7 @@
                             <?php if (site_can($user, 'manage_users')): ?>
                                 <a href="/admin/users/">Accounts</a>
                                 <a href="/admin/audit/">Audit log</a>
+                                <a href="/admin/forum/">Forum categories</a>
                             <?php endif; ?>
                             <form method="post" action="/logout/">
                                 <input type="hidden" name="csrf" value="<?= h(site_csrf_token()) ?>" />

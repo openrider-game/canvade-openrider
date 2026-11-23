@@ -65,3 +65,20 @@ function site_renew_sessions(PDO $db, int $userId, ?string $passwordHash = null)
     $statement->execute(['id' => $userId]);
     return (int) $statement->fetchColumn();
 }
+
+/**
+ * Saves the e-mail address of an account, null for none, with whether it wants the digests and
+ * shows its Gravatar; without address, neither.
+ */
+function site_set_user_email(PDO $db, int $userId, ?string $email, bool $digest, bool $gravatar): void
+{
+    $db->prepare(
+        'UPDATE "LOCAL_USERS" SET "EMAIL" = :email, "EMAILDIGEST" = :digest, "GRAVATAR" = :gravatar'
+        . ' WHERE "ID" = :id'
+    )->execute([
+        'email' => $email,
+        'digest' => (int) ($email !== null && $digest),
+        'gravatar' => (int) ($email !== null && $gravatar),
+        'id' => $userId,
+    ]);
+}

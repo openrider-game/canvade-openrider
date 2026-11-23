@@ -4,14 +4,15 @@
 
 /**
  * An account by its id, with its stored role (`ROLE`, see site_role()), its suspension
- * (`SUSPENDEDUNTIL`, `SUSPENSIONREASON`) and the version of its sessions (`SESSIONVERSION`, see
- * site_user()), or null when it does not exist.
+ * (`SUSPENDEDUNTIL`, `SUSPENSIONREASON`), the version of its sessions (`SESSIONVERSION`, see
+ * site_user()) and its e-mail settings (`EMAIL`, `EMAILDIGEST`, `GRAVATAR`, never shown), or null
+ * when it does not exist.
  */
 function site_find_user(PDO $db, int $userId): ?array
 {
     $statement = $db->prepare(
         'SELECT "ID", "NAME", "ROLE", "SUSPENDEDUNTIL", "SUSPENSIONREASON", "SESSIONVERSION",'
-        . ' "CREATED" FROM "LOCAL_USERS" WHERE "ID" = :id'
+        . ' "EMAIL", "EMAILDIGEST", "GRAVATAR", "CREATED" FROM "LOCAL_USERS" WHERE "ID" = :id'
     );
     $statement->execute(['id' => $userId]);
 

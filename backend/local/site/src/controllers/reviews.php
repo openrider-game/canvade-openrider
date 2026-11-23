@@ -23,7 +23,8 @@ function site_reviews_page(): void
         'verifications' => site_find_verification_reviews($db),
         'runs' => site_find_endurance_reviews($db),
         'reports' => site_find_ghost_reports($db),
-    ], [], ['/assets/js/ghost-inputs.js']);
+        'posts' => site_find_forum_reports($db),
+    ], ['forum.css'], ['/assets/js/ghost-inputs.js']);
 }
 
 /**
@@ -51,12 +52,27 @@ function site_review_action(string $kind, int $id, string $action): void
     }
 
     // The reports are dismissed rather than approved, the runs approved rather than dismissed
-    if ($kind === 'reports' ? $action === 'approve' : $action === 'dismiss') {
+    if (in_array($kind, ['reports', 'posts'], true) ? $action === 'approve' : $action === 'dismiss') {
         site_not_found();
         return;
     }
 
     $db = site_db();
+    if ($kind === 'posts') {
+        $post = site_find_forum_post($db, $id);
+        if ($post === null) {
+            site_not_found();
+            return;
+        }
+        if ($action === 'dismiss') {
+            site_dismiss_forum_reports($db, $id);
+        } else {
+            site_delete_forum_post($db, $post);
+        }
+        site_audit($db, $user, $action === 'dismiss' ? 'dismiss' : 'delete', "reported forum post #$id");
+        site_redirect('/reviews/');
+        return;
+    }
     if ($kind === 'reports' && $action === 'dismiss') {
         site_dismiss_ghost_reports($db, $id);
     } elseif ($kind === 'reports') {

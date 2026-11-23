@@ -139,7 +139,8 @@ account.
   profile, the drafts, the settings, the reviews (moderators) and the admin pages (admins) of the
   account, and logs out (`/logout/`);
 - `/settings/` changes the password of the account, logs its other sessions out, saves its
-  preferences and deletes it (see "Settings");
+  preferences and its optional e-mail address, and deletes it (see "Settings");
+- `/forum/` is the forum: its categories, their topics and the posts (see "Forum");
 - `/create/` runs the game editing a new track, whose upload opens the page of the upload;
 - `/uploads/<id>/` asks for the title (60 characters at most, required) and the description (500
   characters at most) of an uploaded track, a description left empty being "<title> is an
@@ -212,7 +213,8 @@ name of its ghost string. The first account created takes over the drafts withou
   their letter), and its name 60 characters at most. Its thumbnail, when it has one, is a 500x300 PNG as the track thumbnails. An
   account sees its own templates and the public ones only.
 - Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads, 60 ghosts or endurance runs, 30 templates, 20
-  reports, 20 comments and 120 thumbs up given or taken back an hour per account, 5 new accounts an
+  reports, 20 comments, 5 forum topics, 30 forum posts, 30 forum edits, 600 forum previews and
+  120 thumbs up given or taken back an hour per account, 5 new accounts an
   hour per address, and 20 failed logins per address and 10 per user name over 15 minutes, after
   which even the right password is refused for a while.
 
@@ -365,6 +367,44 @@ than overwritten (`openrider.synced` keeps what the account is known to have). T
 the values: a theme of the three, and key bindings of the format of the game, 8 KB and 64 controls
 at most. The settings page also chooses the theme and gives every key its default back. A
 suspended account still changes its settings.
+
+An account may also give an e-mail address (`EMAIL` of `LOCAL_USERS`), never shown, with two
+choices: receiving digests (`EMAILDIGEST`, stored only: the site sends no e-mail yet, and the
+addresses must be confirmed before the first digest), and showing its Gravatar next to its forum
+posts (`GRAVATAR`, `site_avatar_url()`): the picture is loaded from gravatar.com, its address
+holding the SHA-256 hash of the e-mail address, rated `g`, with a generated pattern for the
+addresses without Gravatar. The other accounts show their initial. Nothing is uploaded to the site.
+
+#### Forum
+
+`/forum/` lists the categories, each one its topics, the pinned ones first then by their last
+post, 30 a page, and each topic its posts, the oldest first, 20 a page (`?page=` or `last`;
+`/forum/posts/<id>/` opens the page of a post). The first post of a topic is its text. The
+routes are listed in `site_forum_route()` (`app.php`), the pages in `src/controllers/forum.php`,
+the queries in `src/db/forum.php` (`LOCAL_FORUM_*`).
+
+- Everyone reads it. The accounts logged in and not suspended open topics (a title of 3 to 100
+  characters), reply, like the posts of the others and report them. An account opens topics 10
+  minutes after its creation, a brake on spammers. Only the moderators open topics in a
+  category for the staff (Announcements at first), where everyone replies.
+- An account edits its own posts, and the title of its topics, without time limit, unless the
+  topic is locked. The moderators edit any post, and read the previous versions of the edited
+  posts (`LOCAL_FORUM_EDITS`). The authors do not delete their posts: the moderators do, the
+  first post of a topic deleting the topic; and they pin, lock (no more replies but theirs) and
+  move the topics. The reported posts wait for them on `/reviews/`, counted in the header and
+  sent to the webhook, to dismiss or delete. Every action on the content of others is in the
+  audit log.
+- Posts hold 1 to 10,000 characters of a small part of Markdown (`src/forum-format.php`):
+  bold, italic, code and blocks of code, quotes, lists and links (`rel="nofollow ugc"`); no HTML,
+  image nor heading. The text is escaped before being formatted, so that no HTML of a post
+  reaches the page. A line holding only the address of a track or a ghost of the site shows its
+  card, 5 per post. The form previews the post while written, formatted by the site
+  (`public/js/forum-editor.js`, `POST /forum/preview/`), and "Quote" fills the reply with a post
+  (`?quote=<id>`).
+- An account deleted leaves its posts without their text nor previous versions, and its topics
+  without account, so that the discussions still read.
+- The admins edit, create and delete (once empty) the categories on `/admin/forum/`. The site
+  creates Announcements, General, Tracks and Help & Bugs when the forum has no category.
 
 #### Roles and suspensions
 

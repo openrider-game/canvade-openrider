@@ -914,3 +914,8 @@ section.live-results {
     margin: 20px 0 4px;
     font-size: 1rem;
 }
+
+.settings__choices--stacked {
+    flex-direction: column;
+    gap: 6px;
+}

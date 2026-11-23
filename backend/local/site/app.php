@@ -12,7 +12,7 @@
  * | `/users/<name>/`                     | the tracks and ghosts of an account                   |
  * | `/register/`, `/login/`, `/logout/`  | the account forms                                     |
  * | `/settings/`                         | the password, preferences and deletion of the account |
- * | `/settings/<password, sessions, preferences, sync>/` | changing them, posted                 |
+ * | `/settings/<password, sessions, preferences, email, sync>/` | changing them, posted          |
  * | `/create/`                           | the game editing a new track                          |
  * | `/uploads/<id>/`                     | the form sending an upload to verification, or a draft |
  * | `/uploads/<id>/track-editor.ortrack` | the editor file of a draft, to download               |
@@ -27,6 +27,8 @@
  * | `/admin/users/`                      | the roles and suspensions of the accounts, for admins |
  * | `/admin/users/<id>/<role, suspend, unsuspend>/` | changing them, posted                      |
  * | `/admin/audit/`                      | what the moderators and admins did, for admins        |
+ * | `/admin/forum/`                      | the categories of the forum, for admins               |
+ * | `/forum/...`                         | the forum, see site_forum_route()                     |
  * | `/assets/...`                        | the static files of `public/`                         |
  *
  * Racing and browsing are open to everyone; creating tracks, saving drafts and ghosts need an
@@ -52,6 +54,7 @@
 require_once __DIR__ . '/src/auth.php';
 require_once __DIR__ . '/src/database.php';
 require_once __DIR__ . '/src/format.php';
+require_once __DIR__ . '/src/forum-format.php';
 require_once __DIR__ . '/src/http.php';
 require_once __DIR__ . '/src/live.php';
 require_once __DIR__ . '/src/notify.php';
@@ -62,6 +65,7 @@ require_once __DIR__ . '/src/controllers/admin.php';
 require_once __DIR__ . '/src/controllers/comments.php';
 require_once __DIR__ . '/src/controllers/editor.php';
 require_once __DIR__ . '/src/controllers/endurance.php';
+require_once __DIR__ . '/src/controllers/forum.php';
 require_once __DIR__ . '/src/controllers/ghosts.php';
 require_once __DIR__ . '/src/controllers/reviews.php';
 require_once __DIR__ . '/src/controllers/settings.php';
@@ -92,7 +96,7 @@ const SITE_GAME_REQUEST_PATTERN =
  * action.
  */
 const SITE_REVIEW_ACTION_PATTERN =
-    '#^/reviews/(ghosts|tracks|runs|reports)/([0-9]+)/(approve|reject|dismiss)/$#';
+    '#^/reviews/(ghosts|tracks|runs|reports|posts)/([0-9]+)/(approve|reject|dismiss)/$#';
 
 /**
  * Answers a request of the site.
@@ -167,7 +171,7 @@ function site_handle(string $path): bool
         site_drafts_page();
     } elseif (preg_match('#^/drafts/([0-9]+)/?$#', $path, $match)) {
         site_draft_page((int) $match[1]);
-    } elseif (preg_match('#^/(tracks|ghosts|comments)/([0-9]+)/thumb/$#', $path, $match)) {
+    } elseif (preg_match('#^/(tracks|ghosts|comments|forum/posts)/([0-9]+)/thumb/$#', $path, $match)) {
         site_thumb($match[1], (int) $match[2]);
     } elseif (preg_match('#^/tracks/([0-9]+)/comments/$#', $path, $match)) {
         site_comment_post((int) $match[1]);
@@ -201,8 +205,18 @@ function site_handle(string $path): bool
         site_settings_sessions();
     } elseif ($path === '/settings/preferences/') {
         site_settings_preferences();
+    } elseif ($path === '/settings/email/') {
+        site_settings_email();
     } elseif ($path === '/settings/sync/') {
         site_settings_sync();
+    } elseif (strpos($path, '/forum/') === 0 && site_forum_route($path)) {
+        // Answered by the forum
+    } elseif ($path === '/admin/forum/') {
+        site_admin_forum_page();
+    } elseif ($path === '/admin/forum/categories/new/') {
+        site_admin_forum_category(null, 'save');
+    } elseif (preg_match('#^/admin/forum/categories/([0-9]+)/(save|delete)/$#', $path, $match)) {
+        site_admin_forum_category((int) $match[1], $match[2]);
     } elseif ($path === '/admin/users/') {
         site_admin_users_page();
     } elseif (preg_match('#^/admin/users/([0-9]+)/(role|suspend|unsuspend)/$#', $path, $match)) {
@@ -213,6 +227,52 @@ function site_handle(string $path): bool
         return false;
     }
 
+    return true;
+}
+
+/**
+ * Answers a path of the forum, under `/forum/`:
+ *
+ * | Route                                     | Page                                           |
+ * | ----------------------------------------- | ---------------------------------------------- |
+ * | `/forum/`                                 | the categories                                 |
+ * | `/forum/<category>/`, `.../new/`          | its topics, and the form opening one           |
+ * | `/forum/topics/<id>/`, `.../reply/`       | a topic and its posts (`?page=`), and a reply  |
+ * | `/forum/topics/<id>/<pin, unpin, lock, unlock, move>/` | moderation of a topic, posted     |
+ * | `/forum/posts/<id>/`                      | a post, on the page of its topic               |
+ * | `/forum/posts/<id>/<edit, delete, report>/` | changing it                                  |
+ * | `/forum/posts/<id>/thumb/`                | its thumbs up, see site_thumb()                |
+ * | `/forum/preview/`                         | the preview of a post being written, posted    |
+ *
+ * @return bool Whether the path is a route of the forum.
+ */
+function site_forum_route(string $path): bool
+{
+    if ($path === '/forum/') {
+        site_forum_page();
+    } elseif ($path === '/forum/preview/') {
+        site_forum_preview();
+    } elseif (preg_match('#^/forum/topics/([0-9]+)/$#', $path, $match)) {
+        site_forum_topic_page((int) $match[1]);
+    } elseif (preg_match('#^/forum/topics/([0-9]+)/reply/$#', $path, $match)) {
+        site_forum_reply((int) $match[1]);
+    } elseif (preg_match('#^/forum/topics/([0-9]+)/(pin|unpin|lock|unlock|move)/$#', $path, $match)) {
+        site_forum_topic_action((int) $match[1], $match[2]);
+    } elseif (preg_match('#^/forum/posts/([0-9]+)/$#', $path, $match)) {
+        site_forum_post_redirect((int) $match[1]);
+    } elseif (preg_match('#^/forum/posts/([0-9]+)/edit/$#', $path, $match)) {
+        site_forum_edit((int) $match[1]);
+    } elseif (preg_match('#^/forum/posts/([0-9]+)/delete/$#', $path, $match)) {
+        site_forum_post_delete((int) $match[1]);
+    } elseif (preg_match('#^/forum/posts/([0-9]+)/report/$#', $path, $match)) {
+        site_forum_post_report((int) $match[1]);
+    } elseif (preg_match('#^/forum/([a-z0-9-]+)/new/$#', $path, $match)) {
+        site_forum_new_topic($match[1]);
+    } elseif (preg_match('#^/forum/([a-z0-9-]+)/$#', $path, $match)) {
+        site_forum_category_page($match[1]);
+    } else {
+        return false;
+    }
     return true;
 }
 

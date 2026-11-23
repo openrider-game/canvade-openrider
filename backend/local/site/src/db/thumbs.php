@@ -7,7 +7,12 @@
  */
 
 /** Kinds of the subjects of the thumbs, by the first part of their path, e.g. `/tracks/3/`. */
-const SITE_THUMB_KINDS = ['tracks' => 'track', 'ghosts' => 'ghost', 'comments' => 'comment'];
+const SITE_THUMB_KINDS = [
+    'tracks' => 'track',
+    'ghosts' => 'ghost',
+    'comments' => 'comment',
+    'forum/posts' => 'post',
+];
 
 /**
  * Subquery counting the thumbs of the rows of a query, as a column.

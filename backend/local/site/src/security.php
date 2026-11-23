@@ -51,6 +51,11 @@ const SITE_RATE_LIMITS = [
     'report' => [20, 3600],
     // Comments and replies on the tracks, per account
     'comment' => [20, 3600],
+    // Topics opened, posts, edits and previews in the forum, per account
+    'forum-topic' => [5, 3600],
+    'forum-post' => [30, 3600],
+    'forum-edit' => [30, 3600],
+    'forum-preview' => [600, 3600],
     // Messages of the webhook of the reviews, for the whole site: see site_notify_review()
     'review-notice' => [10, 600],
     'review-notice-overflow' => [1, 600],

@@ -166,3 +166,19 @@ function site_ghost_count(int $count): string
 {
     return $count . ($count === 1 ? ' ghost' : ' ghosts');
 }
+
+/**
+ * Gravatar of an account, when it gave an e-mail address and chose to show it, else null. The
+ * address is sent hashed (SHA-256, as Gravatar takes it), the picture rated for everyone (`r=g`),
+ * with a generated pattern for the addresses without Gravatar.
+ *
+ * @param array $account Row with `EMAIL` and `GRAVATAR`.
+ */
+function site_avatar_url(array $account): ?string
+{
+    $email = trim((string) ($account['EMAIL'] ?? ''));
+    if ($email === '' || empty($account['GRAVATAR'])) {
+        return null;
+    }
+    return 'https://gravatar.com/avatar/' . hash('sha256', strtolower($email)) . '?s=96&d=identicon&r=g';
+}

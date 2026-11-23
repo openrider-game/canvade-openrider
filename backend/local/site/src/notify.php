@@ -26,6 +26,7 @@ function site_count_reviews(PDO $db): int
             . ' + (SELECT COUNT(*) FROM "LOCAL_UPLOADS" WHERE "REVIEW" IS NOT NULL)'
             . ' + (SELECT COUNT(*) FROM "LOCAL_ENDURANCE_RUNS" WHERE "REVIEW" IS NOT NULL)'
             . ' + (SELECT COUNT(DISTINCT "GHOSTID") FROM "LOCAL_GHOST_REPORTS")'
+            . ' + (SELECT COUNT(DISTINCT "POSTID") FROM "LOCAL_FORUM_REPORTS")'
         )->fetchColumn();
     } catch (PDOException $error) {
         return 0;

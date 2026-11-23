@@ -218,3 +218,35 @@ function site_settings_sync(): void
     }
     openrider_respond(200, ['saved' => $saved]);
 }
+
+/** Longest e-mail address, as SMTP allows. */
+const SITE_EMAIL_MAX = 254;
+
+/**
+ * Saves the e-mail address of the account (`email`, empty for none), whether it wants the
+ * digests (`digest`) and whether its Gravatar shows next to its posts (`gravatar`).
+ */
+function site_settings_email(): void
+{
+    if (!site_check_posted_form()) {
+        return;
+    }
+    $user = site_require_user();
+    if ($user === null) {
+        return;
+    }
+    $email = site_form_text('email');
+    if ($email !== '' && (strlen($email) > SITE_EMAIL_MAX || filter_var($email, FILTER_VALIDATE_EMAIL) === false)) {
+        http_response_code(422);
+        site_settings_page(['email' => 'This is not an e-mail address.']);
+        return;
+    }
+    site_set_user_email(
+        site_db(),
+        $user['ID'],
+        $email === '' ? null : $email,
+        isset($_POST['digest']),
+        isset($_POST['gravatar'])
+    );
+    site_redirect('/settings/?saved=email');
+}

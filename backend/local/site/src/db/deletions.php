@@ -68,6 +68,7 @@ function site_delete_user(PDO $db, int $userId): void
             ->execute($params);
         // Its comments stay for the replies to them, without their text
         site_forget_user_comments($db, $userId);
+        site_forget_user_forum($db, $userId);
         $db->prepare('DELETE FROM "LOCAL_USERS" WHERE "ID" = :userId')->execute($params);
     });
 }
