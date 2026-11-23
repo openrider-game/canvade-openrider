@@ -17,6 +17,7 @@
         <span class="ghost-inputs__legend muted">
             <span class="ghost-inputs__swatch"></span> press
             <span class="ghost-inputs__swatch ghost-inputs__swatch--tick"></span> press of a single tick
+            <span class="ghost-inputs__swatch ghost-inputs__swatch--pause"></span> pause
         </span>
     </div>
     <?php // The names of the keys stay in view while the timeline scrolls ?>

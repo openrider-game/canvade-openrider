@@ -11,14 +11,21 @@ export interface GhostData {
     time: number;
     bike: BikeClass;
     name: string;
+    /**
+     * Times of the run the game paused at, in physics ticks, see `Bike.pauseLog`; empty when
+     * none, or for a ghost recorded before the pauses were.
+     */
+    pauses: number[];
 }
 
 /**
  * Reads and writes ghost strings.
  *
- * Ghost strings are formatted as `up,down,left,right,turn,time,bike,name`, where each key part
- * lists the track times (in physics ticks, base 10) at which its control toggled, separated
- * with spaces. The name is optional: generated strings stop at the bike.
+ * Ghost strings are formatted as `up,down,left,right,turn,time,bike,name,pauses`, where each key
+ * part lists the track times (in physics ticks, base 10) at which its control toggled, separated
+ * with spaces, and `pauses` the times the game paused at, the same way. The name is optional:
+ * generated strings leave it empty, the website writing it. The pauses too: a run without any
+ * stops at the bike, as the strings recorded before the pauses were, which every version reads.
  */
 export abstract class GhostParser {
     /** Parses a ghost string, falling back to the default bike and to `Ghost` as name. */
@@ -36,6 +43,11 @@ export abstract class GhostParser {
             time: Number(parts[0]) || 0,
             bike: BIKE_MAP.get(parts[1]) ?? DEFAULT_BIKE,
             name: parts[2] || 'Ghost',
+            pauses: (parts[3] ?? '')
+                .split(' ')
+                .filter((time) => time !== '')
+                .map(Number)
+                .filter((time) => Number.isInteger(time) && time >= 0),
         };
     }
 
@@ -52,6 +64,11 @@ export abstract class GhostParser {
         });
 
         ghostKeys.push(time, bikeRunner.bikeClass.bikeName);
+        // The pauses after an empty name, only when the run has some
+        const pauses = bikeRunner.instance?.pauseLog ?? [];
+        if (pauses.length) {
+            ghostKeys.push('', pauses.join(' '));
+        }
 
         return ghostKeys.join(',');
     }

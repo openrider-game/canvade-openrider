@@ -21,6 +21,8 @@
  *   ranked on the endurance page;
  * - `LOCAL_TEMPLATES`: the objects saved by the accounts from the editor, private or public, to
  *   paste in their tracks (see db/templates.php);
+ * - `LOCAL_COMMENTS`: the comments of the accounts on the tracks, and their replies (see
+ *   db/comments.php);
  * - `LOCAL_TRACK_VISITS`: when each account first opened the page of each track, and
  *   `LOCAL_GHOST_REPORTS`: the ghosts the accounts reported to the admins (see db/insights.php).
  *
@@ -145,6 +147,19 @@ function site_create_tables(PDO $db): void
         . ' "PUBLIC" INTEGER NOT NULL DEFAULT 0, "CREATED" INTEGER NOT NULL, "THUMBNAIL" TEXT)'
     );
     site_add_column($db, 'LOCAL_TEMPLATES', 'THUMBNAIL', 'TEXT');
+
+    // The comments on the tracks: a reply has the comment it answers as parent, null for the
+    // comments themselves; the account is null once deleted, the text then empty
+    $db->exec(
+        'CREATE TABLE IF NOT EXISTS "LOCAL_COMMENTS" ('
+        . "\"ID\" $id, \"TRACKID\" INTEGER NOT NULL,"
+        . ' "USERID" INTEGER REFERENCES "LOCAL_USERS" ("ID"), "PARENTID" INTEGER,'
+        . ' "TEXT" TEXT NOT NULL, "CREATED" INTEGER NOT NULL)'
+    );
+    $db->exec(
+        'CREATE INDEX IF NOT EXISTS idx_local_comments_track'
+        . ' ON "LOCAL_COMMENTS" ("TRACKID", "PARENTID", "ID")'
+    );
 
     // What the admins see of the runs besides their inputs (see db/insights.php), null for the
     // accounts and runs from before: when the accounts were created and the ghosts saved, as Unix

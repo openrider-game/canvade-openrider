@@ -25,7 +25,9 @@ const SITE_GHOST_MAX_BYTES = 1024 * 1024;
  * bike, without name (see GhostParser of the game).
  */
 const SITE_GHOST_PATTERN =
-    '/^(?:[0-9]+(?: [0-9]+)*)?(?:,(?:[0-9]+(?: [0-9]+)*)?){4},[0-9]+,(?:BMX|MTB)$/';
+    '/^(?:[0-9]+(?: [0-9]+)*)?(?:,(?:[0-9]+(?: [0-9]+)*)?){4},[0-9]+,(?:BMX|MTB)'
+    // The times of the pauses after an empty name, by the runs pausing
+    . '(?:,,[0-9]+(?: [0-9]+)*)?$/';
 
 /** Command line replaying the ghosts, built with the game (see server/verify of the game). */
 const SITE_GHOST_VERIFIER = __DIR__ . '/../../../../dist/verify-ghost.cjs';
@@ -47,6 +49,8 @@ const SITE_RATE_LIMITS = [
     'template' => [30, 3600],
     // Ghosts reported to the admins, per account
     'report' => [20, 3600],
+    // Comments and replies on the tracks, per account
+    'comment' => [20, 3600],
     // Messages of the webhook of the reviews, for the whole site: see site_notify_review()
     'review-notice' => [10, 600],
     'review-notice-overflow' => [1, 600],

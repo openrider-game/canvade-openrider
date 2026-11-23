@@ -64,6 +64,8 @@ function site_delete_user(PDO $db, int $userId): void
         )->execute($params);
         $db->prepare('DELETE FROM "LOCAL_UPLOADS" WHERE "USERID" = :userId')->execute($params);
         $db->prepare('DELETE FROM "LOCAL_TEMPLATES" WHERE "USERID" = :userId')->execute($params);
+        // Its comments stay for the replies to them, without their text
+        site_forget_user_comments($db, $userId);
         $db->prepare('DELETE FROM "LOCAL_USERS" WHERE "ID" = :userId')->execute($params);
     });
 }
@@ -117,6 +119,7 @@ function site_delete_tracks_by_id(PDO $db, array $trackIds): void
             site_select_ids($db, 'SELECT "ID" FROM "GHOSTS" WHERE "TRACKID" = :id', $params)
         );
         site_delete_thumbs($db, 'track', (int) $trackId);
+        site_delete_track_comments($db, (int) $trackId);
         $details->execute($params);
         $tracks->execute($params);
     }

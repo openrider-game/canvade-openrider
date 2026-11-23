@@ -56,7 +56,10 @@ TypeScript rewrite of the [JavaScript game](https://github.com/tomiy/openrider) 
   A select tool moves, turns, copies, cuts, deletes and pastes areas, and saves them as templates to
   paste in any track.
 - **Racing**: published tracks raced against published ghosts, the player run being uploaded as a
-  ghost at the end of the race.
+  ghost at the end of the race. A ghost string (`GhostParser`) holds the ticks each control toggled
+  at, the time, the bike, the name and the ticks the game paused at
+  (`up,down,left,right,turn, time,bike,name,pauses`): a run without pauses stops at the bike, as the
+  ghosts recorded before the pauses were, and every version reads both.
 - **Endurance**: an infinite track generated from a seed as the bike goes, harder and harder, with a
   track of the day (see [Endurance mode](#endurance-mode)).
 - **Live sessions**: riders racing a track at the same time, each seeing the others ride, and

@@ -43,4 +43,44 @@ describe('Ghost parser', () => {
         expect([...(ghost.keys.get('upPressed') ?? [])]).toEqual([0, 50]);
         expect(ghost.time).toBe(75);
     });
+
+    test('writes the pauses of a run after an empty name, the website naming the ghost', () => {
+        const track = parseTrack('-50 1i 2000 1i#####BMX#0 0');
+        const runner = track.playerRunner;
+        runner.instance?.keyLog.get('upPressed')?.push(0);
+        runner.time = 40;
+        track.pause(true);
+        // Paused again while paused: one pause
+        track.pause(true);
+        track.pause(false);
+        runner.time = 90;
+        // A step while paused counts, as does the pause before it
+        track.step();
+        track.step();
+        runner.time = 120;
+
+        const ghostString = GhostParser.generate(runner);
+        const ghost = GhostParser.parse(ghostString);
+
+        expect(ghostString).toBe('0,,,,,120,BMX,,40 90 90');
+        expect(ghost.name).toBe('Ghost');
+        expect(ghost.pauses).toEqual([40, 90, 90]);
+        expect(GhostParser.parse(ghostString.replace(',,40', ',Speedy,40')).name).toBe('Speedy');
+    });
+
+    test('reads the ghosts recorded before the pauses were, without pauses', () => {
+        expect(GhostParser.parse('0 120,,,,,600,MTB,Speedy').pauses).toEqual([]);
+        expect(GhostParser.parse('0 120,,,,,600,MTB').pauses).toEqual([]);
+    });
+
+    test('keeps the pauses of a checkpoint with it, as its inputs', () => {
+        const track = parseTrack('-50 1i 2000 1i#####BMX#0 0');
+        const bike = track.playerRunner.instance!;
+        bike.pauseLog.push(10);
+        const checkpoint = bike.clone();
+        bike.pauseLog.push(30);
+
+        expect(checkpoint.pauseLog).toEqual([10]);
+        expect(bike.pauseLog).toEqual([10, 30]);
+    });
 });

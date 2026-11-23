@@ -45,9 +45,14 @@ function site_thumb(string $kind, int $subjectId): void
 
     $db = site_db();
     $kind = SITE_THUMB_KINDS[$kind];
-    $subject = $kind === 'track'
-        ? site_find_track($db, $subjectId)
-        : site_find_ghost($db, $subjectId);
+    // Without `match`: the site runs on PHP 7.4
+    if ($kind === 'track') {
+        $subject = site_find_track($db, $subjectId);
+    } elseif ($kind === 'ghost') {
+        $subject = site_find_ghost($db, $subjectId);
+    } else {
+        $subject = site_find_comment($db, $subjectId);
+    }
     if ($subject === null || !site_can_thumb($user, $subject)) {
         // Unknown, or not for the account: not told apart
         site_not_found();

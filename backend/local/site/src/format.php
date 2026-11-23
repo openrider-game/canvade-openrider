@@ -107,7 +107,8 @@ function site_ghost_name(string $ghostString): string
 
 /**
  * Names a ghost string after an account, so that the game shows the name above the ghost: the
- * game writes the strings without name, up to the bike.
+ * game writes the strings without name, up to the bike, or with an empty name before the times of
+ * the pauses, kept after the name.
  *
  * @param string $name User name, which never holds a `,`.
  */
@@ -119,8 +120,10 @@ function site_name_ghost(string $ghostString, string $name): string
         return $ghostString;
     }
 
-    return implode(',', array_slice($fields, 0, 7)) . ',' . $name;
+    $named = implode(',', array_slice($fields, 0, 7)) . ',' . $name;
+    return count($fields) > 8 ? $named . ',' . implode(',', array_slice($fields, 8)) : $named;
 }
+
 
 /** Bike of a ghost, from its ghost string. */
 function site_ghost_bike(string $ghostString): string

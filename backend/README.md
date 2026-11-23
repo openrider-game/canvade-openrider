@@ -116,7 +116,8 @@ account.
   ("Can you beat these ghosts on “First ride”?", `/tracks/<id>/?ghosts=12,15`; the share sheet on
   touch screens, else copied): the page names them and gives the game the ones it can race
   (`data-ghosts`), 10 at most, those waiting for an admin for their account and the admins only. The
-  track and each ghost show their thumbs up (see "Thumbs up");
+  track and each ghost show their thumbs up (see "Thumbs up"). Under the leaderboard, the comments
+  of the track (see "Comments");
 - `/ghosts/` lists the ghosts of every track out of review, 50 a page, in two tabs: the newest ones,
   and the most liked ones (`?sort=liked`), with their track (opening it racing the ghost), rider,
   rank, time and thumbs up; the header links to it;
@@ -177,10 +178,10 @@ requests reach the backend endpoints and the icons under the page. The `trackupl
 
 The backend stores no account, title nor description: the site keeps them in its own tables
 (`LOCAL_USERS`, `LOCAL_TRACK_DETAILS`, `LOCAL_GHOST_OWNERS`, `LOCAL_GHOST_REVIEWS`, `LOCAL_THUMBS`,
-`LOCAL_ENDURANCE_RUNS` and `LOCAL_TEMPLATES`), creating the missing ones and their missing columns
-in an existing database. The tracks and ghosts uploaded to the backend without the site have no
-account: such a track without a title is named after its id, and such a ghost after the name of its
-ghost string. The first account created takes over the drafts without an account.
+`LOCAL_ENDURANCE_RUNS`, `LOCAL_TEMPLATES` and `LOCAL_COMMENTS`), creating the missing ones and their
+missing columns in an existing database. The tracks and ghosts uploaded to the backend without the
+site have no account: such a track without a title is named after its id, and such a ghost after the
+name of its ghost string. The first account created takes over the drafts without an account.
 
 #### Security
 
@@ -206,10 +207,9 @@ ghost string. The first account created takes over the drafts without an account
   their letter), and its name 60 characters at most. Its thumbnail, when it has one, is a 500x300 PNG as the track thumbnails. An
   account sees its own templates and the public ones only.
 - Rate limits (`LOCAL_RATE_EVENTS`): 30 uploads, 60 ghosts or endurance runs, 30 templates, 20
-  reports and 120 thumbs up given or taken back an hour per account, 5 new accounts an hour per
-  address, and 20
-  failed logins per address and 10 per user name over 15 minutes, after which even the right
-  password is refused for a while.
+  reports, 20 comments and 120 thumbs up given or taken back an hour per account, 5 new accounts an
+  hour per address, and 20 failed logins per address and 10 per user name over 15 minutes, after
+  which even the right password is refused for a while.
 
 Not covered: captchas, changing a password, and the moderation of the titles and descriptions before
 they are published.
@@ -262,20 +262,25 @@ the runs with:
   single tick): a long run played by hand gathers a few of them among many presses;
 - more than 25 key toggles within a second.
 
-Runs played by hand, spacebarring included, hold a few presses of a single tick and at most 15
-toggles a second. A time far better than the record is not a sign: the records improve. A ghost waiting for an admin is saved but out of the
-leaderboard and the best times, shown to its account only; a verifying run waiting for an admin
-keeps its track from being published, and an endurance run waiting for an admin is out of the
-leaderboard, listed for the admins on the page of its track to race it. On `/reviews/`, the admins
-watch them and approve or reject them: a rejected ghost or endurance run is deleted, and a rejected
-verifying run dropped, its verifier saving another one. These signs catch the programs playing fast
-or precisely, not the ones imitating a human: the reviews are the safeguard.
+Runs played by hand hold a few presses of a single tick and at most 15 toggles a second. The game
+writes the ticks it paused at in the ghost strings, after an empty name (`...,BMX,,40 90`), a run
+without pauses stopping at the bike as before; the site keeps them after the name it writes. The
+pauses are shown with the inputs of the runs, for the players, and are no reason to review a run;
+the ghosts saved before have none written. A time far better than the record is not a sign: the
+records improve. A ghost waiting for an admin is saved but out of the leaderboard and the best
+times, shown to its account only; a verifying run waiting for an admin keeps its track from being
+published, and an endurance run waiting for an admin is out of the leaderboard, listed for the
+admins on the page of its track to race it. On `/reviews/`, the admins watch them and approve or
+reject them: a rejected ghost or endurance run is deleted, and a rejected verifying run dropped, its
+verifier saving another one. These signs catch the programs playing fast or precisely, not the ones
+imitating a human: the reviews are the safeguard.
 
 To review a run, the admins, and the riders for the ghosts out of review, see (`/ghosts/<id>/`, the
 time of a ghost linking to it, and `/reviews/`, a run unfolding its inputs):
 
 - its inputs, drawn from its ghost string (`public/js/ghost-inputs.js`): a timeline of the presses
-  of each key, zoomable, the presses of a single tick in red, and the durations of the presses,
+  of each key, zoomable, the presses of a single tick in red, its pauses as lines across the keys,
+  and the durations of the presses,
   spread over many durations when played by hand, on a few when played by a program;
 - the time its rider spent on the track before saving it, measured by the server: from the first
   opening of the page of the track in the session of the rider (`site_open_run_clock()`) to the
@@ -303,13 +308,25 @@ not waiting for it, and a failure is only logged; the mentions are disabled on D
 
 #### Thumbs up
 
-An account logged in gives a thumb up to the published tracks and the ghosts of the others, and
-takes it back with the same button: `POST /tracks/<id>/thumb/` or `/ghosts/<id>/thumb/`, with the
-CSRF token of the session. The button is a form opening its page again, sent in the background by
-`public/js/thumbs.js`, which asks for JSON (`{ "THUMBS", "THUMBED" }`). The accounts see the number
-of thumbs of their own tracks and ghosts, and everyone the number of the others, without a button;
-the ghosts waiting for an admin cannot get any. The thumbs (`LOCAL_THUMBS`, one per account on each
-track or ghost) leave with their track, their ghost or the account giving them.
+An account logged in gives a thumb up to the published tracks, the ghosts and the comments of the
+others, and takes it back with the same button: `POST /tracks/<id>/thumb/`, `/ghosts/<id>/thumb/` or
+`/comments/<id>/thumb/`, with the CSRF token of the session. The button is a form opening its page
+again, sent in the background by `public/js/thumbs.js`, which asks for JSON (`{ "THUMBS", "THUMBED"
+}`). The accounts see the number of thumbs of their own tracks and ghosts, and everyone the number
+of the others, without a button; the ghosts waiting for an admin cannot get any. The thumbs
+(`LOCAL_THUMBS`, one per account on each track, ghost or comment) leave with their track, their
+ghost, their comment or the account giving them.
+
+#### Comments
+
+An account logged in comments a published track under its leaderboard, or replies to a comment
+(`POST /tracks/<id>/comments/`, with `text` and `parent` for a reply, and the CSRF token): 1 to 1000
+characters, 20 an hour. The replies stay on one level, a reply to a reply answering its comment.
+The track page lists 30 comments a page, the newest first (`?comments=<page>`), each with its
+replies, the oldest first, and their thumbs up. Comments are not edited, and only the admins delete
+them, a comment with its replies (`POST /comments/<id>/delete/`, a button under each comment for
+them). They leave with their track (`LOCAL_COMMENTS`, `src/db/comments.php`), and an account deleted
+leaves its comments without their text, so that the replies to them still read.
 
 #### Moderation
 

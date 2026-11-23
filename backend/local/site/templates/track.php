@@ -22,6 +22,11 @@
  * @var string|null $newLive Id of a new live session, null without live races.
  * @var bool     $trackThumbed Whether the account thumbs up the track.
  * @var array    $thumbed    Ghosts the account thumbs up, by id, see site_find_thumbed().
+ * @var array[]  $comments   Page of the comments, see site_find_track_comments().
+ * @var int      $commentPage Page of the comments shown, from 1.
+ * @var int      $commentPages Number of pages of the comments.
+ * @var int      $commentCount Number of comments, replies included.
+ * @var array    $commentsThumbed Comments the account thumbs up, by id.
  */
 
 $user = site_user();
@@ -280,3 +285,12 @@ $challengeAlone = "Can you finish “{$title}” faster than everyone on OpenRid
 
     <p class="leaderboard__status muted" role="status"></p>
 </section>
+
+<?php site_render('partials/comments', [
+    'track' => $track,
+    'comments' => $comments,
+    'page' => $commentPage,
+    'pages' => $commentPages,
+    'count' => $commentCount,
+    'thumbed' => $commentsThumbed,
+]); ?>

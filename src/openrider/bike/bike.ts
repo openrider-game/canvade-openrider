@@ -74,6 +74,11 @@ export abstract class Bike {
     public joints: Spring[];
 
     public keyLog: KeyLog;
+    /**
+     * Times of the run the game paused at, in physics ticks, a debug step counting as a pause:
+     * written in the ghost strings (see `GhostParser`), kept by the checkpoints as the key log.
+     */
+    public pauseLog: number[] = [];
 
     public constructor(
         public readonly track: Track,
@@ -222,6 +227,7 @@ export abstract class Bike {
         clone.keyLog = new Map(
             Array.from(this.keyLog, ([name, times]): [ControlName, number[]] => [name, [...times]]),
         );
+        clone.pauseLog = [...this.pauseLog];
 
         return clone;
     }

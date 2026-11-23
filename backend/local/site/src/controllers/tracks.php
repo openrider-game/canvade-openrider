@@ -56,6 +56,15 @@ function site_track_page(int $trackId): void
         array_map('intval', array_column($ghosts, 'ID'))
     );
 
+    // A page of the comments, the newest first, and the ones the account thumbed up
+    $page = max(1, (int) ($_GET['comments'] ?? 1));
+    $commentPage = site_find_track_comments($db, $trackId, $page);
+    $commentIds = [];
+    foreach ($commentPage['comments'] as $comment) {
+        $commentIds[] = (int) $comment['ID'];
+        array_push($commentIds, ...array_map('intval', array_column($comment['REPLIES'], 'ID')));
+    }
+
     $live = site_live_session();
     site_render_page(
         'track',
@@ -76,6 +85,13 @@ function site_track_page(int $trackId): void
             'trackThumbed' => $viewer !== null
                 && site_find_thumbed($db, 'track', $viewer['ID'], [$trackId]),
             'thumbed' => $thumbed,
+            'comments' => $commentPage['comments'],
+            'commentPage' => min($page, $commentPage['pages']),
+            'commentPages' => $commentPage['pages'],
+            'commentCount' => site_count_comments($db, $trackId),
+            'commentsThumbed' => $viewer === null
+                ? []
+                : site_find_thumbed($db, 'comment', $viewer['ID'], $commentIds),
         ],
         ['track.css', 'game.css'],
         // The leaderboard drives the game through its page API, set up by the game script, and

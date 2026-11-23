@@ -68,3 +68,81 @@
 .leaderboard__other td {
     background: var(--color-surface);
 }
+
+/* Comments under the leaderboard: each with its replies indented under it */
+
+.comments {
+    /* In the column of the game and its leaderboard */
+    max-width: var(--content-width);
+    margin: 32px auto 0;
+}
+
+.comment-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.comment-form .field__input {
+    width: 100%;
+}
+
+.comment-thread {
+    border-top: var(--border);
+    padding: 12px 0;
+}
+
+.comment {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 4px 12px;
+}
+
+.comment__head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.comment__text {
+    grid-column: 1;
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.comment .thumbs {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: start;
+}
+
+.comment-replies {
+    margin: 8px 0 0 24px;
+    padding-left: 12px;
+    border-left: var(--border);
+    display: grid;
+    gap: 12px;
+}
+
+.comment-reply summary {
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.comment-reply .comment-form {
+    margin: 8px 0 0;
+}
+
+.comments__pages {
+    display: flex;
+    gap: 16px;
+    padding-top: 12px;
+    border-top: var(--border);
+}
+
+.comment .delete-form {
+    grid-column: 1;
+}

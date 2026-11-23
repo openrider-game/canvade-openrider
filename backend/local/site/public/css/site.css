@@ -786,6 +786,11 @@ section.live-results {
     background: var(--color-error);
 }
 
+.ghost-inputs__swatch--pause {
+    width: 2px;
+    background: var(--color-text);
+}
+
 .ghost-inputs__frame {
     display: flex;
     border: var(--border);

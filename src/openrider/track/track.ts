@@ -360,14 +360,29 @@ export class Track extends World {
         }
     }
 
+    /** Pauses or resumes the track, each pause recorded in the run of the player. */
     public pause(paused: boolean): void {
+        if (paused && !this.paused) {
+            this.recordPause();
+        }
         this.paused = paused;
     }
 
-    /** Pauses the track if needed, then requests a single physics tick, to debug frame by frame. */
+    /**
+     * Pauses the track if needed, then requests a single physics tick, to debug frame by frame:
+     * each tick stepped recorded as a pause in the run of the player.
+     */
     public step(): void {
+        if (this.paused) {
+            this.recordPause();
+        }
         this.pause(true);
         this.pendingSteps++;
+    }
+
+    /** Records a pause of the game at the time of the run of the player, see `Bike.pauseLog`. */
+    private recordPause(): void {
+        this.playerRunner?.instance?.pauseLog.push(this.playerRunner.time);
     }
 
     /** Restarts the runners from their last checkpoint or from the start, resetting the items. */

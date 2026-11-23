@@ -31,11 +31,15 @@
         return result;
     }
 
-    /** The run of a ghost string: its time in ticks, and the presses of each key. */
+    /**
+     * The run of a ghost string: its time in ticks, the presses of each key, and the times it
+     * paused at, after its name (none for the ghosts saved before the pauses were recorded).
+     */
     function parse(ghostString) {
         const fields = ghostString.split(",");
         const time = Number(fields[5]) || 0;
-        return { time, keys: KEYS.map((_, index) => presses(fields[index] ?? "", time)) };
+        const pauses = (fields[8] ?? "").split(" ").filter(Boolean).map(Number);
+        return { time, keys: KEYS.map((_, index) => presses(fields[index] ?? "", time)), pauses };
     }
 
     /** Most toggles of all the keys within a second, over a sliding window. */
@@ -115,8 +119,14 @@
             }
         });
 
-        // The axis, in minutes and seconds
+        // The pauses, a line across the keys at each time paused
         const axisTop = KEYS.length * (LANE_HEIGHT + LANE_GAP);
+        ctx.fillStyle = color("--color-text");
+        for (const pause of run.pauses) {
+            ctx.fillRect(Math.round(x(pause)), 0, 1, axisTop);
+        }
+
+        // The axis, in minutes and seconds
         const step = axisStep(pixelsPerSecond);
         ctx.fillStyle = muted;
         ctx.strokeStyle = muted;
@@ -184,10 +194,12 @@
         const { presses: count, single } = fillHistogram(root, run);
         const share = count ? Math.round((100 * single) / count) : 0;
         const turns = run.keys[4].length;
+        const pauses = run.pauses.length;
         root.querySelector(".ghost-inputs__summary").textContent =
             `${count} presses, ${single} of a single tick (${share}%), ` +
             `at most ${mostTogglesPerSecond(run)} key toggles within a second, ` +
-            `${turns} ${turns === 1 ? "turn" : "turns"}.`;
+            `${turns} ${turns === 1 ? "turn" : "turns"}, ` +
+            `${pauses} ${pauses === 1 ? "pause" : "pauses"}.`;
 
         const draw = () => drawTimeline(root, run);
         draw();
