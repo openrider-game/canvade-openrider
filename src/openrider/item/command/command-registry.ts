@@ -1,4 +1,4 @@
-import { Vector } from 'canvade';
+import { SpatialGrid, Vector } from 'canvade';
 import { PhysicsCell } from '../../grid/cell/physics-cell';
 import { MAX_LINE_LENGTH, MIN_LINE_LENGTH } from '../../track/track.constants';
 import type { Track } from '../../track/track';
@@ -12,7 +12,7 @@ import { CommandGroup } from './command-group';
 /** Opacity of the objects hidden for the player, still drawn in the editor. */
 const HIDDEN_OPACITY = 0.25;
 
-/** Size of the buckets indexing the areas of the blocks, in world units. */
+/** Size of the cells of the grids indexing the areas of the blocks, in world units. */
 const INDEX_CELL_SIZE = 1000;
 
 /** Offset of the objects drawn where they are, never modified. */
@@ -37,10 +37,13 @@ const NO_OBJECTS: ReadonlySet<TrackObject> = new Set();
 export class CommandRegistry {
     private readonly blocks = new Set<CommandBlock>();
     private readonly groups = new Map<CommandBlock, CommandGroup>();
-    /** Blocks acting on an area, by layer then by bucket of {@link INDEX_CELL_SIZE} units. */
-    private readonly index = new Map<TrackLayer, Map<string, Set<CommandBlock>>>();
-    /** Layer and buckets each block is indexed in, to remove it from the index. */
-    private readonly indexed = new Map<CommandBlock, { layer: TrackLayer; keys: string[] }>();
+    /**
+     * Blocks acting on an area, by layer, on a grid of {@link INDEX_CELL_SIZE} units: by their
+     * areas as they were indexed.
+     */
+    private readonly index = new Map<TrackLayer, SpatialGrid<CommandBlock>>();
+    /** Layer each block is indexed on, to remove it from the index. */
+    private readonly indexed = new Map<CommandBlock, TrackLayer>();
     private readonly changedBlocks = new Set<CommandBlock>();
     private readonly changedObjects = new Set<TrackObject>();
 
@@ -256,10 +259,14 @@ export class CommandRegistry {
         }
     }
 
-    /** Block with the lowest id whose area holds the object, among the blocks indexed around it. */
+    /**
+     * Block with the lowest id whose area holds the object, among the blocks whose areas hold its
+     * position: the order they are found in does not matter.
+     */
     private lookup(object: TrackObject): CommandBlock | null {
-        const buckets = object.layer && this.index.get(object.layer);
-        const blocks = buckets?.get(CommandRegistry.bucketKey(object.pos));
+        const grid = object.layer && this.index.get(object.layer);
+        const { x, y } = object.pos;
+        const blocks = grid?.queryPoint(x, y);
         let found: CommandBlock | null = null;
 
         blocks?.forEach((block) => {
@@ -338,42 +345,21 @@ export class CommandRegistry {
             return;
         }
 
-        let buckets = this.index.get(layer);
-        if (!buckets) {
-            buckets = new Map();
-            this.index.set(layer, buckets);
+        let grid = this.index.get(layer);
+        if (!grid) {
+            grid = new SpatialGrid(INDEX_CELL_SIZE);
+            this.index.set(layer, grid);
         }
-        const keys: string[] = [];
-        const from = CommandRegistry.bucket(new Vector(area.left, area.top));
-        const to = CommandRegistry.bucket(new Vector(area.right, area.bottom));
-        for (let x = from.x; x <= to.x; x++) {
-            for (let y = from.y; y <= to.y; y++) {
-                const key = `${x},${y}`;
-                let bucket = buckets.get(key);
-                if (!bucket) {
-                    bucket = new Set();
-                    buckets.set(key, bucket);
-                }
-                bucket.add(block);
-                keys.push(key);
-            }
-        }
-        this.indexed.set(block, { layer, keys });
+        grid.set(block, area);
+        this.indexed.set(block, layer);
     }
 
     private unindex(block: CommandBlock): void {
-        const entry = this.indexed.get(block);
-        if (!entry) {
+        const layer = this.indexed.get(block);
+        if (!layer) {
             return;
         }
-        const buckets = this.index.get(entry.layer);
-        for (const key of entry.keys) {
-            const bucket = buckets?.get(key);
-            bucket?.delete(block);
-            if (bucket?.size === 0) {
-                buckets?.delete(key);
-            }
-        }
+        this.index.get(layer)?.delete(block);
         this.indexed.delete(block);
     }
 
@@ -440,17 +426,5 @@ export class CommandRegistry {
             point.y >= area.top &&
             point.y <= area.bottom
         );
-    }
-
-    private static bucket(point: Vector): Vector {
-        return new Vector(
-            Math.floor(point.x / INDEX_CELL_SIZE),
-            Math.floor(point.y / INDEX_CELL_SIZE),
-        );
-    }
-
-    private static bucketKey(point: Vector): string {
-        const bucket = CommandRegistry.bucket(point);
-        return `${bucket.x},${bucket.y}`;
     }
 }

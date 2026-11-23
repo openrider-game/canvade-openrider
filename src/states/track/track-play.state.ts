@@ -106,7 +106,10 @@ export abstract class TrackPlayState extends TrackViewState {
         const hold = track.cameraHold;
         const focus = hold && track.time < hold.until ? hold.pos : track.focalPoint?.displayPos;
         if (focus) {
-            track.camera.selfAdd(focus.sub(track.camera).scale(delta * CAMERA_FOLLOW_FACTOR));
+            // At most the whole gap, e.g. after a long frame, as the zoom eases
+            track.camera.selfAdd(
+                focus.sub(track.camera).scale(Math.min(1, delta * CAMERA_FOLLOW_FACTOR)),
+            );
         }
         track.zoomControl.ease(delta);
     }
