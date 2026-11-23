@@ -80,6 +80,18 @@ describe('Play states', () => {
         expect(track.camera.x).toBeGreaterThan(5);
     });
 
+    test('catch the camera up with the bike after a long frame, without passing it', async () => {
+        manager.push(STATE_TRACK_FETCHER);
+        await runFrames(400, STATE_TRACK_EDITING);
+        const track = session.track;
+        track.camera.x -= 100;
+
+        // 300 ms: more than the time to catch up
+        manager.update(0.5, 300);
+
+        expect(track.camera.x).toBeCloseTo(track.focalPoint!.displayPos.x);
+    });
+
     test('stop the physics while paused', async () => {
         manager.push(STATE_TRACK_FETCHER);
         await runFrames(400, STATE_TRACK_EDITING);
