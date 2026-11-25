@@ -87,6 +87,12 @@ export class Grid<T extends Cell> {
     public readonly cells = new Map<number | string, T>();
 
     /**
+     * Incremented each time an object is added or removed, e.g. for a tool keeping something
+     * computed from the objects until they change.
+     */
+    public version = 0;
+
+    /**
      * Objects of the layer, including the lines too short or too long to be stored in the cells:
      * the items by id, the lines read from the store. Only maintained on the physics grid.
      */
@@ -143,6 +149,7 @@ export class Grid<T extends Cell> {
 
     /** Stores the object in every cell it crosses. */
     public add(obj: TrackObject): void {
+        this.version++;
         this.getCellsForObject(obj).forEach((cell) => cell.push(obj));
     }
 
@@ -150,11 +157,13 @@ export class Grid<T extends Cell> {
     public addSlot(store: LineStore, slot: number, scenery: boolean): void {
         const from = new Vector(store.x1[slot], store.y1[slot]);
         const to = new Vector(store.x2[slot], store.y2[slot]);
+        this.version++;
         this.cellsCrossed(from, to).forEach((cell) => cell.pushSlot(store, slot, scenery));
     }
 
     /** Removes the object from every cell it crosses. */
     public remove(obj: TrackObject): void {
+        this.version++;
         this.getCellsForObject(obj).forEach((cell) => cell.remove(obj));
     }
 

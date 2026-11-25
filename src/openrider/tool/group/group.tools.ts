@@ -27,6 +27,7 @@ import {
 } from '../item/status.tools';
 import { BrushTool } from '../line/brush.tool';
 import { LineTool } from '../line/line.tool';
+import { FillTool } from '../shape/fill.tool';
 import { CircleTool, CurveTool } from '../shape/shape.tools';
 import type { ToolClass } from '../tool';
 import { SOLID_BRUSH_ICON, SOLID_CURVE_ICON, TARGET_ICON } from '../tool-icons';
@@ -81,13 +82,13 @@ export class StatusGroupTool extends ToolGroupTool {
     }
 }
 
-/** Group of the shape tools, drawing curves and circles of lines. */
+/** Group of the shape tools, drawing curves and circles of lines, and filling areas with lines. */
 export class ShapeGroupTool extends ToolGroupTool {
     public static override readonly toolName: string = 'Shape Group';
     public static override readonly key = new Control(KEYO);
     public static override readonly icon = SOLID_CURVE_ICON;
     /** Tools of the group, in display order. */
-    public static readonly toolClasses: ToolClass[] = [CurveTool, CircleTool];
+    public static readonly toolClasses: ToolClass[] = [CurveTool, CircleTool, FillTool];
 
     public constructor(track: Track) {
         super(track, ShapeGroupTool.toolClasses);

@@ -6,8 +6,8 @@ describe('Icons of the item and line tools', () => {
     test('are drawn at any size, without side effect, each with its own key', () => {
         // The icons, without the functions creating those of the colors
         const drawn = Object.values(icons).filter((icon) => typeof icon !== 'function');
-        expect(drawn).toHaveLength(29);
-        expect(new Set(drawn.map((icon) => icon.key)).size).toBe(29);
+        expect(drawn).toHaveLength(31);
+        expect(new Set(drawn.map((icon) => icon.key)).size).toBe(31);
 
         for (const icon of drawn) {
             const { context, calls } = createCanvasMock(80, 80);

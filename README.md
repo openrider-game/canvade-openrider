@@ -294,7 +294,7 @@ the track of the day.
 | Controls panel                                                                       | `Ctrl+K`                                     |
 | Undo, redo                                                                           | `M`, `N`                                     |
 | Lines: brush, line                                                                   | `D`: `A`, `Q`                                |
-| Shapes: curve, circle                                                                | `O`: `V`, `C`                                |
+| Shapes: curve, circle, fill                                                          | `O`: `V`, `C`, `H`                           |
 | Eraser, select, grid snapping                                                        | `E`, `S`, `G`                                |
 | Items, status effects                                                                | `I`, `J`                                     |
 | Target, checkpoint, linked checkpoint, boost, gravity, bomb, slow motion, teleporter | `Shift+T`, `C`, `L`, `B`, `G`, `O`, `S`, `W` |
@@ -377,6 +377,19 @@ Besides the targets, checkpoints and teleporters, the items act on the bikes tou
 - The shape tools draw a shape of connected lines: the curve is dragged from its start to its end,
   then bent through the point clicked; the circle is dragged from its center to its radius. A shape
   is undone at once.
+- The **fill tool** fills an area with lines, solid or scenery as for the other drawing tools: a
+  polygon clicked corner by corner (closed by clicking its first corner, `Enter` or the Fill
+  option; `Backspace` removes the last corner, `Escape` the polygon), a rectangle dragged, or an
+  area already closed by lines, clicked inside. The closed area is found among the lines of the
+  active layer on screen: an area reaching the edge of the screen is open, and gaps between its
+  lines narrower than 4 pixels on screen are closed. Its fill lines end exactly on its lines,
+  leaving out islands of lines inside it (see `src/openrider/numeric/enclosed-area.ts`). Its
+  options set the pattern (parallel or crossed lines), the spacing (5 to 100 units), the angle (by
+  15°) and, but for a closed area, whether the outline is drawn too; they are kept from one use to
+  the next. The lines stay strictly inside the area, at whole multiples of the spacing, so that the
+  fills of areas side by side line up, and the preview shows them before they are added, lighter
+  under the pointer for a closed area. A fill adds 2000 lines at most, the option then asking for a wider
+  spacing, and is undone at once (see `src/openrider/numeric/hatch.ts`).
 - The **select tool** selects the objects fully inside the rectangle dragged on the active layer, at
   most 5000. Dragging the selection moves it, dragging the handle above it turns it freely; a move
   or a turn is a single step of the history. A crosshair shows the pointer, its arms ending with

@@ -33,10 +33,20 @@ export abstract class ShapeTool extends Tool {
      * @returns The number of lines added.
      */
     protected addPolyline(points: Vector[]): number {
+        return this.addSegments(points.slice(1).map((point, i) => [points[i], point]));
+    }
+
+    /**
+     * Adds a line for each segment, as one action that can be undone. Lines too short or too
+     * long are left out.
+     *
+     * @param segments - Start and end of each line, in world units.
+     * @returns The number of lines added.
+     */
+    protected addSegments(segments: [Vector, Vector][]): number {
         const layer = this.track.layers.reveal(this.track.layers.active);
-        const lines = points
-            .slice(1)
-            .map((point, i) => DrawingLines.create(points[i].clone(), point.clone(), this.track))
+        const lines = segments
+            .map(([start, end]) => DrawingLines.create(start.clone(), end.clone(), this.track))
             .filter((line) => line.len >= MIN_LINE_LENGTH && line.len < MAX_LINE_LENGTH);
         if (lines.length === 0) {
             return 0;

@@ -161,6 +161,24 @@ export function curveIcon(color: number | null): DrawnIcon {
     });
 }
 
+/** Icon of the fill tool: a square crossed by parallel diagonal lines. */
+export function fillIcon(color: number | null): DrawnIcon {
+    return strokeIcon('fill', color, (ctx, unit) => {
+        ctx.rect(4 * unit, 4 * unit, 16 * unit, 16 * unit);
+        // Diagonals from the bottom left to the top right, 5.3 units apart
+        for (const [x1, y1, x2, y2] of [
+            [4, 9.3, 9.3, 4],
+            [4, 14.7, 14.7, 4],
+            [4, 20, 20, 4],
+            [9.3, 20, 20, 9.3],
+            [14.7, 20, 20, 14.7],
+        ]) {
+            ctx.moveTo(x1 * unit, y1 * unit);
+            ctx.lineTo(x2 * unit, y2 * unit);
+        }
+    });
+}
+
 /** The directional items pointing right, as boosting forward, or down for the gravity. */
 const RIGHT = { rotation: -90 },
     DOWN = { rotation: 0 };
@@ -193,4 +211,6 @@ export const TARGET_ICON = itemIcon(Target),
     SOLID_CIRCLE_ICON = circleIcon(null),
     SCENERY_CIRCLE_ICON = circleIcon(0),
     SOLID_CURVE_ICON = curveIcon(null),
-    SCENERY_CURVE_ICON = curveIcon(0);
+    SCENERY_CURVE_ICON = curveIcon(0),
+    SOLID_FILL_ICON = fillIcon(null),
+    SCENERY_FILL_ICON = fillIcon(0);

@@ -4,13 +4,16 @@ import {
     UIStructureDefinition,
     UIStyleDefinition,
     UIStyleProperties,
+    wrapText,
 } from 'canvade';
 import type { OptionSwatches, ToolOption } from '../../../openrider/tool/tool';
 import type { Track } from '../../../openrider/track/track';
+import { measureText } from './text-measure';
 import {
     panelHeight,
     UI_BORDER_COLOR,
     UI_BORDER_WIDTH,
+    UI_PANEL_GAP,
     UI_PANEL_PADDING,
     uiMetrics,
 } from './ui-theme';
@@ -22,7 +25,9 @@ const DURATION = 250,
     SWATCHES_PER_ROW = 8,
     /** Border of the selected swatch, thicker than the others, marked with a check. */
     SELECTED_SWATCH_BORDER_WIDTH = 4,
-    SELECTED_SWATCH_TEXT = '✓';
+    SELECTED_SWATCH_TEXT = '✓',
+    /** Space kept on each side of a label, in UI pixels, so that its text never touches the border. */
+    LABEL_MARGIN = 4;
 
 /**
  * Drawer of the options of the current tool, built into the interface of the
@@ -31,7 +36,8 @@ const DURATION = 250,
  * A panel like the layers panel, centered at the top of the canvas: hidden above it, it slides
  * down with its handle button, and back up. It stays open or closed when the current tool
  * changes. An option stepping a value has `−` and `+` buttons beside its label, and an option
- * with swatches is rows of buttons filled with its colors instead.
+ * with swatches is rows of buttons filled with its colors instead. A label too long for the width
+ * of the drawer, e.g. the next step of a tool, wraps onto as many rows as it needs.
  */
 export class OptionsDrawer {
     private open = false;
@@ -44,7 +50,14 @@ export class OptionsDrawer {
         }
 
         const metrics = uiMetrics();
-        const rows = options.reduce((total, option) => total + OptionsDrawer.rowCount(option), 0);
+        const innerWidth = metrics.panelWidth - 2 * UI_PANEL_PADDING;
+        const labelLines = options.map((option) =>
+            OptionsDrawer.labelLines(option, innerWidth, metrics.fontSize),
+        );
+        const rows = options.reduce(
+            (total, option, index) => total + OptionsDrawer.rowCount(option, labelLines[index]),
+            0,
+        );
         const height = panelHeight(rows);
         const offsets = this.offsets(height);
         structure.push({
@@ -89,7 +102,6 @@ export class OptionsDrawer {
         };
         // Each button with its own width: a rule for all of them would override these ones
         const { stepWidth, rowHeight } = metrics;
-        const innerWidth = metrics.panelWidth - 2 * UI_PANEL_PADDING;
         options.forEach((option, index) => {
             if (option.swatches) {
                 Object.assign(
@@ -104,6 +116,19 @@ export class OptionsDrawer {
                 // A label takes its height from its own rule
                 ...(option.action ? { height: rowHeight } : {}),
             };
+            const lines = labelLines[index];
+            if (lines > 1) {
+                // A long label: its row as tall as its lines, a line on each row height
+                const height = lines * rowHeight + (lines - 1) * UI_PANEL_GAP;
+                styles[`.options-row-${index}`] = { height };
+                Object.assign(styles[`.option-${index}`], {
+                    wrap: 'word',
+                    lineHeight: (rowHeight + UI_PANEL_GAP) / metrics.fontSize,
+                    height: height - labelOffset,
+                    x: LABEL_MARGIN,
+                    width: innerWidth - 2 * LABEL_MARGIN,
+                });
+            }
             if (option.steps) {
                 styles[`.option-down-${index}`] = {
                     text: '−',
@@ -115,9 +140,25 @@ export class OptionsDrawer {
         });
     }
 
-    /** Number of rows of an option in the panel. */
-    private static rowCount(option: ToolOption): number {
-        return option.swatches ? Math.ceil(option.swatches.colors.length / SWATCHES_PER_ROW) : 1;
+    /** Number of rows of an option in the panel: its swatches, or the lines of its label. */
+    private static rowCount(option: ToolOption, labelLines: number): number {
+        return option.swatches
+            ? Math.ceil(option.swatches.colors.length / SWATCHES_PER_ROW)
+            : labelLines;
+    }
+
+    /**
+     * Lines of the text of an option: those of a label without action wrapped to the width of the
+     * drawer, 1 for a button.
+     */
+    private static labelLines(option: ToolOption, width: number, fontSize: number): number {
+        if (option.action || option.steps || option.swatches) {
+            return 1;
+        }
+        const lines = wrapText(option.label, width - 2 * LABEL_MARGIN, (text) =>
+            measureText(text, fontSize),
+        );
+        return Math.max(1, lines.length);
     }
 
     /**
